@@ -1,0 +1,574 @@
+{
+  "id": "5ed03cd8-edad-4208-b4a2-d09dc67aedb8",
+  "realm": "rea-realm",
+  "displayName": "Risk Evaluation Assistant",
+  "enabled": true,
+  "defaultSignatureAlgorithm": "RS256",
+  "accessTokenLifespan": 86400,
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": false,
+  "rememberMe": true,
+  "verifyEmail": false,
+  "loginWithEmailAllowed": false,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "clients": [
+    {
+      "clientId": "rea-frontend",
+      "enabled": true,
+      "publicClient": true,
+      "rootUrl": "https://s-bih-rea-app.charite.de",
+      "baseUrl": "https://s-bih-rea-app.charite.de",
+      "redirectUris": [
+        "https://s-bih-rea-app.charite.de/*"
+      ],
+      "webOrigins": [
+        "https://s-bih-rea-app.charite.de"
+      ],
+      "protocol": "openid-connect"
+    },
+    {
+      "clientId": "rea-backend",
+      "enabled": true,
+      "publicClient": false,
+      "directAccessGrantsEnabled": true,
+      "secret": "api-client-secret",
+      "rootUrl": "http://s-bih-rea-app.charite.de",
+      "baseUrl": "http://s-bih-rea-app.charite.de",
+      "redirectUris": [
+        "http://s-bih-rea-app.charite.de/*"
+      ],
+      "webOrigins": [
+        "http://s-bih-rea-app.charite.de"
+      ],
+      "protocol": "openid-connect"
+    }
+  ],
+  "defaultRoles": [
+    "USER"
+  ],
+  "roles": {
+    "realm": [
+      {
+        "name": "ADMIN",
+        "description": "Administrator role with elevated privileges, can perform any action."
+      },
+      {
+        "name": "USER",
+        "description": "Standard user role, can create, update, delete, and change a project."
+      }
+    ]
+  },
+  "smtpServer": {
+    "host": "smtp.gmail.com",
+    "port": "465",
+    "ssl": "true",
+    "starttls": "false",
+    "user": "",
+    "password": "wfsblranarplnafo",
+    "from": "",
+    "fromDisplayName": "Risk Evaluation Assistant",
+    "envelopeFrom": "",
+    "auth": "true",
+    "authType": "basic",
+    "debug": "true"
+  },
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "email": "jack78@gmail.com",
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "username": "user",
+      "firstName": "Greg",
+      "lastName": "Johnson",
+      "email": "grjohnaon919@gmail.com",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER"
+      ]
+    },
+    {
+      "username": "anna.mueller",
+      "firstName": "Anna",
+      "lastName": "Müller",
+      "email": "anna.mueller@charite.de",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER"
+      ]
+    },
+    {
+      "username": "max.mustermann",
+      "firstName": "Max",
+      "lastName": "Mustermann",
+      "email": "max.mustermann@charite.de",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER"
+      ]
+    },
+    {
+      "username": "sophie.becker",
+      "firstName": "Sophie",
+      "lastName": "Becker",
+      "email": "sophie.becker@charite.de",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER"
+      ]
+    },
+    {
+      "username": "lukas.schmidt",
+      "firstName": "Lukas",
+      "lastName": "Schmidt",
+      "email": "lukas.schmidt@charite.de",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER"
+      ]
+    },
+    {
+      "username": "laura.wagner",
+      "firstName": "Laura",
+      "lastName": "Wagner",
+      "email": "laura.wagner@charite.de",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER"
+      ]
+    },
+    {
+      "username": "jonas.fischer",
+      "firstName": "Jonas",
+      "lastName": "Fischer",
+      "email": "jonas.fischer@charite.de",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER"
+      ]
+    },
+    {
+      "username": "michael.neumann",
+      "firstName": "Michael",
+      "lastName": "Neumann",
+      "email": "michael.neumann@charite.de",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER"
+      ]
+    },
+    {
+      "username": "laura.schulz",
+      "firstName": "Laura",
+      "lastName": "Schulz",
+      "email": "laura.schulz@charite.de",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER"
+      ]
+    },
+    {
+      "username": "peter.braun",
+      "firstName": "Peter",
+      "lastName": "Braun",
+      "email": "peter.braun@charite.de",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER"
+      ]
+    },
+    {
+      "username": "lena.hoffmann",
+      "firstName": "Lena",
+      "lastName": "Hoffmann",
+      "email": "lena.hoffmann@charite.de",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER"
+      ]
+    },
+    {
+      "username": "markus.klein",
+      "firstName": "Markus",
+      "lastName": "Klein",
+      "email": "markus.klein@uni-heidelberg.de",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER"
+      ]
+    },
+    {
+      "username": "julia.weber",
+      "firstName": "Julia",
+      "lastName": "Weber",
+      "email": "julia.weber@uni-heidelberg.de",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER"
+      ]
+    },
+    {
+      "username": "tobias.meyer",
+      "firstName": "Tobias",
+      "lastName": "Meyer",
+      "email": "tobias.meyer@uni-heidelberg.de",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER"
+      ]
+    },
+    {
+      "username": "emilia.koch",
+      "firstName": "Emilia",
+      "lastName": "Koch",
+      "email": "emilia.koch@uni-heidelberg.de",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER"
+      ]
+    },
+    {
+      "username": "stefan.richter",
+      "firstName": "Stefan",
+      "lastName": "Richter",
+      "email": "stefan.richter@uni-heidelberg.de",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER"
+      ]
+    },
+    {
+      "username": "anna.fischer",
+      "firstName": "Anna",
+      "lastName": "Fischer",
+      "email": "anna.fischer@lmu.de",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER"
+      ]
+    },
+    {
+      "username": "jonas.mueller",
+      "firstName": "Jonas",
+      "lastName": "Mueller",
+      "email": "jonas.mueller@lmu.de",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER"
+      ]
+    },
+    {
+      "username": "sarah.wagner",
+      "firstName": "Sarah",
+      "lastName": "Wagner",
+      "email": "sarah.wagner@lmu.de",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER"
+      ]
+    },
+    {
+      "username": "david.schulz",
+      "firstName": "David",
+      "lastName": "Schulz",
+      "email": "david.schulz@lmu.de",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER"
+      ]
+    },
+    {
+      "username": "natalie.braun",
+      "firstName": "Natalie",
+      "lastName": "Braun",
+      "email": "natalie.braun@lmu.de",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER"
+      ]
+    }
+  ],
+  "requiredActions": [
+    {
+      "alias": "CONFIGURE_TOTP",
+      "name": "Configure OTP",
+      "providerId": "CONFIGURE_TOTP",
+      "enabled": true,
+      "defaultAction": false,
+      "priority": 10,
+      "config": {}
+    },
+    {
+      "alias": "TERMS_AND_CONDITIONS",
+      "name": "Terms and Conditions",
+      "providerId": "TERMS_AND_CONDITIONS",
+      "enabled": false,
+      "defaultAction": false,
+      "priority": 20,
+      "config": {}
+    },
+    {
+      "alias": "UPDATE_PASSWORD",
+      "name": "Update Password",
+      "providerId": "UPDATE_PASSWORD",
+      "enabled": true,
+      "defaultAction": false,
+      "priority": 30,
+      "config": {}
+    },
+    {
+      "alias": "UPDATE_PROFILE",
+      "name": "Update Profile",
+      "providerId": "UPDATE_PROFILE",
+      "enabled": false,
+      "defaultAction": false,
+      "priority": 40,
+      "config": {}
+    },
+    {
+      "alias": "VERIFY_EMAIL",
+      "name": "Verify Email",
+      "providerId": "VERIFY_EMAIL",
+      "enabled": false,
+      "defaultAction": false,
+      "priority": 50,
+      "config": {}
+    },
+    {
+      "alias": "delete_account",
+      "name": "Delete Account",
+      "providerId": "delete_account",
+      "enabled": false,
+      "defaultAction": false,
+      "priority": 60,
+      "config": {}
+    },
+    {
+      "alias": "webauthn-register",
+      "name": "Webauthn Register",
+      "providerId": "webauthn-register",
+      "enabled": true,
+      "defaultAction": false,
+      "priority": 70,
+      "config": {}
+    },
+    {
+      "alias": "webauthn-register-passwordless",
+      "name": "Webauthn Register Passwordless",
+      "providerId": "webauthn-register-passwordless",
+      "enabled": true,
+      "defaultAction": false,
+      "priority": 80,
+      "config": {}
+    },
+    {
+      "alias": "VERIFY_PROFILE",
+      "name": "Verify Profile",
+      "providerId": "VERIFY_PROFILE",
+      "enabled": false,
+      "defaultAction": false,
+      "priority": 90,
+      "config": {}
+    },
+    {
+      "alias": "delete_credential",
+      "name": "Delete Credential",
+      "providerId": "delete_credential",
+      "enabled": true,
+      "defaultAction": false,
+      "priority": 100,
+      "config": {}
+    },
+    {
+      "alias": "update_user_locale",
+      "name": "Update User Locale",
+      "providerId": "update_user_locale",
+      "enabled": true,
+      "defaultAction": false,
+      "priority": 1000,
+      "config": {}
+    }
+  ]
+}

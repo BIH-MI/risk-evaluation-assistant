@@ -1,0 +1,80 @@
+# Maven specific
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# Gradle specific
+.gradle/
+build/
+
+# Spring Boot specific
+!**/src/main/resources/banner.txt
+spring-boot-admin-server-ui/
+
+# Package Files #
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Logs and databases #
+logs/
+*.log
+*.sql
+*.jtl
+hs_err_pid*
+
+# Java specific
+*.class
+*.log
+*.ctxt
+*.mtj.tmp/
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+hs_err_pid*
+
+# IDEs and editors #
+.idea/
+*.iml
+*.iws
+*.ipr
+*.swp
+*.swo
+*.tmp
+*.bak
+*.sublime-workspace
+.vscode/
+*.vscode
+.project
+.classpath
+.settings/
+*.sublime-project
+
+# OS specific #
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Icon?
+
+# Other #
+*.swp
+*~
+*.bak
+*.orig
+*.tmp
+*.temp

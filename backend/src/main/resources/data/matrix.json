@@ -1,0 +1,82 @@
+[
+  {
+    "mitigatingControls": "High",
+    "motivesCapacity": "Low",
+    "contextRisk": 0.05
+  },
+  {
+    "mitigatingControls": "High",
+    "motivesCapacity": "Medium",
+    "contextRisk": 0.1
+  },
+  {
+    "mitigatingControls": "High",
+    "motivesCapacity": "High",
+    "contextRisk": 0.2
+  },
+  {
+    "mitigatingControls": "High",
+    "motivesCapacity": "Max",
+    "contextRisk": 0.4
+  },
+  {
+    "mitigatingControls": "Medium",
+    "motivesCapacity": "Low",
+    "contextRisk": 0.2
+  },
+  {
+    "mitigatingControls": "Medium",
+    "motivesCapacity": "Medium",
+    "contextRisk": 0.3
+  },
+  {
+    "mitigatingControls": "Medium",
+    "motivesCapacity": "High",
+    "contextRisk": 0.4
+  },
+  {
+    "mitigatingControls": "Medium",
+    "motivesCapacity": "Max",
+    "contextRisk": 0.6
+  },
+  {
+    "mitigatingControls": "Low",
+    "motivesCapacity": "Low",
+    "contextRisk": 0.4
+  },
+  {
+    "mitigatingControls": "Low",
+    "motivesCapacity": "Medium",
+    "contextRisk": 0.5
+  },
+  {
+    "mitigatingControls": "Low",
+    "motivesCapacity": "High",
+    "contextRisk": 0.6
+  },
+  {
+    "mitigatingControls": "Low",
+    "motivesCapacity": "Max",
+    "contextRisk": 0.8
+  },
+  {
+    "mitigatingControls": "None",
+    "motivesCapacity": "Low",
+    "contextRisk": 0.6
+  },
+  {
+    "mitigatingControls": "None",
+    "motivesCapacity": "Medium",
+    "contextRisk": 0.8
+  },
+  {
+    "mitigatingControls": "None",
+    "motivesCapacity": "High",
+    "contextRisk": 0.9
+  },
+  {
+    "mitigatingControls": "None",
+    "motivesCapacity": "Max",
+    "contextRisk": 1.0
+  }
+]

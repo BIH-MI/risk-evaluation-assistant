@@ -1,0 +1,19 @@
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+# dependencies
+node_modules/
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Local Database Data
+pgdata/
+
+# --- SECURITY ---
+# Ignore SSL certificates and private keys
+nginx/certs/

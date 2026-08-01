@@ -49,9 +49,9 @@ REA uses two application roles:
 
 On application startup, two loaders initialize the database:
 
-1. **ConfigLoader**: Imports complete risk configuration objects from JSON files in `backend/src/main/resources/data/`. Each JSON file represents one framework and contains its categories, questions, options, risk bands, matrices, and re-identification thresholds.
+1. **ConfigLoader**: Imports complete risk configuration objects from JSON files in `backend/src/main/resources/data/`. Each JSON file represents one framework and contains its categories, questions, options, risk bands, risk matrix, and re-identification thresholds.
 
-2. **DataLoader**: Inserts backend sample data (fake patients, example recipients, and example risk assessments) for testing purposes.
+2. **DataLoader**: Inserts backend sample data (datasets, recipients, and their assessments) for testing purposes.
 
 <br />
 

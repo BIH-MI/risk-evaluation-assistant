@@ -9,6 +9,7 @@ import org.bihealth.mi.risk_assessment_api.service.DatasetAssessmentService;
 import org.bihealth.mi.risk_assessment_api.service.DatasetService;
 
 import org.bihealth.mi.risk_assessment_api.security.SecurityUtils;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -20,7 +21,11 @@ import jakarta.persistence.EntityNotFoundException;
 import java.util.List;
 
 /**
- * REST controller for managing Datasets and their nested DatasetAssessments.
+ * REST controller for dataset resources and dataset-level assessments.
+ *
+ * <p>The controller is intentionally thin: it extracts the authenticated user
+ * and admin flag from the JWT, delegates ownership/access checks to the service
+ * layer, and converts common service exceptions into HTTP responses.</p>
  */
 @RestController
 @RequestMapping("/api/datasets")
@@ -29,31 +34,30 @@ public class DatasetController {
     private final DatasetService datasetService;
     private final DatasetAssessmentService datasetAssessmentService;
 
-    public DatasetController(DatasetService datasetService,
-                             DatasetAssessmentService datasetAssessmentService) {
+    /**
+     * Creates the controller with separate services for dataset metadata and
+     * dataset assessment workflows.
+     */
+    public DatasetController(DatasetService datasetService, DatasetAssessmentService datasetAssessmentService) {
         this.datasetService = datasetService;
         this.datasetAssessmentService = datasetAssessmentService;
     }
 
     /**
-     * Retrieves all datasets visible to the current user (owned or shared).
+     * Returns all datasets visible to the current user.
      *
-     * @param token The JWT token of the authenticated user.
-     * @return A ResponseEntity containing a list of datasets.
+     * <p>Admins can see all datasets; regular users are limited by ownership or
+     * sharing rules enforced in {@link DatasetService}.</p>
      */
     @GetMapping
     public ResponseEntity<List<DatasetResponseDTO>> getAllDatasets(JwtAuthenticationToken token) {
         String username = SecurityUtils.getUsername(token);
-        List<DatasetResponseDTO> dtos = datasetService.findDatasetsByUsername(username);
-        return ResponseEntity.ok(dtos);
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
+        return ResponseEntity.ok(datasetService.findDatasets(username, isAdmin));
     }
 
     /**
-     * Creates a new dataset.
-     *
-     * @param dto   The request body containing the details of the dataset to create.
-     * @param token The JWT token of the authenticated user.
-     * @return A ResponseEntity containing the newly created dataset with a 201 CREATED status.
+     * Creates a new dataset owned by the authenticated user.
      */
     @PostMapping
     public ResponseEntity<DatasetResponseDTO> addDataset(
@@ -61,133 +65,120 @@ public class DatasetController {
             JwtAuthenticationToken token
     ) {
         String username = SecurityUtils.getUsername(token);
-        DatasetResponseDTO created = datasetService.addDataset(dto, username);
-        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+        return ResponseEntity.status(HttpStatus.CREATED).body(datasetService.addDataset(dto, username));
     }
 
     /**
-     * Updates an existing dataset.
-     *
-     * @param id    The ID of the dataset to update.
-     * @param dto   The request body with the updated dataset information.
-     * @param token The JWT token of the authenticated user.
-     * @return A ResponseEntity containing the updated dataset.
+     * Updates dataset metadata and table definitions for a dataset the user can
+     * edit.
      */
     @PutMapping("/{id}")
     public ResponseEntity<DatasetResponseDTO> updateDataset(
-            @PathVariable Integer id,
+            @PathVariable Long id,
             @Validated @RequestBody DatasetRequestDTO dto,
             JwtAuthenticationToken token
     ) {
         String username = SecurityUtils.getUsername(token);
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
         try {
-            DatasetResponseDTO updated = datasetService.updateDataset(id, dto, username);
-            return ResponseEntity.ok(updated);
+            return ResponseEntity.ok(datasetService.updateDataset(id, dto, username, isAdmin));
         } catch (EntityNotFoundException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());
         }
     }
 
     /**
-     * Deletes a dataset by its ID.
-     *
-     * @param id    The ID of the dataset to delete.
-     * @param token The JWT token of the authenticated user.
-     * @return A ResponseEntity with a 204 NO CONTENT status on successful deletion.
+     * Deletes a dataset when it is not referenced by assessments or
+     * data-sharing activities.
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteDataset(
-            @PathVariable Integer id,
+            @PathVariable Long id,
             JwtAuthenticationToken token
     ) {
         String username = SecurityUtils.getUsername(token);
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
         try {
-            datasetService.deleteDataset(id, username);
+            datasetService.deleteDataset(id, username, isAdmin);
             return ResponseEntity.noContent().build();
         } catch (EntityNotFoundException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());
+        } catch (DataIntegrityViolationException ex) {
+            // Database constraints protect assessments and activities that still
+            // point at this dataset; expose that as a clear client-facing 409.
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot delete dataset. It has existing assessments or is linked to a Data Sharing Activity.");
         }
     }
 
     // ------------------------------------------------------------------------
-    // Dataset‐level assessments
+    // Dataset-level assessments
     // ------------------------------------------------------------------------
 
     /**
-     * Retrieves all dataset assessments visible to the current user across all their datasets.
-     *
-     * @param token The JWT token of the authenticated user.
-     * @return A ResponseEntity containing a list of dataset assessments.
+     * Returns all dataset assessments visible to the authenticated user,
+     * regardless of parent dataset.
      */
     @GetMapping("/assessments")
     public ResponseEntity<List<DatasetAssessmentResponseDTO>> getAllDatasetAssessments(
             JwtAuthenticationToken token
     ) {
         String username = SecurityUtils.getUsername(token);
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
+
         List<DatasetAssessmentResponseDTO> dtos =
-                datasetAssessmentService.findAssessmentsByUsername(username);
+                datasetAssessmentService.findAssessments(username, isAdmin);
         return ResponseEntity.ok(dtos);
     }
 
     /**
-     * Retrieves all assessments for a specific dataset.
-     *
-     * @param datasetId The ID of the parent dataset.
-     * @param token     The JWT token of the authenticated user.
-     * @return A ResponseEntity containing a list of assessments for the specified dataset.
+     * Returns the assessments attached to a specific dataset.
      */
     @GetMapping("/{datasetId}/assessments")
     public ResponseEntity<List<DatasetAssessmentResponseDTO>> getAssessmentsForDataset(
-            @PathVariable Integer datasetId,
+            @PathVariable Long datasetId,
             JwtAuthenticationToken token
     ) {
         String username = SecurityUtils.getUsername(token);
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
+
         List<DatasetAssessmentResponseDTO> dtos =
-                datasetAssessmentService.findAssessmentsByUsernameAndDatasetId(
-                        username, datasetId);
+                datasetAssessmentService.getAssessmentsForDataset(datasetId, username, isAdmin);
         return ResponseEntity.ok(dtos);
     }
 
     /**
-     * Adds a new assessment under a specific dataset.
-     *
-     * @param datasetId The ID of the parent dataset.
-     * @param dto       The request body containing the assessment details.
-     * @param token     The JWT token of the authenticated user.
-     * @return A ResponseEntity containing the newly created dataset assessment with a 201 CREATED status.
+     * Creates a framework-specific assessment for the selected dataset.
      */
     @PostMapping("/{datasetId}/assessments")
     public ResponseEntity<DatasetAssessmentResponseDTO> addDatasetAssessment(
-            @PathVariable Integer datasetId,
+            @PathVariable Long datasetId,
             @Validated @RequestBody DatasetAssessmentRequestDTO dto,
             JwtAuthenticationToken token
     ) {
         String username = SecurityUtils.getUsername(token);
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
+
         DatasetAssessmentResponseDTO created =
-                datasetAssessmentService.addDatasetAssessment(datasetId, dto, username);
+                datasetAssessmentService.createDatasetAssessment(datasetId, dto, username, isAdmin);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     /**
-     * Updates an existing dataset assessment.
-     *
-     * @param datasetId    The ID of the parent dataset.
-     * @param assessmentId The ID of the assessment to update.
-     * @param dto          The request body with the updated assessment information.
-     * @param token        The JWT token of the authenticated user.
-     * @return A ResponseEntity containing the updated assessment.
+     * Replaces the answers and metadata for an existing dataset assessment.
      */
     @PutMapping("/{datasetId}/assessments/{assessmentId}")
     public ResponseEntity<DatasetAssessmentResponseDTO> updateDatasetAssessment(
-            @PathVariable Integer datasetId,
-            @PathVariable Integer assessmentId,
+            @PathVariable Long datasetId,
+            @PathVariable Long assessmentId,
             @Validated @RequestBody DatasetAssessmentRequestDTO dto,
             JwtAuthenticationToken token
     ) {
         String username = SecurityUtils.getUsername(token);
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
+
         try {
             DatasetAssessmentResponseDTO updated =
-                    datasetAssessmentService.updateDatasetAssessment(datasetId, assessmentId, dto, username);
+                    datasetAssessmentService.updateDatasetAssessment(datasetId, assessmentId, dto, username, isAdmin);
             return ResponseEntity.ok(updated);
         } catch (EntityNotFoundException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());
@@ -195,22 +186,19 @@ public class DatasetController {
     }
 
     /**
-     * Deletes a dataset assessment by its ID.
-     *
-     * @param datasetId    The ID of the parent dataset.
-     * @param assessmentId The ID of the assessment to delete.
-     * @param token        The JWT token of the authenticated user.
-     * @return A ResponseEntity with a 204 NO CONTENT status on successful deletion.
+     * Deletes one dataset assessment from a dataset.
      */
     @DeleteMapping("/{datasetId}/assessments/{assessmentId}")
     public ResponseEntity<Void> deleteDatasetAssessment(
-            @PathVariable Integer datasetId,
-            @PathVariable Integer assessmentId,
+            @PathVariable Long datasetId,
+            @PathVariable Long assessmentId,
             JwtAuthenticationToken token
     ) {
         String username = SecurityUtils.getUsername(token);
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
+
         try {
-            datasetAssessmentService.deleteDatasetAssessment(datasetId, assessmentId, username);
+            datasetAssessmentService.deleteDatasetAssessment(datasetId, assessmentId, username, isAdmin);
             return ResponseEntity.noContent().build();
         } catch (EntityNotFoundException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());

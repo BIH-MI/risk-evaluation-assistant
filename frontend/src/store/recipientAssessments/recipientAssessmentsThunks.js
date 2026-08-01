@@ -1,6 +1,7 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import {
     fetchRecipientAssessmentsApi,
+    fetchRecipientAssessmentsByRecipientIdApi,
     addRecipientAssessmentApi,
     updateRecipientAssessmentApi,
     deleteRecipientAssessmentApi,
@@ -16,6 +17,18 @@ export const fetchRecipientAssessments = createAsyncThunk(
             return rejectWithValue(err.message);
         }
     }
+);
+
+/** Fetch all assessments for a specific recipient. */
+export const fetchRecipientAssessmentsByRecipientId = createAsyncThunk(
+  "recipientAssessments/fetchByRecipientId",
+  async ({ recipientId, token }, { rejectWithValue }) => {
+    try {
+      return await fetchRecipientAssessmentsByRecipientIdApi(recipientId, token);
+    } catch (err) {
+      return rejectWithValue(err.message);
+    }
+  }
 );
 
 /** Add a new recipient assessment under a specific recipient. */

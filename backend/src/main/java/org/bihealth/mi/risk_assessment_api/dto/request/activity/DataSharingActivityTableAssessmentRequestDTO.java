@@ -19,8 +19,13 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DataSharingActivityTableAssessmentRequestDTO {
-    private Integer id;
-    private Integer tableId;
+    // Existing activity-specific table assessment ID when updating.
+    private Long id;
+
+    // ID of the dataset table assessment being overridden in this activity.
+    private Long tableId;
+
+    // Activity-specific attribute overrides for the selected table.
     private List<DataSharingActivityTableAttributeAssessmentRequestDTO> attributes;
 
     /**

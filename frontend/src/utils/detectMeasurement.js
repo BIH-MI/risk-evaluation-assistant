@@ -30,7 +30,6 @@ function isNumeric(val) {
 export function detectMeasurement(values = []) {
     const vals = values.map(v => (v == null ? '' : String(v).trim()));
 
-    // boolean?
     if (vals.every(isBoolean)) {
         return { dataType: DataType.BOOLEAN };
     }
@@ -40,12 +39,10 @@ export function detectMeasurement(values = []) {
         return { dataType: DataType.DATETIME };
     }
 
-    // numeric?
     if (vals.every(isNumeric)) {
         const hasDecimal = vals.some(v => v.includes('.') || v.toLowerCase().includes('e'));
         return { dataType: hasDecimal ? DataType.DECIMAL : DataType.INTEGER };
     }
 
-    // fallback
     return { dataType: DataType.STRING };
 }

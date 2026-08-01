@@ -14,10 +14,17 @@ import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetTable
 @NoArgsConstructor
 @AllArgsConstructor
 public class DatasetTableAssessmentAttributeResponseDTO {
-    private Integer id;
-    private Integer attributeId;
+    // Attribute assessment ID and underlying dataset attribute ID.
+    private Long id;
+    private Long attributeId;
+
+    // Column display name.
     private String name;
+
+    // Default direct identifier flag for this dataset assessment.
     private Boolean directIdentifier;
+
+    // Default S/R/A/D metric values for this attribute.
     private Integer sensitivity;
     private Integer replicability;
     private Integer availability;
@@ -39,6 +46,9 @@ public class DatasetTableAssessmentAttributeResponseDTO {
         this.distinguishability = entity.getDistinguishability();
     }
 
+    /**
+     * Preserves the frontend-facing JSON property name {@code isDirectIdentifier}.
+     */
     @JsonProperty("isDirectIdentifier")
     public Boolean getDirectIdentifier() {
         return directIdentifier;

@@ -11,21 +11,39 @@ import org.bihealth.mi.risk_assessment_api.repository.dataset.DatasetTableAttrib
 /**
  * Represents the specific risk scores for a single table attribute (column)
  * within a dataset assessment.
+ *
+ * <p>These values are the default attribute-level risk profile used by a
+ * dataset assessment before any data-sharing-activity-specific overrides.</p>
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class DatasetTableAssessmentAttributeRequestDTO {
-    private Integer id;
-    private Integer attributeId;
+    // Existing attribute assessment ID when updating.
+    private Long id;
+
+    // DatasetTableAttribute ID being assessed.
+    private Long attributeId;
+
+    // JSON field expected by the frontend for direct identifier status.
     @JsonProperty("isDirectIdentifier")
     private Boolean isDirectIdentifier;
+
+    // S/R/A/D metric values used by dataset attribute assessment screens.
     private Integer sensitivity;
     private Integer replicability;
     private Integer availability;
     private Integer distinguishability;
 
+    /**
+     * Explicit getter preserves the JSON property name {@code isDirectIdentifier}
+     * while keeping the backing field nullable.
+     */
     public Boolean getIsDirectIdentifier() { return isDirectIdentifier; }
+
+    /**
+     * Explicit setter preserves compatibility with frontend payload naming.
+     */
     public void setIsDirectIdentifier(Boolean isDirectIdentifier) {
         this.isDirectIdentifier = isDirectIdentifier;
     }

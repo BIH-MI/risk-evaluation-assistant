@@ -19,13 +19,20 @@ import java.util.stream.Collectors;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DatasetResponseDTO {
-    private Integer id;
+    // Dataset identity and audit metadata.
+    private Long id;
     private String creatorUsername;
     private String name;
     private String description;
     private LocalDateTime creationDate;
+
+    // Users with explicit access to the dataset.
     private Set<String> sharedUsernames;
-    private List<Integer> assessmentIds;
+
+    // Assessment IDs are enough for list views to link to existing assessments.
+    private List<Long> assessmentIds;
+
+    // Full table schema returned with the dataset.
     private List<DatasetTableResponseDTO> tables;
 
     /**

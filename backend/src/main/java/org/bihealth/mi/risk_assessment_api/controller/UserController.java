@@ -13,6 +13,10 @@ import java.util.stream.Collectors;
 
 /**
  * REST controller for fetching user information from the Keycloak identity provider.
+ *
+ * <p>The endpoints expose only the small user shape needed by sharing controls
+ * in the UI. Authentication and user lookup remain delegated to Keycloak and
+ * {@link KeycloakUserService}.</p>
  */
 @RestController
 @RequestMapping("/api/users")
@@ -20,6 +24,9 @@ public class UserController {
 
     private final KeycloakUserService keycloakUserService;
 
+    /**
+     * Creates the controller with the Keycloak-backed lookup service.
+     */
     public UserController(KeycloakUserService keycloakUserService) {
         this.keycloakUserService = keycloakUserService;
     }
@@ -42,16 +49,19 @@ public class UserController {
             users = keycloakUserService.findUsersByName(search);
         }
 
-        // Map users to only required fields
-        List<Map<String, Object>> filteredUsers = users.stream().map(user -> {
-            Map<String, Object> userMap = new HashMap<>();
-            userMap.put("firstName", user.getFirstName());
-            userMap.put("lastName", user.getLastName());
-            // userMap.put("email", user.getEmail());
-            userMap.put("username", user.getUsername());
-            // userMap.put("attributes", user.getAttributes());
-            return userMap;
-        }).collect(Collectors.toList());
+        // Return only fields the UI needs for display/search. The admin account
+        // is hidden because it is a setup/system identity, not a share target.
+        List<Map<String, Object>> filteredUsers = users.stream()
+                .filter(user -> !"admin".equalsIgnoreCase(user.getUsername()))
+                .map(user -> {
+                    Map<String, Object> userMap = new HashMap<>();
+                    userMap.put("firstName", user.getFirstName());
+                    userMap.put("lastName", user.getLastName());
+                    // userMap.put("email", user.getEmail());
+                    userMap.put("username", user.getUsername());
+                    // userMap.put("attributes", user.getAttributes());
+                    return userMap;
+                }).collect(Collectors.toList());
 
         return ResponseEntity.ok(filteredUsers);
     }
@@ -72,14 +82,17 @@ public class UserController {
     ) {
         List<UserRepresentation> users = keycloakUserService.getUsersByUsernames(usernames);
 
-        // Map each UserRepresentation to only the fields you want
-        List<Map<String, Object>> result = users.stream().map(user -> {
-            Map<String, Object> m = new HashMap<>();
-            m.put("username", user.getUsername());
-            m.put("firstName", user.getFirstName());
-            m.put("lastName", user.getLastName());
-            return m;
-        }).collect(Collectors.toList());
+        // Keep the batch response shape aligned with the search endpoint so the
+        // frontend can resolve existing shared usernames consistently.
+        List<Map<String, Object>> result = users.stream()
+                .filter(user -> !"admin".equalsIgnoreCase(user.getUsername()))
+                .map(user -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("username", user.getUsername());
+                    m.put("firstName", user.getFirstName());
+                    m.put("lastName", user.getLastName());
+                    return m;
+                }).collect(Collectors.toList());
 
         return ResponseEntity.ok(result);
     }

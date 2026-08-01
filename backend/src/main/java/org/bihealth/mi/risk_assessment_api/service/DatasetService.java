@@ -5,6 +5,7 @@ import org.bihealth.mi.risk_assessment_api.dto.response.dataset.DatasetResponseD
 import org.bihealth.mi.risk_assessment_api.enums.DataType;
 import org.bihealth.mi.risk_assessment_api.model.dataset.*;
 import org.bihealth.mi.risk_assessment_api.repository.dataset.DatasetRepository;
+import org.bihealth.mi.risk_assessment_api.repository.locks.EntityLockRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import jakarta.persistence.EntityNotFoundException;
@@ -12,40 +13,51 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Service class for managing all business logic for Dataset entities.
- * This includes creating, retrieving, and deleting datasets, as well as complex
- * in-place updates of a dataset's nested tables and attributes.
+ * Service for dataset metadata and schema management.
+ *
+ * <p>Datasets are aggregate roots that own tables and attributes. This service
+ * applies access rules, converts request DTOs into entity graphs, and keeps the
+ * nested table/attribute collections synchronized during updates.</p>
  */
 @Service
 @Transactional
 public class DatasetService {
+    // Root dataset repository.
     private final DatasetRepository datasetRepository;
 
-    public DatasetService(DatasetRepository datasetRepository) {
+    // Used to clear stale UI edit locks before deleting a dataset.
+    private final EntityLockRepository lockRepository;
+
+    /**
+     * Creates the service with repositories for datasets and edit locks.
+     */
+    public DatasetService(DatasetRepository datasetRepository, EntityLockRepository lockRepository) {
         this.datasetRepository = datasetRepository;
+        this.lockRepository = lockRepository;
     }
 
     /**
-     * Finds all datasets a user can access, either as the creator or through sharing.
+     * Returns datasets visible to the authenticated user.
      *
-     * @param username The username of the user.
-     * @return A list of DatasetResponseDTOs.
+     * <p>Admins see all datasets. Regular users see datasets they created or
+     * datasets explicitly shared with them.</p>
      */
-    public List<DatasetResponseDTO> findDatasetsByUsername(String username) {
+    public List<DatasetResponseDTO> findDatasets(String username, boolean isAdmin) {
+        if (isAdmin) {
+            return datasetRepository.findAll().stream()
+                    .map(DatasetResponseDTO::new).collect(Collectors.toList());
+        }
+
+        // Use a set to avoid duplicate results when a dataset is both owned and shared.
         Set<Dataset> combined = new LinkedHashSet<>(datasetRepository.findByCreatorUsername(username));
         combined.addAll(datasetRepository.findBySharedUsernamesContains(username));
 
         return combined.stream()
-                .map(DatasetResponseDTO::new)
-                .collect(Collectors.toList());
+                .map(DatasetResponseDTO::new).collect(Collectors.toList());
     }
 
     /**
-     * Creates a new Dataset from a DTO.
-     *
-     * @param dto      The DTO containing the dataset details.
-     * @param username The username of the creator.
-     * @return A DTO representing the newly created dataset.
+     * Creates a new dataset aggregate from the request DTO.
      */
     public DatasetResponseDTO addDataset(DatasetRequestDTO dto, String username) {
         Dataset ds = dto.toEntity(username);
@@ -54,108 +66,91 @@ public class DatasetService {
     }
 
     /**
-     * Performs a complex in-place update of a Dataset and its entire hierarchy of
-     * tables and attributes. This method syncs the state of the entity graph
-     * to match the state provided in the DTO.
+     * Updates dataset metadata and synchronizes nested tables/attributes.
      *
-     * @param id       The ID of the dataset to update.
-     * @param dto      The DTO containing the desired state of the dataset.
-     * @param username The username for the authorization check.
-     * @return A DTO representing the updated dataset.
+     * <p>The incoming DTO is treated as the desired schema: missing existing
+     * tables/attributes are removed, matching IDs are updated, and new entries
+     * are appended.</p>
      */
     @Transactional
-    public DatasetResponseDTO updateDataset(Integer id, DatasetRequestDTO dto, String username) {
+    public DatasetResponseDTO updateDataset(Long id, DatasetRequestDTO dto, String username, boolean isAdmin) {
         Dataset existing = datasetRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Dataset not found: " + id));
 
-        if (!existing.getCreatorUsername().equals(username)
+        // Dataset edits are allowed for admins, owners, and explicitly shared users.
+        if (!isAdmin && !existing.getCreatorUsername().equals(username)
                 && !existing.getSharedUsernames().contains(username)) {
             throw new SecurityException("Not owner of dataset");
         }
 
-        // --- Update basic fields ---
         existing.setName(dto.getName());
         existing.setDescription(dto.getDescription());
 
-        // --- Sync shared-usernames list ---
-        List<String> incomingUsernames = dto.getSharedUsernames() != null
-                ? dto.getSharedUsernames()
-                : Collections.emptyList();
+        List<String> incomingUsernames = dto.getSharedUsernames() != null ? dto.getSharedUsernames() : Collections.emptyList();
         existing.getSharedUsernames().clear();
         existing.getSharedUsernames().addAll(incomingUsernames);
 
-        // --- Sync tables: preserve existing table & attribute IDs ---
-        Map<Integer, DatasetTable> tableMap = existing.getTables().stream()
+        // Build lookups for current nested rows so updates can preserve entity IDs.
+        Map<Long, DatasetTable> tableMap = existing.getTables().stream()
                 .collect(Collectors.toMap(DatasetTable::getId, t -> t));
-        List<DatasetTableRequestDTO> tableDTOs = dto.getTables() != null
-                ? dto.getTables()
-                : Collections.emptyList();
+        List<DatasetTableRequestDTO> tableDTOs = dto.getTables() != null ? dto.getTables() : Collections.emptyList();
 
-        // Remove tables not present in incoming DTO
-        existing.getTables().removeIf(tbl ->
-                tableDTOs.stream()
-                        .noneMatch(td -> td.getId() != null && td.getId().equals(tbl.getId()))
-        );
+        // Remove tables that are no longer present in the request.
+        existing.getTables().removeIf(tbl -> tableDTOs.stream().noneMatch(td -> td.getId() != null && td.getId().equals(tbl.getId())));
 
-        // For each incoming table DTO, update or create
         for (DatasetTableRequestDTO td : tableDTOs) {
             if (td.getId() != null && tableMap.containsKey(td.getId())) {
-                // Existing table: update its name and attributes
+                // Update an existing table and synchronize its attributes.
                 DatasetTable tbl = tableMap.get(td.getId());
                 tbl.setName(td.getName());
 
-                // Sync attributes: preserve existing IDs
-                Map<Integer, DatasetTableAttribute> attrMap = tbl.getAttributes().stream()
+                Map<Long, DatasetTableAttribute> attrMap = tbl.getAttributes().stream()
                         .collect(Collectors.toMap(DatasetTableAttribute::getId, a -> a));
-                List<DatasetTableAttributeRequestDTO> attrDTOs = td.getAttributes() != null
-                        ? td.getAttributes()
-                        : Collections.emptyList();
+                List<DatasetTableAttributeRequestDTO> attrDTOs = td.getAttributes() != null ? td.getAttributes() : Collections.emptyList();
 
-                // Remove attributes not in DTO
-                tbl.getAttributes().removeIf(attr ->
-                        attrDTOs.stream()
-                                .noneMatch(ad -> ad.getId() != null && ad.getId().equals(attr.getId()))
-                );
+                // Remove attributes omitted from the request.
+                tbl.getAttributes().removeIf(attr -> attrDTOs.stream().noneMatch(ad -> ad.getId() != null && ad.getId().equals(attr.getId())));
 
-                // Update existing or add new attributes
                 for (DatasetTableAttributeRequestDTO ad : attrDTOs) {
                     if (ad.getId() != null && attrMap.containsKey(ad.getId())) {
+                        // Update an existing column in place.
                         DatasetTableAttribute existingAttr = attrMap.get(ad.getId());
                         existingAttr.setName(ad.getName());
                         existingAttr.setDataType(DataType.valueOf(ad.getDataType()));
                         existingAttr.setExcluded(ad.getExcluded());
                     } else {
-                        // New attribute
+                        // Add a new column under the existing table.
                         tbl.getAttributes().add(ad.toEntity(tbl));
                     }
                 }
-
             } else {
-                // New table: convert DTO to entity and add
+                // Add a new table with its nested attributes.
                 existing.getTables().add(td.toEntity(existing, username));
             }
         }
 
-        // Persist and return DTO
         Dataset saved = datasetRepository.save(existing);
         return new DatasetResponseDTO(saved);
     }
 
     /**
-     * Deletes a Dataset by its ID after verifying ownership.
-     *
-     * @param id       The ID of the dataset to delete.
-     * @param username The username for the authorization check.
+     * Deletes a dataset after access checks and lock cleanup.
      */
-    public void deleteDataset(Integer id, String username) {
+    public void deleteDataset(Long id, String username, boolean isAdmin) {
         Dataset ds = datasetRepository.findById(id)
-                .orElseThrow(() ->
-                        new EntityNotFoundException("Dataset not found: " + id)
-                );
-        if (!ds.getCreatorUsername().equals(username)
-            && !ds.getSharedUsernames().contains(username)) {
+                .orElseThrow(() -> new EntityNotFoundException("Dataset not found: " + id));
+
+        // Dataset deletion follows the same access rule as updates.
+        if (!isAdmin && !ds.getCreatorUsername().equals(username)
+                && !ds.getSharedUsernames().contains(username)) {
             throw new SecurityException("Not owner of dataset");
         }
+
+        // Remove any active edit lock first so deleting the dataset does not
+        // leave a lock row pointing at an entity that no longer exists.
+        lockRepository.findByEntityTypeAndEntityId("DATASET", String.valueOf(id))
+                .ifPresent(lockRepository::delete);
+
         datasetRepository.delete(ds);
     }
 }

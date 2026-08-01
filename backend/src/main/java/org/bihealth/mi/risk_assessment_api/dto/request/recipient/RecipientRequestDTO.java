@@ -10,15 +10,24 @@ import java.util.Set;
 
 /**
  * Represents the request payload for creating or updating a Recipient.
+ *
+ * <p>A recipient is the organization or party that will receive the dataset in
+ * a data-sharing scenario.</p>
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class RecipientRequestDTO {
-    // Renamed from 'organization' for consistency with AuditableEntity
+    // User-facing recipient name. It is also mirrored to organization on the entity.
     private String name;
+
+    // Optional description of the recipient or sharing context.
     private String description;
+
+    // Optional external organization URL.
     private String organizationLink;
+
+    // Additional users who can access this recipient.
     private Set<String> sharedUsernames;
 
     /**

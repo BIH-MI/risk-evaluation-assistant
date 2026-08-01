@@ -1,4 +1,5 @@
 import App from "App";
+import "./i18n";
 import { MaterialUIControllerProvider } from "context";
 import { createRoot } from "react-dom/client";
 import { AuthProvider } from "react-oidc-context";
@@ -16,12 +17,12 @@ const oidcConfig = {
   post_logout_redirect_uri: process.env.REACT_APP_OIDC_POST_LOGOUT_REDIRECT_URI,
   response_type: "code",
   scope: "openid profile email",
-  loadUserInfo: true,
-  automaticSilentRenew: false,
-  monitorSession: false,
+  automaticSilentRenew: true,
+  monitorSession: true,
+  onSigninCallback: () => {
+    window.history.replaceState({}, document.title, window.location.pathname);
+  },
 };
-
-console.log("OIDC config:", oidcConfig);
 
 root.render(
   <ReduxProvider store={store}>

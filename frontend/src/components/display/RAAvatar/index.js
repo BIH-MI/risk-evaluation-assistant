@@ -8,6 +8,7 @@ import datasetLightIcon from "assets/images/icons/datasets/light.png";
 import datasetAssessmentIcon from "assets/images/icons/assessments/dataset.png";
 import recipientAssessmentIcon from "assets/images/icons/assessments/recipient.png";
 import organizationIcon from "assets/images/icons/organizations/organization.png";
+import configurationIcon from "assets/images/icons/configurations/configuration.png";
 import { useMaterialUIController } from "context";
 
 // Preset theme gradient keys for initials backgrounds
@@ -44,13 +45,13 @@ const RAAvatar = forwardRef(({
         const initials = `${firstName[0].toUpperCase()}${lastName[0].toUpperCase()}`;
         const bgColor = getColorForLetter(initials[0]);
         return (
-            <RAAvatarRoot
-                ref={ref}
-                ownerState={{ size, shadow, bgColor, shape }}
-                {...rest}
-            >
-                {initials}
-            </RAAvatarRoot>
+          <RAAvatarRoot
+            ref={ref}
+            ownerState={{ size, shadow, bgColor, shape }}
+            {...rest}
+          >
+              {initials}
+          </RAAvatarRoot>
         );
     }
 
@@ -69,18 +70,21 @@ const RAAvatar = forwardRef(({
         case "organization":
             avatarSrc = organizationIcon;
             break;
+        case "configuration":
+            avatarSrc = configurationIcon;
+            break;
         default:
             avatarSrc = src || defaultAvatar;
     }
 
     return (
-        <RAAvatarRoot
-            ref={ref}
-            ownerState={{ size, shadow, bgColor: "transparent", shape }}
-            src={avatarSrc}
-            alt={alt}
-            {...rest}
-        />
+      <RAAvatarRoot
+        ref={ref}
+        ownerState={{ size, shadow, bgColor: "transparent", shape }}
+        src={avatarSrc}
+        alt={alt}
+        {...rest}
+      />
     );
 });
 
@@ -93,7 +97,8 @@ RAAvatar.propTypes = {
         "datasetAssessment",
         "recipientAssessment",
         "initials",
-        "organization"
+        "organization",
+        "configuration"
     ]),
     src: PropTypes.string,
     alt: PropTypes.string,

@@ -19,8 +19,13 @@ import java.util.Map;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DatasetTableAssessmentRequestDTO {
-    private Integer id;
-    private Integer tableId;
+    // Existing table assessment ID when updating.
+    private Long id;
+
+    // DatasetTable ID being assessed.
+    private Long tableId;
+
+    // Attribute-level assessments nested under this table assessment.
     private List<DatasetTableAssessmentAttributeRequestDTO> attributes;
 
     /**
@@ -34,7 +39,7 @@ public class DatasetTableAssessmentRequestDTO {
      */
     public DatasetTableAssessment toEntity(
             DatasetAssessment parent,
-            Map<Integer, DatasetTable> tMap,
+            Map<Long, DatasetTable> tMap,
             DatasetTableAttributeRepository attributeRepo
             ) {
         DatasetTable table = tMap.get(tableId);

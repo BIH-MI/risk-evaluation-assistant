@@ -1,21 +1,10 @@
 // src/components/input/RAQuestionnaire/Questionnaire.js
 import React from "react";
 import PropTypes from "prop-types";
-import {
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
-  TableContainer,
-  Radio,
-} from "@mui/material";
+import { Radio, RadioGroup, FormControlLabel } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
-
-const OPTIONS = ["YES", "UNKNOWN", "NO"];
-const ROW_HEIGHT = 56; // px, approximate MUI TableRow height
 
 export default function Questionnaire({
                                         questions,
@@ -24,87 +13,65 @@ export default function Questionnaire({
                                         pageSize,
                                         sx,
                                         showRowNumbers = false,
+                                        isReadOnly = false,
                                       }) {
   const theme = useTheme();
 
   return (
-    <RABox
-      sx={{
-        width: "100%", height: "100%",
-        bgColor: theme.palette.common.white,
-        boxShadow: theme.shadows[2],
-        borderRadius: 2,
-        overflow: "hidden",
-        ...sx,
-      }}
-    >
-      <TableContainer sx={{ height: "100%" }}>
-        <Table stickyHeader size="small">
-          <TableHead>
-            <TableRow>
-              {showRowNumbers && (
-                <TableCell sx={{ width: "5%" }}>
-                  <RATypography variant="subtitle2">#</RATypography>
-                </TableCell>
-              )}
-              <TableCell sx={{ width: showRowNumbers ? "60%" : "100%" }}>
-                <RATypography variant="subtitle2">Question</RATypography>
-              </TableCell>
-              {OPTIONS.map((opt) => (
-                <TableCell
-                  key={opt}
-                  align="center"
-                  sx={{ width: `${(35 / OPTIONS.length).toFixed(2)}%` }}
-                >
-                  <RATypography variant="subtitle2">{opt}</RATypography>
-                </TableCell>
-              ))}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {questions.map(({ id, text, disabled }, idx) => (
-              <TableRow key={id} sx={{ height: ROW_HEIGHT }}>
-                {showRowNumbers && (
-                  <TableCell sx={{ pr: 2 }}>
-                    <RATypography variant="body2">
-                      {idx + 1}
-                    </RATypography>
-                  </TableCell>
-                )}
-                <TableCell sx={{ pr: 2 }}>
-                  <RATypography
-                    variant="body2"
-                  >
-                    {text}
-                  </RATypography>
-                </TableCell>
-                {OPTIONS.map((opt) => (
-                  <TableCell
-                    key={opt}
-                    align="center"
-                  >
+    <RABox sx={{ width: "100%", height: "100%", ...sx }}>
+      {questions.map((q, idx) => (
+        <RABox
+          key={q.id}
+          p={2}
+          sx={{
+            backgroundColor: q.isOutdated ? "#ffebee" : "transparent",
+            borderBottom: idx === questions.length - 1 ? "none" : "1px solid #f0f0f0",
+          }}
+        >
+          {/* Question Text Row */}
+          <RATypography
+            variant="subtitle2"
+            fontWeight="medium"
+            mb={2}
+            color={q.isOutdated ? "error" : "text"}
+          >
+            {showRowNumbers && `${idx + 1}. `}{q.text}
+            {q.isRequired && <span style={{ color: 'red' }}> *</span>}
+          </RATypography>
+
+          {/* Options */}
+          <RadioGroup
+            value={values[q.id] || ""}
+            onChange={(e) => onChange(q.id, e.target.value)}
+          >
+            {(q.options || []).map((opt, oIdx) => {
+              // CRITICAL FIX: Ensure the value is ALWAYS a string, and has a fallback to text
+              const optionValue = String(opt.code || opt.id || opt.text || oIdx);
+
+              return (
+                <FormControlLabel
+                  key={optionValue}
+                  value={optionValue}
+                  control={
                     <Radio
-                      name={`question-${id}`}
-                      value={opt}
-                      checked={values[id] === opt}
-                      onChange={() => onChange(id, opt)}
-                      disabled={disabled}
-                      size="medium"
+                      disableRipple
+                      disabled={q.disabled || isReadOnly}
                       sx={{
-                        color: theme.palette.primary.main,
+                        color: theme.palette.info.main,
                         "&.Mui-checked": {
-                          color: theme.palette.primary.dark,
+                          color: theme.palette.info.main,
                         },
-                        "& svg": { fontSize: 28 },
                       }}
                     />
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+                  }
+                  label={<RATypography variant="button" color="text" fontWeight="bold">{opt.text}</RATypography>}
+                  sx={{ mb: 1 }}
+                />
+              );
+            })}
+          </RadioGroup>
+        </RABox>
+      ))}
     </RABox>
   );
 }
@@ -115,18 +82,30 @@ Questionnaire.propTypes = {
       id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
       text: PropTypes.string.isRequired,
       disabled: PropTypes.bool,
+      isOutdated: PropTypes.bool,
+      isRequired: PropTypes.bool,
+      options: PropTypes.arrayOf(
+        PropTypes.shape({
+          code: PropTypes.string,
+          id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+          text: PropTypes.string.isRequired,
+        })
+      )
     })
   ).isRequired,
-  values: PropTypes.objectOf(PropTypes.oneOf(["YES", "UNKNOWN", "NO"])),
+  values: PropTypes.objectOf(
+    PropTypes.oneOfType([PropTypes.string, PropTypes.number]) // Updated to accept both just in case
+  ),
   onChange: PropTypes.func.isRequired,
   pageSize: PropTypes.number.isRequired,
   sx: PropTypes.object,
   showRowNumbers: PropTypes.bool,
+  isReadOnly: PropTypes.bool,
 };
 
 Questionnaire.defaultProps = {
-  title: "",
   values: {},
   sx: {},
   showRowNumbers: false,
+  isReadOnly: false,
 };

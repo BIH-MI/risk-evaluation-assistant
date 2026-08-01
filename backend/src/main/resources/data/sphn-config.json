@@ -1,0 +1,533 @@
+{
+  "name": "SPHN Risk Assessment Framework (v2.1.2)",
+  "description": "Complete SPHN framework utilizing dynamic nested options and standardized to the new IPC probability methodology.",
+  "defaultLanguage": "en",
+  "riskCategories": [
+    {
+      "code": "IMPACT",
+      "name": "Impact",
+      "assessmentPhase": "DATASET_ASSESSMENT",
+      "riskEffect": "INCREASES_RISK",
+      "riskBands": [
+        { "label": "LOW", "rangeMinimum": 0.0, "rangeMaximum": 10.0 },
+        { "label": "MEDIUM", "rangeMinimum": 10, "rangeMaximum": 30.0 },
+        { "label": "HIGH", "rangeMinimum": 30, "rangeMaximum": 100.0 }
+      ]
+    },
+    {
+      "code": "LIKELIHOOD",
+      "name": "Likelihood",
+      "assessmentPhase": "RECIPIENT_ASSESSMENT",
+      "riskEffect": "INCREASES_RISK",
+      "riskBands": [
+        { "label": "LOW", "rangeMinimum": 0.0, "rangeMaximum": 15.0 },
+        { "label": "MEDIUM", "rangeMinimum": 15, "rangeMaximum": 40.0 },
+        { "label": "HIGH", "rangeMinimum": 40, "rangeMaximum": 100.0 }
+      ]
+    },
+    {
+      "code": "CONTROLS",
+      "name": "Controls",
+      "assessmentPhase": "RECIPIENT_ASSESSMENT",
+      "riskEffect": "DECREASES_RISK",
+      "riskBands": [
+        { "label": "LOW", "rangeMinimum": 0.0, "rangeMaximum": 10.0 },
+        { "label": "MEDIUM", "rangeMinimum": 10, "rangeMaximum": 30.0 },
+        { "label": "HIGH", "rangeMinimum": 30, "rangeMaximum": 100.0 }
+      ]
+    }
+  ],
+  "questions": [
+    {
+      "categoryCode": "LIKELIHOOD",
+      "text": "[C-01] In which jurisdiction the project data is planned to be stored and processed?",
+      "textTranslations": { "de": "[C-01] In welcher Gerichtsbarkeit sollen die Projektdaten gespeichert und verarbeitet werden?" },
+      "weight": 5.0,
+      "options": [
+        { "text": "In Switzerland", "textTranslations": { "de": "In der Schweiz" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "In EU or another country providing an adequate level of protection, recognized as such by the Federal Council", "textTranslations": { "de": "In der EU oder einem anderen Land, das ein angemessenes Schutzniveau bietet, welches vom Bundesrat als solches anerkannt ist" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "In a country that does not provide an adequate level of protection, but with adequate safeguards according to Swiss law", "textTranslations": { "de": "In einem Land, das kein angemessenes Schutzniveau bietet, aber mit angemessenen Garantien gemäß Schweizer Recht" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "In a country that does not provide an adequate level of protection and without adequate safeguards according to Swiss law", "textTranslations": { "de": "In einem Land, das kein angemessenes Schutzniveau bietet und ohne angemessene Garantien gemäß Schweizer Recht" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "LIKELIHOOD",
+      "text": "[C-02] Is the project collecting health-related data on rare disease patients?",
+      "textTranslations": { "de": "[C-02] Erfasst das Projekt gesundheitsbezogene Daten von Patienten mit seltenen Krankheiten?" },
+      "weight": 5.0,
+      "options": [
+        { "text": "No health-related data on rare diseases are included", "textTranslations": { "de": "Es sind keine gesundheitsbezogenen Daten zu seltenen Krankheiten enthalten" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "The disease occurs less than one in 2.000 (i.e., max. 4.000 cases in Switzerland)", "textTranslations": { "de": "Die Krankheit tritt seltener als bei einem von 2.000 auf (d. h. max. 4.000 Fälle in der Schweiz)" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "The disease occurs less than one in 80.000 (i.e., max. 100 cases in Switzerland)", "textTranslations": { "de": "Die Krankheit tritt seltener als bei einem von 80.000 auf (d. h. max. 100 Fälle in der Schweiz)" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "LIKELIHOOD",
+      "text": "[C-03] What is the number of patients planned to be included in the cohort?",
+      "textTranslations": { "de": "[C-03] Wie hoch ist die Anzahl der Patienten, die in die Kohorte aufgenommen werden sollen?" },
+      "weight": 1.0,
+      "options": [
+        { "text": "< 100 patients", "textTranslations": { "de": "< 100 Patienten" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "100 to 1.000 patients", "textTranslations": { "de": "100 bis 1.000 Patienten" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "1.000 to 5.000 patients", "textTranslations": { "de": "1.000 bis 5.000 Patienten" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
+        { "text": "> 5.000 patients", "textTranslations": { "de": "> 5.000 Patienten" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "LIKELIHOOD",
+      "text": "[C-04] What is the number of the individual datapoints per patient included in the dataset?",
+      "textTranslations": { "de": "[C-04] Wie hoch ist die Anzahl der einzelnen Datenpunkte pro Patient, die im Datensatz enthalten sind?" },
+      "weight": 1.0,
+      "options": [
+        { "text": "< 25 datapoints", "textTranslations": { "de": "< 25 Datenpunkte" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "25 to 100 datapoints", "textTranslations": { "de": "25 bis 100 Datenpunkte" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "100 to 1000 datapoints", "textTranslations": { "de": "100 bis 1000 Datenpunkte" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
+        { "text": "> 1000 datapoints", "textTranslations": { "de": "> 1000 Datenpunkte" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "LIKELIHOOD",
+      "text": "[C-05] Is one or more of the following stigmatizing information included in the dataset? (e.g., religious, HIV status, criminal proceedings)",
+      "textTranslations": { "de": "[C-05] Sind eine oder mehrere der folgenden stigmatisierenden Informationen im Datensatz enthalten? (z. B. Religion, HIV-Status, Strafverfahren)" },
+      "weight": 5.0,
+      "options": [
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "LIKELIHOOD",
+      "text": "[C-06] Who will have access to health-related data shared during the project?",
+      "textTranslations": { "de": "[C-06] Wer hat Zugriff auf die während des Projekts geteilten gesundheitsbezogenen Daten?" },
+      "weight": 5.0,
+      "options": [
+        { "text": "Project staff not affiliated to the hospital", "textTranslations": { "de": "Projektmitarbeiter, die nicht dem Krankenhaus angehören" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "Project staff affiliated to the hospital WITHOUT access to the Electronic Health Records (EHR)", "textTranslations": { "de": "Projektmitarbeiter, die dem Krankenhaus angehören OHNE Zugriff auf die elektronischen Patientenakten (EHR)" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "Project staff affiliated to the hospital WITH access to the Electronic Health Records (EHR)", "textTranslations": { "de": "Projektmitarbeiter, die dem Krankenhaus angehören MIT Zugriff auf die elektronischen Patientenakten (EHR)" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "LIKELIHOOD",
+      "text": "[C-07] Does anyone in the data recipient's project team has access to mapping table for patient re-identification?",
+      "textTranslations": { "de": "[C-07] Hat jemand im Projektteam des Datenempfängers Zugriff auf die Zuordnungstabelle zur Patientenreidentifikation?" },
+      "weight": 10.0,
+      "options": [
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "[D-01] Direct identifiers (e.g. name, phone number social security number, email address, medical record number, license number)",
+      "textTranslations": { "de": "[D-01] Direkte Identifikatoren (z. B. Name, Telefonnummer, Sozialversicherungsnummer, E-Mail-Adresse, Krankenaktennummer, Lizenznummer)" },
+      "weight": 10.0,
+      "options": [
+        { "text": "Identifiers are not used in the project", "textTranslations": { "de": "Identifikatoren werden im Projekt nicht verwendet" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "Identifiers are replaced by plausible surrogates (e.g., in text reports)", "textTranslations": { "de": "Identifikatoren werden durch plausible Surrogate ersetzt (z. B. in Textberichten)" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "Original values of one or more direct identifiers are kept", "textTranslations": { "de": "Originalwerte eines oder mehrerer direkter Identifikatoren werden beibehalten" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "[D-02] Patient identifier",
+      "textTranslations": { "de": "[D-02] Patientenidentifikator" },
+      "weight": 5.0,
+      "options": [
+        { "text": "Identifiers are replaced by pseudonyms (project specific patient identifier) and no mapping table is kept", "textTranslations": { "de": "Identifikatoren werden durch Pseudonyme ersetzt (projektspezifischer Patientenidentifikator) und es wird keine Zuordnungstabelle geführt" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "Identifiers are replaced by pseudonyms and the mapping table is securely stored by the data provider and not accessible by the research team", "textTranslations": { "de": "Identifikatoren werden durch Pseudonyme ersetzt und die Zuordnungstabelle wird vom Datenanbieter sicher aufbewahrt und ist für das Forschungsteam nicht zugänglich" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "Original values are kept (hospital internal patient identifier)", "textTranslations": { "de": "Originalwerte werden beibehalten (krankenhausinterner Patientenidentifikator)" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "[D-03] Sample identifier",
+      "textTranslations": { "de": "[D-03] Probenidentifikator" },
+      "weight": 3.0,
+      "options": [
+        { "text": "Sample identifiers are not use in the project", "textTranslations": { "de": "Probenidentifikatoren werden im Projekt nicht verwendet" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "Sample identifiers are replaced by pseudonyms and mapping table securely stored", "textTranslations": { "de": "Probenidentifikatoren werden durch Pseudonyme ersetzt und die Zuordnungstabelle wird sicher aufbewahrt" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "Original values are kept (hospital internal sample identifier)", "textTranslations": { "de": "Originalwerte werden beibehalten (krankenhausinterner Probenidentifikator)" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "[D-04] Administrative case identifier",
+      "textTranslations": { "de": "[D-04] Administrativer Fallidentifikator" },
+      "weight": 3.0,
+      "options": [
+        { "text": "Administrative case identifier is not used in the project", "textTranslations": { "de": "Administrativer Fallidentifikator wird im Projekt nicht verwendet" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "Identifiers are replaced by pseudonym and mapping table securely stored", "textTranslations": { "de": "Identifikatoren werden durch ein Pseudonym ersetzt und die Zuordnungstabelle wird sicher aufbewahrt" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "Original values are kept (hospital internal case identifier)", "textTranslations": { "de": "Originalwerte werden beibehalten (krankenhausinterner Fallidentifikator)" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "[D-05] Lab report identifier",
+      "textTranslations": { "de": "[D-05] Laborberichtidentifikator" },
+      "weight": 3.0,
+      "options": [
+        { "text": "Lab report identifier and Lab order identifier is not used in the project", "textTranslations": { "de": "Laborberichtidentifikator und Laborauftragsidentifikator werden im Projekt nicht verwendet" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "Identifiers are replaced by pseudonym (project specific identifier)", "textTranslations": { "de": "Identifikatoren werden durch ein Pseudonym ersetzt (projektspezifischer Identifikator)" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "Original values are kept (hospital internal sample identifier)", "textTranslations": { "de": "Originalwerte werden beibehalten (krankenhausinterner Probenidentifikator)" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "[D-06] Dates in the patient record (dates of birth and death excluded)",
+      "textTranslations": { "de": "[D-06] Daten in der Patientenakte (Geburts- und Sterbedaten ausgeschlossen)" },
+      "weight": 5.0,
+      "options": [
+        { "text": "Dates are suppressed or replaced with a surrogate date or not used in the project", "textTranslations": { "de": "Daten werden unterdrückt, durch ein Ersatzdatum ersetzt oder im Projekt nicht verwendet" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "Dates are shifted by a random number of days within +/- 365 days", "textTranslations": { "de": "Daten werden um eine zufällige Anzahl von Tagen innerhalb von +/- 365 Tagen verschoben" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "Dates are shifted by a random number of days within +/- 90 days", "textTranslations": { "de": "Daten werden um eine zufällige Anzahl von Tagen innerhalb von +/- 90 Tagen verschoben" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "Dates are shifted by a random number of days within +/- 30 days", "textTranslations": { "de": "Daten werden um eine zufällige Anzahl von Tagen innerhalb von +/- 30 Tagen verschoben" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
+        { "text": "Dates are shifted by a random number of days within +/- 7 days", "textTranslations": { "de": "Daten werden um eine zufällige Anzahl von Tagen innerhalb von +/- 7 Tagen verschoben" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
+        { "text": "Original dates are kept", "textTranslations": { "de": "Originaldaten werden beibehalten" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "[D-07] Date of birth",
+      "textTranslations": { "de": "[D-07] Geburtsdatum" },
+      "weight": 5.0,
+      "options": [
+        { "text": "Date of birth concept is suppressed or not used in the project", "textTranslations": { "de": "Das Geburtsdatum-Konzept wird unterdrückt oder im Projekt nicht verwendet" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "Only the year of the original birth date is kept", "textTranslations": { "de": "Nur das Jahr des ursprünglichen Geburtsdatums wird beibehalten" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "Date of Birth is shifted by the same rule selected in D-06", "textTranslations": { "de": "Das Geburtsdatum wird nach derselben Regel verschoben wie in D-06" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "Only the year and month of the original date of birth are kept", "textTranslations": { "de": "Nur das Jahr und der Monat des ursprünglichen Geburtsdatums werden beibehalten" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
+        { "text": "Full original date of birth is kept (dd/mm/yyyy)", "textTranslations": { "de": "Vollständiges Original-Geburtsdatum wird beibehalten (TT/MM/JJJJ)" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "[D-08] Date of death",
+      "textTranslations": { "de": "[D-08] Sterbedatum" },
+      "weight": 5.0,
+      "options": [
+        { "text": "Date of death concept is suppressed or not used in the project", "textTranslations": { "de": "Das Sterbedatum-Konzept wird unterdrückt oder im Projekt nicht verwendet" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "Only the year of the original date of death is kept", "textTranslations": { "de": "Nur das Jahr des ursprünglichen Sterbedatums wird beibehalten" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "Date of Death is shifted by the same rule selected in D-06", "textTranslations": { "de": "Das Sterbedatum wird nach derselben Regel verschoben wie in D-06" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "Only the year and month of the original date of death are kept", "textTranslations": { "de": "Nur das Jahr und der Monat des ursprünglichen Sterbedatums werden beibehalten" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
+        { "text": "Full original date of death is kept (dd/mm/yyyy)", "textTranslations": { "de": "Vollständiges Original-Sterbedatum wird beibehalten (TT/MM/JJJJ)" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "[D-09] Age",
+      "textTranslations": { "de": "[D-09] Alter" },
+      "weight": 3.0,
+      "options": [
+        { "text": "The age concept is not used in the project", "textTranslations": { "de": "Das Alterskonzept wird im Projekt nicht verwendet" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "Age in generalized in groups of 5 or more years", "textTranslations": { "de": "Alter wird in Gruppen von 5 oder mehr Jahren generalisiert" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "Original age is kept except for people with more than 89y old who are put in the age class '90y+'", "textTranslations": { "de": "Originalalter wird beibehalten, außer bei Personen über 89 Jahren, die der Altersklasse '90y+' zugeordnet werden" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "Original age is kept", "textTranslations": { "de": "Originalalter wird beibehalten" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "[D-10] Profession",
+      "textTranslations": { "de": "[D-10] Beruf" },
+      "weight": 1.0,
+      "options": [
+        { "text": "Profession is not used in the project", "textTranslations": { "de": "Beruf wird im Projekt nicht verwendet" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "Original profession is kept, but replaced by a random profession for identifying ones", "textTranslations": { "de": "Originalberuf wird beibehalten, aber bei identifizierenden Berufen durch einen zufälligen Beruf ersetzt" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "[D-11] Location (street, zip code, city, region, country)",
+      "textTranslations": { "de": "[D-11] Standort (Straße, Postleitzahl, Stadt, Region, Land)" },
+      "weight": 5.0,
+      "options": [
+        { "text": "Location is not used in the project", "textTranslations": { "de": "Standort wird im Projekt nicht verwendet" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "Location is generalized to the country level", "textTranslations": { "de": "Standort wird auf Länderebene generalisiert" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "Location is generalized to the region level", "textTranslations": { "de": "Standort wird auf Regionsebene generalisiert" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "Location is generalized to the city level (pop > 20,000)", "textTranslations": { "de": "Standort wird auf Stadtebene generalisiert (Einwohner > 20.000)" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
+        { "text": "Location is generalized to the zip level (pop > 20,000)", "textTranslations": { "de": "Standort wird auf Postleitzahlenebene generalisiert (Einwohner > 20.000)" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
+        { "text": "The original locations are kept", "textTranslations": { "de": "Die Originalstandorte werden beibehalten" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "[D-12] Organizations (data provider organization excluded)",
+      "textTranslations": { "de": "[D-12] Organisationen (Organisation des Datenanbieters ausgeschlossen)" },
+      "weight": 1.0,
+      "options": [
+        { "text": "Organization name is not used in the project", "textTranslations": { "de": "Name der Organisation wird im Projekt nicht verwendet" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "Organization type is kept (e.g., hospital, clinic, etc.)", "textTranslations": { "de": "Organisationstyp wird beibehalten (z. B. Krankenhaus, Klinik usw.)" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "Organization name is kept (e.g., University Hospital Basel)", "textTranslations": { "de": "Name der Organisation wird beibehalten (z. B. Universitätsspital Basel)" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "[D-13] Organizational Units (data provider organizational unit excluded)",
+      "textTranslations": { "de": "[D-13] Organisationseinheiten (Organisationseinheit des Datenanbieters ausgeschlossen)" },
+      "weight": 1.0,
+      "options": [
+        { "text": "Organizational unit is not used in the project", "textTranslations": { "de": "Organisationseinheit wird im Projekt nicht verwendet" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "Organizational unit is generalized to the division level", "textTranslations": { "de": "Organisationseinheit wird auf Abteilungsebene generalisiert" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "Organizational unit is kept (e.g., 328 Kardiologie ME)", "textTranslations": { "de": "Organisationseinheit wird beibehalten (z. B. 328 Kardiologie ME)" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "[M-01] Audio Data",
+      "textTranslations": { "de": "[M-01] Audiodaten" },
+      "weight": 5.0,
+      "options": [
+        { "text": "No audio data is used in the project", "textTranslations": { "de": "Im Projekt werden keine Audiodaten verwendet" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "Patient voice blurring/noise algorithm", "textTranslations": { "de": "Algorithmus zur Unkenntlichmachung/Verzerrung der Patientenstimme" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "Patient voice is kept in audio files", "textTranslations": { "de": "Patientenstimme wird in Audiodateien beibehalten" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "[M-02] Images (including photos) & Videos with patient face or identifying body parts",
+      "textTranslations": { "de": "[M-02] Bilder (einschließlich Fotos) & Videos mit Patientengesicht oder identifizierenden Körperteilen" },
+      "weight": 10.0,
+      "options": [
+        { "text": "No images are used in the project", "textTranslations": { "de": "Im Projekt werden keine Bilder verwendet" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "Removing of identifying face or identifying patient body parts (e.g., by defacing algorithms)", "textTranslations": { "de": "Entfernen des identifizierenden Gesichts oder identifizierender Körperteile des Patienten (z. B. durch Anonymisierungsalgorithmen)" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "Blurring of identifying parts", "textTranslations": { "de": "Unkenntlichmachung von identifizierenden Teilen" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "Original image or video files are kept", "textTranslations": { "de": "Originalbild- oder Videodateien werden beibehalten" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "[DCM-01] DICOM Hardware Identifying Attributes",
+      "textTranslations": { "de": "[DCM-01] Identifizierende DICOM-Hardware-Attribute" },
+      "weight": 1.0,
+      "options": [
+        { "text": "Original value is suppressed", "textTranslations": { "de": "Originalwert wird unterdrückt" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "Original value is replaced by pseudonym", "textTranslations": { "de": "Originalwert wird durch Pseudonym ersetzt" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "Original values are kept", "textTranslations": { "de": "Originalwerte werden beibehalten" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "[DCM-02] DICOM Study Description",
+      "textTranslations": { "de": "[DCM-02] DICOM-Studienbeschreibung" },
+      "weight": 1.0,
+      "options": [
+        { "text": "Original value is suppressed", "textTranslations": { "de": "Originalwert wird unterdrückt" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "Original value is replaced by pseudonym", "textTranslations": { "de": "Originalwert wird durch Pseudonym ersetzt" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "Original values are kept", "textTranslations": { "de": "Originalwerte werden beibehalten" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "[DCM-03] DICOM Series Description",
+      "textTranslations": { "de": "[DCM-03] DICOM-Serienbeschreibung" },
+      "weight": 1.0,
+      "options": [
+        { "text": "Original value is suppressed", "textTranslations": { "de": "Originalwert wird unterdrückt" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "Original value is replaced by pseudonym", "textTranslations": { "de": "Originalwert wird durch Pseudonym ersetzt" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "Original values are kept", "textTranslations": { "de": "Originalwerte werden beibehalten" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "[DCM-04] DICOM Derivation Description",
+      "textTranslations": { "de": "[DCM-04] DICOM-Ableitungsbeschreibung" },
+      "weight": 1.0,
+      "options": [
+        { "text": "Original value is suppressed", "textTranslations": { "de": "Originalwert wird unterdrückt" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "Original value is replaced by pseudonym", "textTranslations": { "de": "Originalwert wird durch Pseudonym ersetzt" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "Original values are kept", "textTranslations": { "de": "Originalwerte werden beibehalten" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "[DCM-05] DICOM Contrast Bolus Agent",
+      "textTranslations": { "de": "[DCM-05] DICOM-Kontrastmittel" },
+      "weight": 1.0,
+      "options": [
+        { "text": "Original value is suppressed", "textTranslations": { "de": "Originalwert wird unterdrückt" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "Original value is replaced by pseudonym", "textTranslations": { "de": "Originalwert wird durch Pseudonym ersetzt" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "Original values are kept", "textTranslations": { "de": "Originalwerte werden beibehalten" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "[DCM-06] Retain original values of other DICOM attributes that would be removed by default",
+      "textTranslations": { "de": "[DCM-06] Originalwerte anderer DICOM-Attribute beibehalten, die standardmäßig entfernt würden" },
+      "weight": 1.0,
+      "options": [
+        { "text": "Original value is suppressed", "textTranslations": { "de": "Originalwert wird unterdrückt" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "Original value is replaced by pseudonym", "textTranslations": { "de": "Originalwert wird durch Pseudonym ersetzt" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "Original values are kept", "textTranslations": { "de": "Originalwerte werden beibehalten" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "[G-01] Genomic sequences",
+      "textTranslations": { "de": "[G-01] Genomsequenzen" },
+      "weight": 10.0,
+      "options": [
+        { "text": "No genomic sequences are used in the project", "textTranslations": { "de": "Im Projekt werden keine Genomsequenzen verwendet" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "Only blurred summary statistics (e.g., MAF, p-values, ORs) are released", "textTranslations": { "de": "Nur unscharfe Zusammenfassungsstatistiken (z. B. MAF, p-Werte, ORs) werden freigegeben" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "Only exact summary statistics (e.g., MAF, p-values, ORs) are released", "textTranslations": { "de": "Nur exakte Zusammenfassungsstatistiken (z. B. MAF, p-Werte, ORs) werden freigegeben" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "Original individual-level values are released", "textTranslations": { "de": "Originalwerte auf individueller Ebene werden freigegeben" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "[O-01] Additional project specific quasi-identifiers that can be used for linkage by the data recipient",
+      "textTranslations": { "de": "[O-01] Zusätzliche projektspezifische Quasi-Identifikatoren, die vom Datenempfänger zur Verknüpfung verwendet werden können" },
+      "weight": 5.0,
+      "options": [
+        { "text": "No other quasi-identifiers used in the project", "textTranslations": { "de": "Keine anderen Quasi-Identifikatoren im Projekt verwendet" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "Additional quasi-identifiers exist and have been modified to reduce risks", "textTranslations": { "de": "Zusätzliche Quasi-Identifikatoren sind vorhanden und wurden geändert, um Risiken zu verringern" }, "score": 1.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "Additional quasi-identifiers exist and original values are kept", "textTranslations": { "de": "Zusätzliche Quasi-Identifikatoren sind vorhanden und Originalwerte werden beibehalten" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "[CIT-01] Is there a legal agreement between the data provider(s) and the data recipient(s) that regulates the conditions under which data are disclosed?",
+      "textTranslations": { "de": "[CIT-01] Gibt es eine rechtliche Vereinbarung zwischen dem/den Datenanbieter(n) und dem/den Datenempfänger(n), welche die Bedingungen regelt, unter denen Daten offengelegt werden?" },
+      "weight": 10.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "[CIT-02] Does the legal agreement forbid the recipient(s) from disclosing the data to third parties?",
+      "textTranslations": { "de": "[CIT-02] Verbietet die rechtliche Vereinbarung dem/den Empfänger(n), die Daten an Dritte weiterzugeben?" },
+      "weight": 10.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "[CIT-03] Does the legal agreement stipulate that external audits of the data management practices may be performed?",
+      "textTranslations": { "de": "[CIT-03] Schreibt die rechtliche Vereinbarung vor, dass externe Prüfungen der Datenverwaltungspraktiken durchgeführt werden können?" },
+      "weight": 3.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "[CIT-04] Does the legal agreement stipulate that regular external audits of privacy and security practices may be performed?",
+      "textTranslations": { "de": "[CIT-04] Schreibt die rechtliche Vereinbarung vor, dass regelmäßige externe Prüfungen der Datenschutz- und Sicherheitspraktiken durchgeführt werden können?" },
+      "weight": 3.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "[CIT-05] Does the legal agreement associate penalties in case of health-related data misuse by the recipient?",
+      "textTranslations": { "de": "[CIT-05] Sieht die rechtliche Vereinbarung Strafen im Falle des Missbrauchs gesundheitsbezogener Daten durch den Empfänger vor?" },
+      "weight": 3.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "[CIT-06] Are the recipient's staff members personally bound by a duty of confidentiality?",
+      "textTranslations": { "de": "[CIT-06] Sind die Mitarbeiter des Empfängers persönlich an eine Schweigepflicht gebunden?" },
+      "weight": 10.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "[CIT-07] Are there IT security and privacy policies in effect at the data recipient site?",
+      "textTranslations": { "de": "[CIT-07] Sind am Standort des Datenempfängers IT-Sicherheits- und Datenschutzrichtlinien in Kraft?" },
+      "weight": 10.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "[CIT-08] Where does the project data will be stored and processed?",
+      "textTranslations": { "de": "[CIT-08] Wo werden die Projektdaten gespeichert und verarbeitet?" },
+      "weight": 10.0,
+      "options": [
+        { "text": "On the hospital IT infrastructure of the data recipient", "textTranslations": { "de": "Auf der Krankenhaus-IT-Infrastruktur des Datenempfängers" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "On computer(s) controlled by the hospital IT department of the data recipient", "textTranslations": { "de": "Auf Computer(n), die von der Krankenhaus-IT-Abteilung des Datenempfängers kontrolliert werden" }, "score": 8.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "On an external IT infrastructure that complies with BioMedIT Information Security Policy", "textTranslations": { "de": "Auf einer externen IT-Infrastruktur, die der BioMedIT-Informationssicherheitsrichtlinie entspricht" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "On an external IT infrastructure that DOES NOT comply with BioMedIT Information Security Policy (e.g., public cloud)", "textTranslations": { "de": "Auf einer externen IT-Infrastruktur, die NICHT der BioMedIT-Informationssicherheitsrichtlinie entspricht (z. B. Public Cloud)" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
+        { "text": "On PRIVATE computer (e.g., desktop, laptop, etc.)", "textTranslations": { "de": "Auf einem PRIVATEN Computer (z. B. Desktop, Laptop usw.)" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "[CIT-09] If external, does the Management System of the provider's Information Security has been audited and certified (e.g., ISO 27001)?",
+      "textTranslations": { "de": "[CIT-09] Falls extern, wurde das Managementsystem der Informationssicherheit des Anbieters geprüft und zertifiziert (z. B. ISO 27001)?" },
+      "weight": 5.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "[CIT-10] If external, is there a legal processing agreement with the external provider of the infrastructure?",
+      "textTranslations": { "de": "[CIT-10] Falls extern, gibt es einen Vertrag zur Auftragsverarbeitung mit dem externen Anbieter der Infrastruktur?" },
+      "weight": 10.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+      ]
+    }
+  ],
+  "riskMatrices": [
+    {
+      "conditions": { "CONTROLS": "HIGH", "LIKELIHOOD": "HIGH" },
+      "contextRisk": 0.6
+    },
+    {
+      "conditions": { "CONTROLS": "HIGH", "LIKELIHOOD": "MEDIUM" },
+      "contextRisk": 0.3
+    },
+    {
+      "conditions": { "CONTROLS": "HIGH", "LIKELIHOOD": "LOW" },
+      "contextRisk": 0.1
+    },
+    {
+      "conditions": { "CONTROLS": "MEDIUM", "LIKELIHOOD": "HIGH" },
+      "contextRisk": 0.8
+    },
+    {
+      "conditions": { "CONTROLS": "MEDIUM", "LIKELIHOOD": "MEDIUM" },
+      "contextRisk": 0.6
+    },
+    {
+      "conditions": { "CONTROLS": "MEDIUM", "LIKELIHOOD": "LOW" },
+      "contextRisk": 0.3
+    },
+    {
+      "conditions": { "CONTROLS": "LOW", "LIKELIHOOD": "HIGH" },
+      "contextRisk": 1.0
+    },
+    {
+      "conditions": { "CONTROLS": "LOW", "LIKELIHOOD": "MEDIUM" },
+      "contextRisk": 0.8
+    },
+    {
+      "conditions": { "CONTROLS": "LOW", "LIKELIHOOD": "LOW" },
+      "contextRisk": 0.6
+    }
+  ],
+  "reidThresholds": [
+    { "riskClassification": "LOW", "thresholdValue": 0.10 },
+    { "riskClassification": "MEDIUM", "thresholdValue": 0.075 },
+    { "riskClassification": "HIGH", "thresholdValue": 0.05 }
+  ],
+  "active": true,
+  "default": false
+}

@@ -4,5 +4,5 @@ import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetTable
 import org.springframework.data.jpa.repository.JpaRepository;
 
 
-public interface DatasetTableAssessmentRepository extends JpaRepository<DatasetTableAssessment, Integer> {
+public interface DatasetTableAssessmentRepository extends JpaRepository<DatasetTableAssessment, Long> {
 }

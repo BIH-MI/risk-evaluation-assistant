@@ -13,16 +13,24 @@ import java.util.stream.Collectors;
 
 /**
  * Service for interacting with the Keycloak Admin API to fetch user information.
+ *
  * It acts as a wrapper around the official Keycloak Admin Client.
+ * The application uses it mainly to resolve usernames for sharing/search UI,
+ * not to manage authentication itself.
  */
 @Service
 public class KeycloakUserService {
 
+    // Admin client configured elsewhere with credentials and server URL.
     private final Keycloak keycloak;
 
+    // Realm whose users are visible to the application.
     @Value("${keycloak.realm}")
     private String realm;
 
+    /**
+     * Creates the service with the configured Keycloak Admin client.
+     */
     public KeycloakUserService(Keycloak keycloak) {
         this.keycloak = keycloak;
     }
@@ -35,7 +43,7 @@ public class KeycloakUserService {
      * @return A list of Keycloak UserRepresentation objects.
      */
     public List<UserRepresentation> listUsers(int first, int max) {
-        // Use the Keycloak admin client to fetch users from the specified realm
+        // Use Keycloak pagination directly so callers can control result size.
         return keycloak
                 .realm(realm)
                 .users()
@@ -50,6 +58,7 @@ public class KeycloakUserService {
      * @return A list of matching UserRepresentation objects.
      */
     public List<UserRepresentation> findUsersByName(String search) {
+        // The Keycloak search endpoint handles username/name/email matching.
         UsersResource usersResource = keycloak.realm(realm).users();
         return usersResource.search(search, 0, 100);
     }
@@ -61,6 +70,8 @@ public class KeycloakUserService {
      * @return The matching UserRepresentation, or null if not found.
      */
     public UserRepresentation getUserByUsername(String username) {
+        // Limit to one result because callers only need the representation used
+        // to display an existing username.
         List<UserRepresentation> matches = keycloak
                 .realm(realm)
                 .users()
@@ -75,6 +86,7 @@ public class KeycloakUserService {
      * @return A list of found UserRepresentation objects. Any usernames not found are omitted.
      */
     public List<UserRepresentation> getUsersByUsernames(List<String> usernames) {
+        // Preserve input order for users that are found; missing users are simply omitted.
         return usernames.stream()
                 .map(this::getUserByUsername)
                 .filter(Objects::nonNull)

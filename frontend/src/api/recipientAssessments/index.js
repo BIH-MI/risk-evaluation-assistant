@@ -17,6 +17,27 @@ export async function fetchRecipientAssessmentsApi(token) {
 }
 
 /**
+ * Fetches all recipient assessments for a specific recipient.
+ * GET /api/recipients/{recipientId}/assessments
+ */
+export async function fetchRecipientAssessmentsByRecipientIdApi(recipientId, token) {
+    const response = await fetch(
+        `${apiUrl}/api/recipients/${recipientId}/assessments`,
+        {
+            method: "GET",
+            headers: { Authorization: `Bearer ${token}` },
+        }
+    );
+    if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(
+            `Failed to fetch recipient assessments for recipient ${recipientId}: ${errText}`
+        );
+    }
+    return response.json();
+}
+
+/**
  * Adds a new recipient assessment under a specific recipient.
  * POST /api/recipients/{recipientId}/assessments
  */

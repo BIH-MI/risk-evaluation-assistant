@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   # =======================================================
   # KEYCLOAK IDENTITY PROVIDER
@@ -41,6 +39,8 @@ services:
     volumes:
       # Mount the specific realm config file into the container
       - ./keycloak/${KC_REALM_FILE}:/opt/keycloak/data/import/${KC_REALM_FILE}
+      # Mount the custom REA Keycloak login theme
+      - ./rea-theme:/opt/keycloak/themes/rea-theme
     depends_on:
       - postgres
     networks:

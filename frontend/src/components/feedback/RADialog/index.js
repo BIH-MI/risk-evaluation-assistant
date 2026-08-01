@@ -41,7 +41,9 @@ const RADialog = forwardRef(function RADialog(
       </RADialogTitleRoot>
 
       <RADialogContentRoot sx={{ px: 2 }}>
-        <RADialogContentTextRoot>{children}</RADialogContentTextRoot>
+        <RADialogContentTextRoot component="div">
+          {children}
+        </RADialogContentTextRoot>
       </RADialogContentRoot>
 
       <RADialogActionsRoot>

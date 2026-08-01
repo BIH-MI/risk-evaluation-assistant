@@ -1,5 +1,6 @@
 package org.bihealth.mi.risk_assessment_api.exception;
 
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.crossstore.ChangeSetPersister;
 import org.springframework.http.HttpStatus;
@@ -25,9 +26,6 @@ public class GlobalExceptionHandler {
     /**
      * Handles validation exceptions triggered by @Validated on request DTOs.
      * Returns a 400 Bad Request with a map of field names to error messages.
-     *
-     * @param ex The caught MethodArgumentNotValidException.
-     * @return A ResponseEntity with a 400 status and a body containing the validation errors.
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
@@ -42,10 +40,27 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Handles exceptions for when a requested entity is not found.
-     *
-     * @param ex The caught NotFoundException.
-     * @return A ResponseEntity with a 404 Not Found status and the error message.
+     * NEW: Handles IllegalStateException.
+     * Used when a user tries to modify a configuration that is already in use (locked).
+     * Returns 409 Conflict.
+     */
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<String> handleIllegalStateException(IllegalStateException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+    }
+
+    /**
+     * NEW: Handles EntityNotFoundException.
+     * Standard JPA exception when a record is missing.
+     * Returns 404 Not Found.
+     */
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<String> handleEntityNotFound(EntityNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
+    }
+
+    /**
+     * Handles exceptions for when a requested entity is not found (Spring Data).
      */
     @ExceptionHandler(ChangeSetPersister.NotFoundException.class)
     public ResponseEntity<String> handleNotFoundException(ChangeSetPersister.NotFoundException ex) {
@@ -65,11 +80,7 @@ public class GlobalExceptionHandler {
     /**
      * A generic handler for all other un-caught exceptions.
      * Returns a 500 Internal Server Error to prevent exposing stack traces to the client.
-     *
-     * @param ex The caught generic Exception.
-     * @return A ResponseEntity with a 500 status and a generic error message.
      */
-
     @ExceptionHandler(Exception.class)
     public ResponseEntity<String> handleAllExceptions(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An unexpected error occurred: " + ex.getMessage());

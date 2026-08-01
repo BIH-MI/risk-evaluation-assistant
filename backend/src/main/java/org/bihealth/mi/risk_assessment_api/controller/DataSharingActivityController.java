@@ -16,8 +16,10 @@ import java.util.List;
 
 /**
  * REST controller for managing the central DataSharingActivity resource.
+ *
  * A DataSharingActivity links dataset assessments with recipient assessments
- * to produce an overall risk report.
+ * from the same risk configuration. The linked activity is the unit passed to
+ * the risk calculation endpoint when the UI asks for an overall risk report.
  */
 @RestController
 @RequestMapping("/api/data-sharing-activities")
@@ -25,6 +27,10 @@ public class DataSharingActivityController {
 
     private final DataSharingActivityService sharingService;
 
+    /**
+     * Creates the controller with the service that owns activity access checks
+     * and DTO mapping.
+     */
     public DataSharingActivityController(DataSharingActivityService sharingService) {
         this.sharingService = sharingService;
     }
@@ -32,13 +38,18 @@ public class DataSharingActivityController {
     /**
      * Retrieves all sharing activities visible to the authenticated user.
      *
+     * <p>The service decides whether visibility comes from ownership, explicit
+     * sharing, or admin privileges.</p>
+     *
      * @param token The JWT token of the authenticated user.
      * @return A ResponseEntity containing a list of data sharing activities.
      */
     @GetMapping
     public ResponseEntity<List<DataSharingActivityResponseDTO>> getAllActivities(JwtAuthenticationToken token) {
         String username = SecurityUtils.getUsername(token);
-        List<DataSharingActivityResponseDTO> dtos = sharingService.findActivitiesByUsername(username);
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
+
+        List<DataSharingActivityResponseDTO> dtos = sharingService.findActivitiesByUsername(username, isAdmin);
         return ResponseEntity.ok(dtos);
     }
 
@@ -51,12 +62,14 @@ public class DataSharingActivityController {
      */
     @GetMapping("/{id}")
     public ResponseEntity<DataSharingActivityResponseDTO> getActivity(
-            @PathVariable Integer id,
+            @PathVariable Long id,
             JwtAuthenticationToken token
     ) {
         String username = SecurityUtils.getUsername(token);
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
+
         try {
-            DataSharingActivityResponseDTO dto = sharingService.getById(id, username);
+            DataSharingActivityResponseDTO dto = sharingService.getById(id, username, isAdmin);
             return ResponseEntity.ok(dto);
         } catch (EntityNotFoundException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());
@@ -65,6 +78,9 @@ public class DataSharingActivityController {
 
     /**
      * Creates a new data sharing activity.
+     *
+     * <p>The request references existing dataset and recipient assessments; the
+     * service validates that those assessments can be combined.</p>
      *
      * @param dto   The request body containing the details of the activity to create.
      * @param token The JWT token of the authenticated user.
@@ -76,12 +92,18 @@ public class DataSharingActivityController {
             JwtAuthenticationToken token
     ) {
         String username = SecurityUtils.getUsername(token);
-        DataSharingActivityResponseDTO created = sharingService.create(dto, username);
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
+
+        DataSharingActivityResponseDTO created = sharingService.create(dto, username, isAdmin);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     /**
      * Updates an existing data sharing activity.
+     *
+     * <p>This can change the activity metadata and the linked assessment IDs,
+     * subject to the same service-layer access and compatibility checks as
+     * creation.</p>
      *
      * @param id    The ID of the activity to update.
      * @param dto   The request body containing the updated details.
@@ -90,13 +112,15 @@ public class DataSharingActivityController {
      */
     @PutMapping("/{id}")
     public ResponseEntity<DataSharingActivityResponseDTO> updateActivity(
-            @PathVariable Integer id,
+            @PathVariable Long id,
             @Validated @RequestBody DataSharingActivityRequestDTO dto,
             JwtAuthenticationToken token
     ) {
         String username = SecurityUtils.getUsername(token);
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
+
         try {
-            DataSharingActivityResponseDTO updated = sharingService.update(id, dto, username);
+            DataSharingActivityResponseDTO updated = sharingService.update(id, dto, username, isAdmin);
             return ResponseEntity.ok(updated);
         } catch (EntityNotFoundException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());
@@ -112,12 +136,14 @@ public class DataSharingActivityController {
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteActivity(
-            @PathVariable Integer id,
+            @PathVariable Long id,
             JwtAuthenticationToken token
     ) {
         String username = SecurityUtils.getUsername(token);
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
+
         try {
-            sharingService.delete(id, username);
+            sharingService.delete(id, username, isAdmin);
             return ResponseEntity.noContent().build();
         } catch (EntityNotFoundException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());

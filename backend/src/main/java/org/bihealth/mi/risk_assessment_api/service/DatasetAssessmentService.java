@@ -6,16 +6,21 @@ import org.bihealth.mi.risk_assessment_api.dto.request.dataset.DatasetTableAsses
 import org.bihealth.mi.risk_assessment_api.dto.request.dataset.DatasetTableAssessmentRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.request.questionnaire.AnswerRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.dataset.DatasetAssessmentResponseDTO;
-import org.bihealth.mi.risk_assessment_api.enums.AnswerOption;
 import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetAssessment;
 import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetTableAssessment;
 import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetTableAssessmentAttribute;
 import org.bihealth.mi.risk_assessment_api.model.dataset.*;
+import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Answer;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Question;
+import org.bihealth.mi.risk_assessment_api.model.questionnaire.QuestionOption;
 import org.bihealth.mi.risk_assessment_api.repository.assessment.dataset.DatasetAssessmentRepository;
-import org.bihealth.mi.risk_assessment_api.repository.dataset.*;
+import org.bihealth.mi.risk_assessment_api.repository.configuration.RiskConfigurationRepository;
+import org.bihealth.mi.risk_assessment_api.repository.dataset.DatasetRepository;
+import org.bihealth.mi.risk_assessment_api.repository.dataset.DatasetTableAttributeRepository;
+import org.bihealth.mi.risk_assessment_api.repository.dataset.DatasetTableRepository;
 import org.bihealth.mi.risk_assessment_api.repository.questionnaire.QuestionRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,45 +32,74 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * Service class for managing all business logic for DatasetAssessment entities.
- * This includes creating, retrieving, updating, and deleting assessments,
- * as well as handling their nested questionnaire answers and table assessments.
+ * Service for dataset-level assessment workflows.
+ *
+ * <p>Dataset assessments combine framework questionnaire answers with
+ * table/attribute metadata. These records provide the data-side inputs for the
+ * risk calculation, including categories such as IMPACT or DATA_RISK.</p>
  */
 @Service
 @Transactional
 public class DatasetAssessmentService {
 
+    // Repositories needed to load parent datasets, configurations, questions,
+    // and dataset schema references while building assessment aggregates.
+    private final DatasetAssessmentRepository assessmentRepo;
+    private final DatasetRepository datasetRepo;
+    private final RiskConfigurationRepository configRepo;
     private final QuestionRepository questionRepo;
     private final DatasetTableRepository tableRepo;
-
-    private final DatasetRepository datasetRepository;
-    private final DatasetAssessmentRepository assessmentRepo;
     private final DatasetTableAttributeRepository attributeRepo;
 
+    /**
+     * Creates the service with the repositories required for assessment creation
+     * and nested table/attribute conversion.
+     */
+    @Autowired
     public DatasetAssessmentService(
+            DatasetAssessmentRepository assessmentRepo,
+            DatasetRepository datasetRepo,
+            RiskConfigurationRepository configRepo,
             QuestionRepository questionRepo,
             DatasetTableRepository tableRepo,
-            DatasetRepository datasetRepository,
-            DatasetAssessmentRepository assessmentRepo,
             DatasetTableAttributeRepository attributeRepo
     ) {
+        this.assessmentRepo = assessmentRepo;
+        this.datasetRepo = datasetRepo;
+        this.configRepo = configRepo;
         this.questionRepo = questionRepo;
         this.tableRepo = tableRepo;
-        this.datasetRepository = datasetRepository;
-        this.assessmentRepo = assessmentRepo;
         this.attributeRepo = attributeRepo;
     }
 
     /**
-     * Finds all dataset assessments for all datasets a user can access.
-     *
-     * @param username The username of the user.
-     * @return A list of DatasetAssessmentResponseDTOs.
+     * INTERNAL HELPER: Verifies if the user is an admin, the creator, or in the shared usernames list.
      */
-    @Transactional(readOnly = true)
-    public List<DatasetAssessmentResponseDTO> findAssessmentsByUsername(String username) {
-        Set<Dataset> combined = new LinkedHashSet<>(datasetRepository.findByCreatorUsername(username));
-        combined.addAll(datasetRepository.findBySharedUsernamesContains(username));
+    private void verifyDatasetAccess(Dataset dataset, String username, boolean isAdmin) {
+        // Admins bypass dataset ownership and sharing checks.
+        if (isAdmin) return;
+
+        if (!dataset.getCreatorUsername().equals(username) &&
+                (dataset.getSharedUsernames() == null || !dataset.getSharedUsernames().contains(username))) {
+            throw new SecurityException("No access to dataset: " + dataset.getId());
+        }
+    }
+
+    /**
+     * Retrieves all assessments. Admins see all, regular users see owned or shared.
+     */
+    public List<DatasetAssessmentResponseDTO> findAssessments(String username, boolean isAdmin) {
+        if (isAdmin) {
+            return assessmentRepo.findAll().stream()
+                    .map(DatasetAssessmentResponseDTO::new)
+                    .collect(Collectors.toList());
+        }
+
+        // Visibility is inherited from the parent dataset. Use a set so datasets
+        // that are both owned and shared are not processed twice.
+        Set<Dataset> combined = new LinkedHashSet<>(datasetRepo.findByCreatorUsername(username));
+        combined.addAll(datasetRepo.findBySharedUsernamesContains(username));
+
         return combined.stream()
                 .flatMap(ds -> ds.getDatasetAssessments().stream())
                 .map(DatasetAssessmentResponseDTO::new)
@@ -73,113 +107,189 @@ public class DatasetAssessmentService {
     }
 
     /**
-     * Finds all assessments for a single, specific dataset.
-     *
-     * @param username  The username for the authorization check.
-     * @param datasetId The ID of the dataset to query.
-     * @return A list of DatasetAssessmentResponseDTOs for the specified dataset.
+     * Retrieves all DatasetAssessments for a specific dataset, ensuring access rights.
      */
-    @Transactional(readOnly = true)
-    public List<DatasetAssessmentResponseDTO> findAssessmentsByUsernameAndDatasetId(String username, Integer datasetId) {
-        Dataset ds = datasetRepository.findById(datasetId)
+    public List<DatasetAssessmentResponseDTO> getAssessmentsForDataset(Long datasetId, String username, boolean isAdmin) {
+        Dataset ds = datasetRepo.findById(datasetId)
                 .orElseThrow(() -> new EntityNotFoundException("Dataset not found: " + datasetId));
-        if (!ds.getCreatorUsername().equals(username) && !ds.getSharedUsernames().contains(username)) {
-            throw new SecurityException("No access to dataset: " + datasetId);
-        }
-        return ds.getDatasetAssessments().stream()
+
+        verifyDatasetAccess(ds, username, isAdmin);
+
+        List<DatasetAssessment> assessments = assessmentRepo.findByDatasetId(datasetId);
+        return assessments.stream()
                 .map(DatasetAssessmentResponseDTO::new)
                 .collect(Collectors.toList());
     }
 
     /**
+     * Retrieves a specific DatasetAssessment by ID, ensuring it belongs to the dataset and the user has access.
+     */
+    public DatasetAssessmentResponseDTO getDatasetAssessment(Long datasetId, Long assessmentId, String username, boolean isAdmin) {
+        DatasetAssessment assessment = assessmentRepo.findById(assessmentId)
+                .orElseThrow(() -> new EntityNotFoundException("Assessment not found: " + assessmentId));
+
+        if (!assessment.getDataset().getId().equals(datasetId)) {
+            throw new EntityNotFoundException("Assessment " + assessmentId + " does not belong to dataset " + datasetId);
+        }
+
+        verifyDatasetAccess(assessment.getDataset(), username, isAdmin);
+
+        return new DatasetAssessmentResponseDTO(assessment);
+    }
+
+    /**
      * Creates a new DatasetAssessment for a given dataset.
      *
-     * @param datasetId The ID of the parent dataset.
-     * @param dto       The DTO containing the assessment data.
-     * @param username  The username of the creator.
-     * @return A DTO representing the newly created assessment.
+     * <p>The selected configuration is marked active once it is used. Answers
+     * are validated against their questions so an option from another question
+     * cannot be attached accidentally.</p>
      */
-    public DatasetAssessmentResponseDTO addDatasetAssessment(
-            Integer datasetId,
-            DatasetAssessmentRequestDTO dto,
-            String username
-    ) {
-        Dataset dataset = datasetRepository.findById(datasetId)
+    public DatasetAssessmentResponseDTO createDatasetAssessment(Long datasetId, DatasetAssessmentRequestDTO dto, String username, boolean isAdmin) {
+        Dataset dataset = datasetRepo.findById(datasetId)
                 .orElseThrow(() -> new EntityNotFoundException("Dataset not found: " + datasetId));
 
-        // Fetch all questions and tables directly from their repositories
-        // and convert them into lookup maps.
-        Map<Integer, Question> qMap = questionRepo.findAll().stream()
-                .collect(Collectors.toMap(Question::getId, Function.identity()));
-        Map<Integer, DatasetTable> tMap = tableRepo.findAll().stream()
-                .collect(Collectors.toMap(DatasetTable::getId, Function.identity()));
+        // Users can assess datasets they own or that are shared with them.
+        verifyDatasetAccess(dataset, username, isAdmin);
 
-        DatasetAssessment assessment = dto.toEntity(dataset, username, qMap, tMap, attributeRepo);
+        Configuration config = configRepo.findById(dto.getConfigurationId())
+                .orElseThrow(() -> new EntityNotFoundException("Configuration not found: " + dto.getConfigurationId()));
+
+        if (!config.isActive()) {
+            config.setActive(true);
+            configRepo.save(config);
+        }
+
+        // Build the assessment aggregate manually because answers and table
+        // metadata require validating referenced IDs against existing entities.
+        DatasetAssessment assessment = new DatasetAssessment();
+        assessment.setDataset(dataset);
+        assessment.setConfiguration(config);
+        assessment.setName(dto.getName());
+        assessment.setDescription(dto.getDescription());
+        assessment.setCreatorUsername(username);
+
+        // Create answers and ensure the selected option belongs to the loaded question.
+        if (dto.getAnswers() != null) {
+            for (AnswerRequestDTO ansDto : dto.getAnswers()) {
+                Question q = questionRepo.findById(ansDto.getQuestionId())
+                        .orElseThrow(() -> new EntityNotFoundException("Question not found: " + ansDto.getQuestionId()));
+
+                QuestionOption selectedOption = q.getOptions().stream()
+                        .filter(opt -> opt.getId().equals(ansDto.getSelectedOptionId()))
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalArgumentException("Invalid option ID: " + ansDto.getSelectedOptionId() + " for question: " + q.getId()));
+
+                Answer ans = new Answer();
+                ans.setAssessment(assessment);
+                ans.setQuestion(q);
+                ans.setSelectedOption(selectedOption);
+                assessment.getAnswers().add(ans);
+            }
+        }
+
+        // Create optional table and attribute risk metadata under the assessment.
+        if (dto.getTableAssessments() != null) {
+            for (DatasetTableAssessmentRequestDTO tDto : dto.getTableAssessments()) {
+                DatasetTable table = tableRepo.findById(tDto.getTableId())
+                        .orElseThrow(() -> new EntityNotFoundException("Table not found: " + tDto.getTableId()));
+
+                DatasetTableAssessment ta = new DatasetTableAssessment();
+                ta.setDatasetAssessment(assessment);
+                ta.setTable(table);
+
+                if (tDto.getAttributes() != null) {
+                    for (DatasetTableAssessmentAttributeRequestDTO aDto : tDto.getAttributes()) {
+                        ta.getAttributes().add(aDto.toEntity(ta, attributeRepo));
+                    }
+                }
+                assessment.getTableAssessments().add(ta);
+            }
+        }
+
         DatasetAssessment saved = assessmentRepo.save(assessment);
         return new DatasetAssessmentResponseDTO(saved);
     }
 
     /**
-     * Updates an existing DatasetAssessment in-place.
+     * Updates an existing DatasetAssessment.
      *
-     * @param datasetId    The ID of the parent dataset.
-     * @param assessmentId The ID of the assessment to update.
-     * @param dto          The DTO containing the new data.
-     * @param username     The username (currently unused but good for future authorization).
-     * @return A DTO representing the updated assessment.
+     * <p>The update is additive/upsert-oriented for answers and table metadata:
+     * existing rows are updated when present, and missing rows are created.</p>
      */
-    public DatasetAssessmentResponseDTO updateDatasetAssessment(
-            Integer datasetId,
-            Integer assessmentId,
-            DatasetAssessmentRequestDTO dto,
-            String username
-    ) {
+    public DatasetAssessmentResponseDTO updateDatasetAssessment(Long datasetId, Long assessmentId, DatasetAssessmentRequestDTO dto, String username, boolean isAdmin) {
         DatasetAssessment existing = assessmentRepo.findById(assessmentId)
                 .orElseThrow(() -> new EntityNotFoundException("Assessment not found: " + assessmentId));
+
         if (!existing.getDataset().getId().equals(datasetId)) {
-            throw new EntityNotFoundException("Assessment " + assessmentId + " not in dataset " + datasetId);
+            throw new EntityNotFoundException("Assessment " + assessmentId + " does not belong to dataset " + datasetId);
         }
+
+        // Dataset access controls assessment edit rights.
+        verifyDatasetAccess(existing.getDataset(), username, isAdmin);
 
         existing.setName(dto.getName());
         existing.setDescription(dto.getDescription());
 
-        Map<Integer, Answer> answerMap = existing.getAnswers().stream()
-                .collect(Collectors.toMap(a -> a.getQuestion().getId(), Function.identity()));
+        // Update existing answers by question ID or create missing answers.
+        if (dto.getAnswers() != null) {
+            Map<Long, Answer> answerMap = existing.getAnswers().stream()
+                    .collect(Collectors.toMap(a -> a.getQuestion().getId(), Function.identity()));
 
-        for (AnswerRequestDTO ansDto : dto.getAnswers()) {
-            Answer ans = answerMap.get(ansDto.getQuestionId());
-            if (ans == null) {
-                // If the question wasn't part of the original assessment, you might want to create it
-                // or throw an error. Keeping consistent with original logic:
-                throw new IllegalArgumentException("Cannot add new answer during update: questionId=" + ansDto.getQuestionId());
+            for (AnswerRequestDTO aDto : dto.getAnswers()) {
+                Answer ans = answerMap.get(aDto.getQuestionId());
+
+                Question q = questionRepo.findById(aDto.getQuestionId())
+                        .orElseThrow(() -> new EntityNotFoundException("Question not found: " + aDto.getQuestionId()));
+
+                QuestionOption selectedOption = q.getOptions().stream()
+                        .filter(opt -> opt.getId().equals(aDto.getSelectedOptionId()))
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalArgumentException("Invalid option ID: " + aDto.getSelectedOptionId() + " for question: " + q.getId()));
+
+                if (ans == null) {
+                    ans = new Answer();
+                    ans.setAssessment(existing);
+                    ans.setQuestion(q);
+                    ans.setSelectedOption(selectedOption);
+                    existing.getAnswers().add(ans);
+                } else {
+                    ans.setSelectedOption(selectedOption);
+                }
             }
-            ans.setAnswer(AnswerOption.valueOf(ansDto.getAnswer()));
         }
 
-        Map<Integer, DatasetTableAssessment> tableAssessMap = existing.getTableAssessments().stream()
-                .collect(Collectors.toMap(ta -> ta.getTable().getId(), Function.identity()));
+        // Update table assessments by table ID, then update child attributes by attribute ID.
+        if (dto.getTableAssessments() != null) {
+            Map<Long, DatasetTableAssessment> taMap = existing.getTableAssessments().stream()
+                    .collect(Collectors.toMap(ta -> ta.getTable().getId(), Function.identity()));
 
-        for (DatasetTableAssessmentRequestDTO tabDto : dto.getTableAssessments()) {
-            DatasetTableAssessment ta = tableAssessMap.get(tabDto.getTableId());
-            if (ta == null) {
-                throw new IllegalArgumentException("Cannot add new table assessment during update: tableId=" + tabDto.getTableId());
-            }
+            for (DatasetTableAssessmentRequestDTO tDto : dto.getTableAssessments()) {
+                DatasetTableAssessment ta = taMap.get(tDto.getTableId());
+                if (ta == null) {
+                    DatasetTable table = tableRepo.findById(tDto.getTableId())
+                            .orElseThrow(() -> new EntityNotFoundException("Table not found: " + tDto.getTableId()));
+                    ta = new DatasetTableAssessment();
+                    ta.setDatasetAssessment(existing);
+                    ta.setTable(table);
+                    existing.getTableAssessments().add(ta);
+                }
 
-            // FIX: Key by Attribute ID so we can look it up by aDto.getAttributeId()
-            Map<Integer, DatasetTableAssessmentAttribute> attrMap = ta.getAttributes().stream()
-                    .collect(Collectors.toMap(dtaa -> dtaa.getAttribute().getId(), Function.identity()));
+                Map<Long, DatasetTableAssessmentAttribute> attrMap = ta.getAttributes().stream()
+                        .collect(Collectors.toMap(a -> a.getAttribute().getId(), Function.identity()));
 
-            for (DatasetTableAssessmentAttributeRequestDTO aDto : tabDto.getAttributes()) {
-                DatasetTableAssessmentAttribute attr = attrMap.get(aDto.getAttributeId());
-                if (attr == null) {
-                    // If the attribute wasn't assessed before (e.g. new column added to dataset), create it
-                    ta.getAttributes().add(aDto.toEntity(ta, attributeRepo));
-                } else {
-                    attr.setDirectIdentifier(aDto.getIsDirectIdentifier());
-                    attr.setSensitivity(aDto.getSensitivity());
-                    attr.setReplicability(aDto.getReplicability());
-                    attr.setAvailability(aDto.getAvailability());
-                    attr.setDistinguishability(aDto.getDistinguishability());
+                if (tDto.getAttributes() != null) {
+                    for (DatasetTableAssessmentAttributeRequestDTO aDto : tDto.getAttributes()) {
+                        DatasetTableAssessmentAttribute attr = attrMap.get(aDto.getAttributeId());
+                        if (attr == null) {
+                            ta.getAttributes().add(aDto.toEntity(ta, attributeRepo));
+                        } else {
+                            attr.setDirectIdentifier(aDto.getIsDirectIdentifier());
+                            attr.setSensitivity(aDto.getSensitivity());
+                            attr.setReplicability(aDto.getReplicability());
+                            attr.setAvailability(aDto.getAvailability());
+                            attr.setDistinguishability(aDto.getDistinguishability());
+                        }
+                    }
                 }
             }
         }
@@ -190,17 +300,17 @@ public class DatasetAssessmentService {
 
     /**
      * Deletes a DatasetAssessment by its ID.
-     *
-     * @param datasetId    The ID of the parent dataset.
-     * @param assessmentId The ID of the assessment to delete.
-     * @param username     The username (currently unused but good for future authorization).
      */
-    public void deleteDatasetAssessment(Integer datasetId, Integer assessmentId, String username) {
+    public void deleteDatasetAssessment(Long datasetId, Long assessmentId, String username, boolean isAdmin) {
         DatasetAssessment existing = assessmentRepo.findById(assessmentId)
                 .orElseThrow(() -> new EntityNotFoundException("Assessment not found: " + assessmentId));
         if (!existing.getDataset().getId().equals(datasetId)) {
             throw new EntityNotFoundException("Assessment " + assessmentId + " not in dataset " + datasetId);
         }
+
+        // Dataset access controls assessment deletion.
+        verifyDatasetAccess(existing.getDataset(), username, isAdmin);
+
         assessmentRepo.delete(existing);
     }
 }

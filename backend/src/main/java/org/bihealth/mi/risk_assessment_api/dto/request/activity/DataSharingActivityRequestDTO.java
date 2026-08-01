@@ -19,23 +19,32 @@ import java.util.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DataSharingActivityRequestDTO {
+    // User-facing name of the data sharing scenario.
     private String name;
+
+    // Optional description of the sharing purpose or context.
     private String description;
+
+    // Additional users who should be able to view this activity.
     private Set<String> sharedUsernames;
-    private Integer datasetAssessmentId;
-    private Integer recipientAssessmentId;
+
+    // Dataset assessment selected as the data-side input.
+    private Long datasetAssessmentId;
+
+    // Recipient assessment selected as the recipient/context-side input.
+    private Long recipientAssessmentId;
+
+    // Optional activity-specific table overrides.
     private List<DataSharingActivityTableAssessmentRequestDTO> tableAssessments;
 
+
     /**
-     * Converts this DTO into a new, non-persisted DataSharingActivity entity.
-     * This method orchestrates the conversion of the entire nested DTO structure.
+     * Builds a new DataSharingActivity aggregate from already-resolved
+     * assessment entities.
      *
-     * @param creatorUsername The username of the user creating the activity.
-     * @param da              The pre-fetched DatasetAssessment entity.
-     * @param ra              The pre-fetched RecipientAssessment entity.
-     * @param tableRepo       A repository passed down to child DTOs to resolve table assessment references.
-     * @param attributeRepo   A repository passed down to child DTOs to resolve attribute references.
-     * @return A complete DataSharingActivity entity graph, ready to be saved.
+     * <p>The service layer resolves and validates the dataset/recipient
+     * assessment IDs before calling this method; this DTO only wires the entity
+     * graph and nested activity-specific table overrides.</p>
      */
     public DataSharingActivity toEntity(
             String creatorUsername,

@@ -20,10 +20,15 @@ import static java.util.stream.Collectors.toList;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DatasetTableResponseDTO {
-    private Integer id;
-    private Integer datasetId;
+    // DatasetTable ID and parent dataset ID.
+    private Long id;
+    private Long datasetId;
+
+    // Creator and display name of the table.
     private String creatorUsername;
     private String name;
+
+    // Column schema for this table.
     private List<DatasetTableAttributeResponseDTO> attributes;
 
     /**

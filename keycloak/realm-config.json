@@ -2,6 +2,7 @@
   "id": "5ed03cd8-edad-4208-b4a2-d09dc67aedb8",
   "realm": "rea-realm",
   "displayName": "Risk Evaluation Assistant",
+  "loginTheme": "rea-theme",
   "enabled": true,
   "defaultSignatureAlgorithm": "RS256",
   "accessTokenLifespan": 86400,

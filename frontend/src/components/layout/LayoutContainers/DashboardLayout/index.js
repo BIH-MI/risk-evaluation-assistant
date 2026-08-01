@@ -16,7 +16,7 @@ function DashboardLayout({ children }) {
 
   useEffect(() => {
     setLayout(dispatch, "dataset");
-  }, [pathname]);
+  }, [dispatch, pathname]);
 
   return (
     <RABox

@@ -17,8 +17,6 @@ import AuthenticationGuard from "components/authentication";
 import LoginRedirect from "components/authentication/LoginRedirect";
 
 import { setMiniSidenav, useMaterialUIController } from "context";
-
-// Import routes configuration
 import routes from "routes.js";
 
 export default function App() {
@@ -53,7 +51,7 @@ export default function App() {
     };
 
     return (
-<ThemeProvider theme={darkMode ? themeDark : theme}>
+        <ThemeProvider theme={darkMode ? themeDark : theme}>
             <CssBaseline />
 
             <Routes>

@@ -19,8 +19,8 @@ import java.util.stream.Collectors;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DataSharingActivityResponseDTO {
-    private Integer id;
-    private Integer reportId;
+    // Activity identity and audit metadata.
+    private Long id;
     private String creatorUsername;
     private String name;
     private String description;
@@ -28,24 +28,25 @@ public class DataSharingActivityResponseDTO {
     private LocalDateTime creationDate;
     private Set<String> sharedUsernames;
 
-    private Integer datasetId;
-    private Integer datasetAssessmentId;
+    // Flattened dataset-assessment references for list/detail views.
+    private Long datasetId;
+    private Long datasetAssessmentId;
     private String datasetAssessmentName;
 
-    private Integer recipientId;
-    private Integer recipientAssessmentId;
+    // Flattened recipient-assessment references for list/detail views.
+    private Long recipientId;
+    private Long recipientAssessmentId;
     private String recipientAssessmentName;
 
+    // Optional activity-specific overrides of dataset table/attribute scores.
     private List<DataSharingActivityTableAssessmentResponseDTO> tableAssessments;
 
     /**
-     * Constructor to map a DataSharingActivity entity to this DTO.
-     *
-     * @param act The DataSharingActivity entity from the database.
+     * Maps an activity entity and its linked assessments into a frontend-friendly
+     * response without exposing the full nested JPA graph.
      */
     public DataSharingActivityResponseDTO(DataSharingActivity act) {
         this.id                       = act.getId();
-        this.reportId                 = act.getReport() != null ? act.getReport().getId() : null;
         this.creatorUsername          = act.getCreatorUsername();
         this.name                     = act.getName();
         this.description              = act.getDescription();

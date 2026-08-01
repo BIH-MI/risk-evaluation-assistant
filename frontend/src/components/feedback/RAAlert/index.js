@@ -1,21 +1,28 @@
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import Fade from "@mui/material/Fade";
 import RABox from "components/layout/RABox";
 import RAAlertCloseIcon from "components/feedback/RAAlert/RAAlertCloseIcon";
 import RAAlertRoot from "components/feedback/RAAlert/RAAlertRoot";
 
-function RAAlert({ color, dismissible, children, ...rest }) {
+function RAAlert({ color, dismissible, children, onClose, ...rest }) {
   const [alertStatus, setAlertStatus] = useState("mount");
-  const handleAlertStatus = () => setAlertStatus("fadeOut");
+  const handleAlertStatus = useCallback(() => {
+    setAlertStatus("fadeOut");
+    if (onClose) onClose();
+  }, [onClose]);
 
-  // Automatically trigger fade-out after 5 seconds
+  // Automatically trigger fade-out after 5 seconds, then unmount after the transition.
   useEffect(() => {
     if (alertStatus === "mount") {
       const timer = setTimeout(handleAlertStatus, 5000);
       return () => clearTimeout(timer);
     }
-  }, [alertStatus]);
+    if (alertStatus === "fadeOut") {
+      const timer = setTimeout(() => setAlertStatus("unmount"), 400);
+      return () => clearTimeout(timer);
+    }
+  }, [alertStatus, handleAlertStatus]);
 
   // The base template for the alert
   const alertTemplate = (mount = true) => (
@@ -37,7 +44,6 @@ function RAAlert({ color, dismissible, children, ...rest }) {
     case alertStatus === "mount":
       return alertTemplate();
     case alertStatus === "fadeOut":
-      setTimeout(() => setAlertStatus("unmount"), 400);
       return alertTemplate(false);
     default:
       return null;
@@ -61,6 +67,7 @@ RAAlert.propTypes = {
     "dark",
   ]),
   dismissible: PropTypes.bool,
+  onClose: PropTypes.func,
   children: PropTypes.node.isRequired,
 };
 

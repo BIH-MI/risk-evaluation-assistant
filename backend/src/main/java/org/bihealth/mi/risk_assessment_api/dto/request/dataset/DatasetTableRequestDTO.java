@@ -15,8 +15,13 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DatasetTableRequestDTO {
-    private Integer id;
+    // Existing table ID when updating; omitted for new tables.
+    private Long id;
+
+    // Table name shown in the dataset schema.
     private String name;
+
+    // Column definitions nested under this table.
     private List<DatasetTableAttributeRequestDTO> attributes;
 
     /**

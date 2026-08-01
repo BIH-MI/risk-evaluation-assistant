@@ -16,8 +16,11 @@ import org.springframework.security.oauth2.jwt.Jwt;
 
 /**
  * REST controller for managing entity locks.
+ *
  * This provides a simple optimistic locking mechanism to prevent two users from
- * editing the same entity simultaneously in the UI.
+ * editing the same entity simultaneously in the UI. Locks are keyed by entity
+ * type and entity ID rather than by table-specific endpoints, so the same API
+ * can protect datasets, recipients, configurations, and activities.
  */
 @RestController
 @RequestMapping("/api/locks")
@@ -40,11 +43,12 @@ public class EntityLockController {
             @PathVariable String id,
             JwtAuthenticationToken token
     ) {
-        // We no longer need the JWT expiration time.
-        // As long as the user is authenticated, they can take/refresh the lock.
         String username = SecurityUtils.getUsername(token);
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
 
-        lockService.acquireLock(type, id, username);
+        // The service enforces ownership of existing locks. Admins are passed
+        // through so they can override lock behavior where supported.
+        lockService.acquireLock(type, id, username, isAdmin);
         return ResponseEntity.ok().build();
     }
 
@@ -63,7 +67,11 @@ public class EntityLockController {
             JwtAuthenticationToken token
     ) {
         String username = SecurityUtils.getUsername(token);
-        lockService.releaseLock(entityType.toUpperCase(), entityId, username);
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
+
+        // Stored lock types are normalized to uppercase. Accepting any case in
+        // the path keeps the frontend routes simple.
+        lockService.releaseLock(entityType.toUpperCase(), entityId, username, isAdmin);
         return ResponseEntity.ok().build();
     }
 
@@ -96,6 +104,8 @@ public class EntityLockController {
             @PathVariable("type") String entityType,
             @RequestBody List<String> ids
     ) {
+        // Batch lookup lets list views decorate many rows with lock state in one
+        // request instead of issuing one GET per row.
         return lockService.findAllLocks().stream()
                 .filter(lock -> lock.getEntityType().equalsIgnoreCase(entityType)
                         && ids.contains(lock.getEntityId()))
@@ -103,7 +113,7 @@ public class EntityLockController {
                         "entityType", lock.getEntityType(),
                         "entityId", lock.getEntityId(),
                         "lockedBy", lock.getUsername(),
-                            "lockedAt", lock.getLockedAt(),
+                        "lockedAt", lock.getLockedAt(),
                         "expiresAt", lock.getExpiresAt()
                 ))
                 .collect(Collectors.toList());

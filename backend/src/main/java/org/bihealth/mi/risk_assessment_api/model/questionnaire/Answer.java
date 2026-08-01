@@ -2,51 +2,53 @@ package org.bihealth.mi.risk_assessment_api.model.questionnaire;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.bihealth.mi.risk_assessment_api.enums.AnswerOption;
 import org.bihealth.mi.risk_assessment_api.model.assessment.BaseAssessment;
 
 /**
  * Represents a single answer provided for a question within an assessment.
  * This is a unified entity for answers from all assessment types.
+ *
+ * <p>The selected option supplies the raw score and high-risk trigger flag used
+ * when the assessment is evaluated.</p>
  */
 @Getter
 @Setter
+@NoArgsConstructor
 @Entity
 @Table(name = "answers")
-@NoArgsConstructor
 public class Answer {
+
+    // Database primary key for this answer.
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id", updatable = false, nullable = false)
-    private Integer id;
+    @Column(name = "id", nullable = false)
+    private Long id;
 
+    // Owning dataset or recipient assessment.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assessment_id", nullable = false)
     @JsonBackReference
     private BaseAssessment assessment;
 
+    // Question being answered.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "question_id", nullable = false)
     private Question question;
 
-    @Column(name = "answer", nullable = false)
-    @Enumerated(EnumType.STRING)
-    @NotNull
-    private AnswerOption answer;
+    // Selected option for the question. It must belong to the linked question.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "selected_option_id", nullable = false)
+    private QuestionOption selectedOption;
 
     /**
-     * The constructor that was missing.
-     * @param assessment The parent assessment.
-     * @param question The question being answered.
-     * @param answer The selected answer option.
+     * Convenience constructor used when converting request DTOs into answers.
      */
-    public Answer(BaseAssessment assessment, Question question, AnswerOption answer) {
+    public Answer(BaseAssessment assessment, Question question, QuestionOption selectedOption) {
         this.assessment = assessment;
         this.question = question;
-        this.answer = answer;
+        this.selectedOption = selectedOption;
     }
 }

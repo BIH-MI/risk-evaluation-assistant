@@ -1,14 +1,26 @@
 package org.bihealth.mi.risk_assessment_api.model.questionnaire;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
-import org.bihealth.mi.risk_assessment_api.enums.MeasureType;
-import org.bihealth.mi.risk_assessment_api.enums.QuestionType;
+import org.bihealth.mi.risk_assessment_api.model.configuration.RiskCategory;
+import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
- * Represents a single question in the risk assessment questionnaire.
+ * Questionnaire question owned by a risk configuration.
+ *
+ * <p>Questions are attached to risk categories. When an assessment is evaluated,
+ * the selected option score is multiplied by {@code weight} and added to the
+ * owning category's raw score.</p>
  */
 @Getter
 @Setter
@@ -16,33 +28,74 @@ import org.bihealth.mi.risk_assessment_api.enums.QuestionType;
 @Table(name = "questions")
 public class Question {
 
+    // Database primary key for this question.
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
-    private Integer id;
+    private Long id;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "type", nullable = false)
-    @NotNull
-    private QuestionType type;
+    // Owning framework configuration.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "configuration_id", nullable = false)
+    @JsonBackReference
+    private Configuration configuration;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "measure_type", nullable = false)
-    @NotNull
-    private MeasureType measureType;
+    // Category that receives this question's weighted score.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id", nullable = false)
+    @JsonIgnore
+    private RiskCategory category;
 
+    // Temporary JSON/input field used before ConfigLoader resolves categoryCode
+    // to the actual RiskCategory entity.
+    @Transient
+    private String categoryCode;
+
+    // Default display text.
     @Column(name = "text", length = 1024, nullable = false)
     @NotNull
     private String text;
 
-    @Column(name = "weight_yes", nullable = false)
-    private double weightYes;
+    // Optional translated display text keyed by language code.
+    @ElementCollection
+    @CollectionTable(name = "question_text_translations", joinColumns = @JoinColumn(name = "question_id"))
+    @MapKeyColumn(name = "language_code", length = 10)
+    @Column(name = "translated_text", length = 1024)
+    private Map<String, String> textTranslations = new HashMap<>();
 
-    @Column(name = "weight_no", nullable = false)
-    private double weightNo;
+    // Marks whether assessment forms should require an answer.
+    @Column(name = "is_required", nullable = false)
+    private boolean isRequired = true;
 
-    @Column(name = "weight_na", nullable = false)
-    private double weightNa;
+    // Optional controlling option code for conditional display.
+    @Column(name = "depends_on_option_code")
+    private String dependsOnOptionCode;
 
-    @Column(name = "risk_weight", nullable = false)
-    private double riskWeight;
+    // Multiplier applied to the selected option score.
+    @Column(name = "weight", nullable = false)
+    private double weight;
+
+    // Selectable answer options owned by this question.
+    @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
+    private List<QuestionOption> options = new ArrayList<>();
+
+    /**
+     * Adds an option while maintaining both sides of the JPA relationship.
+     */
+    public void addOption(QuestionOption option) {
+        options.add(option);
+        option.setQuestion(this);
+    }
+
+    /**
+     * Returns the persisted category code when the category has been resolved,
+     * otherwise falls back to the transient code loaded from JSON/input.
+     */
+    public String getCategoryCode() {
+        if (this.category != null) {
+            return this.category.getCode();
+        }
+        return this.categoryCode;
+    }
 }

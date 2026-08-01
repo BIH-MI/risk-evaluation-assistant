@@ -17,9 +17,14 @@ import java.util.stream.Collectors;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DatasetTableAssessmentResponseDTO {
-    private Integer id;
+    // Table assessment ID.
+    private Long id;
+
+    // Underlying dataset table metadata.
     private String tableName;
-    private Integer tableId;
+    private Long tableId;
+
+    // Default attribute-level assessment values for this table.
     private List<DatasetTableAssessmentAttributeResponseDTO> attributes;
 
     /**

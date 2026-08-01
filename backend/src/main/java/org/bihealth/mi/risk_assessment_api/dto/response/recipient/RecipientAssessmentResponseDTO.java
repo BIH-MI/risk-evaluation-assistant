@@ -12,13 +12,22 @@ import java.util.stream.Collectors;
 
 /**
  * Represents a RecipientAssessment entity in a client-friendly format for API responses.
+ *
+ * <p>The DTO flattens recipient and configuration names next to the saved
+ * answers so detail screens can render without extra lookups.</p>
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class RecipientAssessmentResponseDTO {
-    private Integer id;
-    private Integer recipientId;
+    // Assessment, parent recipient, and configuration identity.
+    private Long id;
+    private Long recipientId;
+    private Long configurationId;
+    private String configurationName;
+    private Long configurationVersion;
+
+    // Recipient/assessment metadata shown in the UI.
     private String organization;
     private String name;
     private String contactName;
@@ -28,6 +37,8 @@ public class RecipientAssessmentResponseDTO {
     private String department;
     private String creatorUsername;
     private LocalDateTime creationDate;
+
+    // Saved recipient-side questionnaire answers.
     private List<AnswerResponseDTO> answers;
 
     /**
@@ -38,6 +49,8 @@ public class RecipientAssessmentResponseDTO {
     public RecipientAssessmentResponseDTO(RecipientAssessment entity) {
         this.id = entity.getId();
         this.recipientId = entity.getRecipient().getId();
+        this.configurationId = entity.getConfiguration().getId();
+        this.configurationName = entity.getConfiguration().getName();
         this.organization = entity.getRecipient().getOrganization();
         this.name = entity.getName();
         this.description = entity.getDescription();

@@ -24,28 +24,42 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * Service class for managing all business logic related to DataSharingActivity entities.
- * This includes creation, retrieval, updates, deletion, and authorization checks.
+ * Service for creating and managing DataSharingActivity aggregates.
+ *
+ * <p>An activity is the unit evaluated by the risk endpoint: it links a dataset
+ * assessment to a recipient assessment and may hold activity-specific overrides
+ * for table and attribute risk metadata.</p>
  */
 @Service
 @Transactional
 @RequiredArgsConstructor
 public class DataSharingActivityService {
 
+    // Root repository for activity records.
     private final DataSharingActivityRepository repository;
+
+    // Repositories used to resolve the assessment IDs referenced by activity requests.
     private final DatasetAssessmentRepository datasetAssessmentRepo;
     private final DatasetTableAssessmentRepository datasetTableAssessmentRepo;
     private final DatasetTableAssessmentAttributeRepository datasetTableAssessmentAttributeRepo;
     private final RecipientAssessmentRepository recipientAssessmentRepo;
 
     /**
-     * Finds all activities that a user can access, either as the creator or through sharing.
+     * Returns activities visible to a user.
      *
-     * @param username The username of the user.
-     * @return A list of DataSharingActivityResponseDTOs.
+     * <p>Admins receive all activities. Regular users receive the union of
+     * activities they created and activities explicitly shared with them.</p>
      */
     @Transactional(readOnly = true)
-    public List<DataSharingActivityResponseDTO> findActivitiesByUsername(String username) {
+    public List<DataSharingActivityResponseDTO> findActivitiesByUsername(String username, boolean isAdmin) {
+        if (isAdmin) {
+            return repository.findAll().stream()
+                    .map(DataSharingActivityResponseDTO::new)
+                    .collect(Collectors.toList());
+        }
+
+        // LinkedHashSet preserves repository iteration order while removing
+        // duplicates when the creator is also in sharedUsernames.
         Set<DataSharingActivity> combined = new LinkedHashSet<>(repository.findByCreatorUsername(username));
         combined.addAll(repository.findBySharedUsernamesContains(username));
         return combined.stream()
@@ -54,131 +68,115 @@ public class DataSharingActivityService {
     }
 
     /**
-     * Retrieves a single DataSharingActivity by its ID, ensuring the user has access.
-     *
-     * @param id       The ID of the activity to retrieve.
-     * @param username The username for the authorization check.
-     * @return A DataSharingActivityResponseDTO.
-     * @throws EntityNotFoundException if the activity is not found.
-     * @throws SecurityException       if the user does not have access.
+     * Loads one activity and verifies read access.
      */
     @Transactional(readOnly = true)
-    public DataSharingActivityResponseDTO getById(Integer id, String username) {
+    public DataSharingActivityResponseDTO getById(Long id, String username, boolean isAdmin) {
         DataSharingActivity act = repository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Activity not found: " + id));
-        if (!act.getCreatorUsername().equals(username)
-                && !act.getSharedUsernames().contains(username)) {
+
+        // Read access allows owner, explicitly shared users, and admins.
+        if (!isAdmin && !act.getCreatorUsername().equals(username) &&
+                (act.getSharedUsernames() == null || !act.getSharedUsernames().contains(username))) {
             throw new SecurityException("Access denied to activity: " + id);
         }
+
         return new DataSharingActivityResponseDTO(act);
     }
 
     /**
-     * Creates a new DataSharingActivity.
+     * Creates a new activity from existing dataset and recipient assessments.
      *
-     * @param dto      The DTO containing the request data.
-     * @param username The username of the creator.
-     * @return A DTO representing the newly created activity.
+     * <p>The DTO resolves IDs only; this service loads the actual assessment
+     * entities so the activity can be persisted as a valid aggregate.</p>
      */
-    public DataSharingActivityResponseDTO create(
-            DataSharingActivityRequestDTO dto,
-            String username
-    ) {
-        // load the two assessments
-        DatasetAssessment da = Optional.ofNullable(dto.getDatasetAssessmentId())
-                .flatMap(datasetAssessmentRepo::findById)
-                .orElse(null);
-        RecipientAssessment ra = Optional.ofNullable(dto.getRecipientAssessmentId())
-                .flatMap(recipientAssessmentRepo::findById)
-                .orElse(null);
+    public DataSharingActivityResponseDTO create(DataSharingActivityRequestDTO dto, String username, boolean isAdmin) {
+        DatasetAssessment da = datasetAssessmentRepo.findById(dto.getDatasetAssessmentId())
+                .orElseThrow(() -> new EntityNotFoundException("Dataset Assessment not found"));
 
-        // build the new entity (copies any DTO-supplied tableAssessments too)
-        DataSharingActivity act = dto.toEntity(username, da, ra, datasetTableAssessmentRepo, datasetTableAssessmentAttributeRepo);
+        RecipientAssessment ra = recipientAssessmentRepo.findById(dto.getRecipientAssessmentId())
+                .orElseThrow(() -> new EntityNotFoundException("Recipient Assessment not found"));
+
+        DataSharingActivity act = dto.toEntity(
+                username, da, ra, datasetTableAssessmentRepo, datasetTableAssessmentAttributeRepo
+        );
 
         DataSharingActivity saved = repository.save(act);
         return new DataSharingActivityResponseDTO(saved);
     }
 
     /**
-     * Updates an existing DataSharingActivity in-place.
-     * This method only allows updating scalar fields and does not permit adding or deleting
-     * nested table or attribute assessments.
+     * Updates activity metadata, linked assessments, and nested override rows.
      *
-     * @param id       The ID of the activity to update.
-     * @param dto      The DTO containing the new data.
-     * @param username The username for the authorization check.
-     * @return A DTO representing the updated activity.
-     * @throws EntityNotFoundException if the activity is not found.
-     * @throws SecurityException       if the user is not the owner.
-     * @throws IllegalArgumentException if the DTO attempts to add or remove nested items.
+     * <p>Only the creator or an admin can update. Shared users may read the
+     * activity but do not automatically gain edit rights here.</p>
      */
-    public DataSharingActivityResponseDTO update(
-            Integer id,
-            DataSharingActivityRequestDTO dto,
-            String username
-    ) {
-        // 1) Load existing activity and verify access
+    public DataSharingActivityResponseDTO update(Long id, DataSharingActivityRequestDTO dto, String username, boolean isAdmin) {
         DataSharingActivity existing = repository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Activity not found: " + id));
-        if (!existing.getCreatorUsername().equals(username)) {
+
+        // Mutations are owner-only unless the caller is an admin.
+        if (!isAdmin && !existing.getCreatorUsername().equals(username)) {
             throw new SecurityException("Not owner of activity: " + id);
         }
 
-        // 2) Update top-level fields
         existing.setName(dto.getName());
         existing.setDescription(dto.getDescription());
         existing.setSharedUsernames(dto.getSharedUsernames() != null ? dto.getSharedUsernames() : Collections.emptySet());
 
-        // Re-link parent assessments
         DatasetAssessment da = Optional.ofNullable(dto.getDatasetAssessmentId())
-                .flatMap(datasetAssessmentRepo::findById).orElse(null);
-        RecipientAssessment ra = Optional.ofNullable(dto.getRecipientAssessmentId())
-                .flatMap(recipientAssessmentRepo::findById).orElse(null);
-        existing.setDatasetAssessment(da);
-        existing.setRecipientAssessment(ra);
+                .flatMap(datasetAssessmentRepo::findById)
+                .orElse(existing.getDatasetAssessment());
 
-        // --- 3) Sync Table Assessments ---
-        // Create a map of existing table assessments for easy lookup.
-        Map<Integer, DataSharingActivityTableAssessment> existingTableAssessmentsMap =
+        RecipientAssessment ra = Optional.ofNullable(dto.getRecipientAssessmentId())
+                .flatMap(recipientAssessmentRepo::findById)
+                .orElse(existing.getRecipientAssessment());
+
+        if (da != null && ra != null) {
+            existing.setDatasetAssessment(da);
+            existing.setRecipientAssessment(ra);
+        }
+
+        // Sync table overrides by the referenced DatasetTableAssessment ID.
+        // Incoming rows are upserted; omitted rows are removed by replacing the collection.
+        Map<Long, DataSharingActivityTableAssessment> existingTableAssessmentsMap =
                 existing.getTableAssessments().stream()
                         .collect(Collectors.toMap(ta -> ta.getTable().getId(), Function.identity()));
 
-        // Use a list to track which assessments are processed from the DTO.
         List<DataSharingActivityTableAssessment> processedTableAssessments = new ArrayList<>();
 
         if (dto.getTableAssessments() != null) {
             for (DataSharingActivityTableAssessmentRequestDTO taDto : dto.getTableAssessments()) {
-                // Find an existing table assessment or create a new one.
                 DataSharingActivityTableAssessment tableAssessment =
                         existingTableAssessmentsMap.getOrDefault(taDto.getTableId(), new DataSharingActivityTableAssessment());
 
-                // Update or set its properties.
                 tableAssessment.setDataSharingActivity(existing);
                 tableAssessment.setTable(datasetTableAssessmentRepo.getReferenceById(taDto.getTableId()));
 
-                // Now, sync the attributes for this table assessment
                 syncAttributes(tableAssessment, taDto.getAttributes());
-
                 processedTableAssessments.add(tableAssessment);
             }
         }
 
-        // 4) Remove old table assessments that were not in the DTO and add the new/updated ones.
         existing.getTableAssessments().clear();
         existing.getTableAssessments().addAll(processedTableAssessments);
 
-        // 5) Save and return
         DataSharingActivity saved = repository.save(existing);
         return new DataSharingActivityResponseDTO(saved);
     }
 
+
     /**
-     * A helper method to synchronize the attributes of a table assessment.
+     * Synchronizes activity-specific attribute overrides for one table override.
+     *
+     * <p>Attributes are matched by the referenced default
+     * DatasetTableAssessmentAttribute ID. The final child collection mirrors the
+     * request exactly, so omitted override rows are removed.</p>
      */
     private void syncAttributes(DataSharingActivityTableAssessment tableAssessment,
                                 List<DataSharingActivityTableAttributeAssessmentRequestDTO> attributeDtos) {
 
-        Map<Integer, DataSharingActivityTableAssessmentAttribute> existingAttributesMap =
+        Map<Long, DataSharingActivityTableAssessmentAttribute> existingAttributesMap =
                 tableAssessment.getAttributes().stream()
                         .collect(Collectors.toMap(attr -> attr.getTableAssessmentAttribute().getId(), Function.identity()));
 
@@ -206,19 +204,17 @@ public class DataSharingActivityService {
     }
 
     /**
-     * Deletes a DataSharingActivity by its ID.
-     *
-     * @param id       The ID of the activity to delete.
-     * @param username The username for the ownership check.
-     * @throws EntityNotFoundException if the activity is not found.
-     * @throws SecurityException       if the user is not the owner.
+     * Deletes an activity when the caller is the creator or an admin.
      */
-    public void delete(Integer id, String username) {
+    public void delete(Long id, String username, boolean isAdmin) {
         DataSharingActivity act = repository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Activity not found: " + id));
-        if (!act.getCreatorUsername().equals(username)) {
+
+        // Mutations are owner-only unless the caller is an admin.
+        if (!isAdmin && !act.getCreatorUsername().equals(username)) {
             throw new SecurityException("Not owner of activity: " + id);
         }
+
         repository.delete(act);
     }
 }

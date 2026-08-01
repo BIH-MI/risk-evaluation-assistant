@@ -25,37 +25,33 @@ REA is implemented as a three-tier, containerized web application orchestrated w
 
 ## Configurations
 
-This section outlines the basic configurations available for the application. The system uses **Environment Files** to manage settings for different deployment targets. Before starting, ensure you have configured the appropriate file in the root directory:
+This section outlines the basic configurations available for the application. Docker Compose uses one environment file to configure Keycloak, Nginx, PostgreSQL, and the Spring Boot backend.
 
-- **`.env.local`**: For local development (Localhost).
-- **`.env.prod`**: For production environments (Server).
-
-⚠️ **IMPORTANT**: All the configurations outlined are provided as examples for demonstration and testing purposes. You must modify these values to match your specific infrastructure, security policies, and domain requirements before deploying to a live production environment.
+- **Local (`.env.local`)**: Uses `KC_REALM_FILE=realm-config-local.json` to import the localhost Keycloak realm and enables backend sample data through setup variables such as `APP_SETUP_LOAD_SAMPLE_DATA`.
+- **Production (`.env.prod`)**: Treat this file as a template. Before deployment, configure the production Keycloak realm and clients, users and roles, public URLs, secure credentials, TLS certificates, and Nginx reverse-proxy settings for your domain.
 
 ### 🔐 Keycloak
 
-Keycloak is pre-configured to import a specific realm configuration depending on your environment setting (`KC_REALM_FILE` in the `.env` file):
+Keycloak provides OpenID Connect authentication and authorization. The imported realm must define the clients and roles required by REA.
 
-- **Local:** Imports `./keycloak/realm-config-local.json` (Configured for `http://localhost`).
-- **Production:** Imports `./keycloak/realm-config.json` (Configured for `https://your-domain.com`).
+The repository also includes `rea-theme/`, a custom Keycloak login theme. Docker Compose mounts it into Keycloak, and the imported realm configures it as the login theme.
 
-These files define the **realm**, **clients**, **roles**, and some **demo users** for the application to function.
+#### Application Roles
+
+REA uses two application roles:
+
+- **Admin (`ROLE_ADMIN`)**: Can manage risk configurations and override normal access restrictions, including ownership, sharing, and locking rules.
+- **Simple user (`ROLE_USER`)**: Can work with assigned or shared datasets, recipients, assessments, and data-sharing activities, but cannot change global configurations or override other users' work.
 
 ### 🌱 Backend - Spring Boot
 
-Core backend parameters are stored in `src/main/resources/application.properties`. However, environment-specific values (Database credentials, Keycloak URLs, Proxy settings) are injected directly from your `.env.local` or `.env.prod` file via Docker Compose.
-
 #### Risk Logic Configuration
 
-On application startup, two loaders initialize the database to ensure the system is ready for use:
+On application startup, two loaders initialize the database:
 
-1. **ConfigLoader**: Imports the risk assessment logic from JSON files located in backend/src/main/resources/data/. This includes:
+1. **ConfigLoader**: Imports complete risk configuration objects from JSON files in `backend/src/main/resources/data/`. Each JSON file represents one framework and contains its categories, questions, options, risk bands, matrices, and re-identification thresholds.
 
-- **`questions.json`**: Defines the user assessment questions (e.g., "Invasion of Privacy", "Mitigating Controls") and their associated weights.
-- **`thresholds.json`** (Risk Bands): Defines the quantitative risk thresholds and labels (e.g. Low / Moderate / High).
-- **`matrix.json`**: Specifies the logic for calculating the probability of attack.
-
-2. **DataLoader**: Inserts sample data (demo users, fake patients, and example risk assessments) for testing purposes.
+2. **DataLoader**: Inserts backend sample data (fake patients, example recipients, and example risk assessments) for testing purposes.
 
 <br />
 
@@ -72,15 +68,23 @@ git clone https://github.com/BIH-MI/risk-evaluation-assistant.git
 cd risk-evaluation-assistant
 ```
 
-### 3. Run the Application
+### 3. Run the Application Locally
 
 ```bash
 # Start using the local environment file
 docker-compose --env-file .env.local up -d --build
-
-# Start using the production environment file
-docker-compose --env-file .env.prod up -d --build
 ```
+
+Once the containers are ready, open `http://localhost`.
+
+The local realm provides these demo accounts:
+
+| Role | Username | Password |
+| --- | --- | --- |
+| Admin | `admin` | `admin` |
+| Simple user | `user` | `password` |
+
+These credentials are for local development only. The full list of imported local users is defined in `keycloak/realm-config-local.json`.
 
 <br />
 <br />

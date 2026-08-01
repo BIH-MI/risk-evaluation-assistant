@@ -1,187 +1,195 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { useAuth } from 'react-oidc-context';
-import { useDispatch, useSelector } from 'react-redux';
-import { useTheme } from '@mui/material/styles';
+import React, { useEffect, useState, useMemo, useCallback } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "react-oidc-context";
+import { useDispatch, useSelector } from "react-redux";
+import { useTheme } from "@mui/material/styles";
+import { useTranslation } from "react-i18next";
 
-import DataTable from 'components/display/Tables/DataTable';
-import RADialog from 'components/feedback/RADialog';
-import RABox from 'components/layout/RABox';
-import RAAlert from 'components/feedback/RAAlert';
-import RATypography from 'components/display/RATypography';
+import DataTable from "components/display/Tables/DataTable";
+import RADialog from "components/feedback/RADialog";
+import RABox from "components/layout/RABox";
+import RAAlert from "components/feedback/RAAlert";
+import RATypography from "components/display/RATypography";
+import { isAdminUser } from "utils/auth";
 
-import getRecipientAssessmentsTableData from './getRecipientAssessmentsTableData';
+import getRecipientAssessmentsTableData from "./getRecipientAssessmentsTableData";
 import {
-    fetchRecipientAssessments,
-    deleteRecipientAssessment,
-} from 'store/recipientAssessments/recipientAssessmentsThunks';
+  fetchRecipientAssessments,
+  fetchRecipientAssessmentsByRecipientId,
+  deleteRecipientAssessment,
+} from "store/recipientAssessments/recipientAssessmentsThunks";
 import { useLockTracker } from "hooks/locks/useLockTracker";
 
 export default function RecipientAssessments() {
-    const { recipientId: rawId } = useParams();
-    const recipientId = rawId ? Number(rawId) : null;
-    const { user } = useAuth();
-    const token = user?.access_token;
-    const me = user?.profile?.preferred_username;
-    const dispatch = useDispatch();
-    const navigate = useNavigate();
-    const theme = useTheme();
+  const { recipientId: rawId } = useParams();
+  const recipientId = rawId ? Number(rawId) : null;
+  const { user } = useAuth();
+  const token = user?.access_token;
+  const me = user?.profile?.preferred_username;
 
-    // Redux data
-    const { items, status, error } = useSelector(
-        state => state.recipientAssessments
-    );
+  const isAdmin = isAdminUser(user);
 
-    // Local UI state
-    const [dialogOpen, setDialogOpen] = useState(false);
-    const [pending, setPending] = useState({ recipientId: null, assessmentId: null });
-    // lockError is local, but 'locks' map is now managed by the hook
-    const [lockError, setLockError] = useState(null);
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const theme = useTheme();
+  const { t } = useTranslation();
 
-    // Filter by context
-    const assessments = useMemo(
-        () =>
-            recipientId != null
-                ? items.filter(a => a.recipientId === recipientId)
-                : items,
-        [items, recipientId]
-    );
+  // Redux data (Extract error to display backend DB conflicts safely)
+  const {
+    items,
+    status,
+    error: errorMsg,
+  } = useSelector((state) => state.recipientAssessments);
 
-    // Fetch all assessments
-    useEffect(() => {
-        if (!token) return;
-        dispatch(fetchRecipientAssessments(token));
-    }, [dispatch, token]);
+  // Local UI state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [pending, setPending] = useState({
+    recipientId: null,
+    assessmentId: null,
+  });
+  const [lockError, setLockError] = useState(null);
 
-    // --- LOCK TRACKING ---
-    // Memoize IDs as strings for the hook
-    const assessmentIds = useMemo(() =>
-            assessments.map(a => String(a.id)),
-        [assessments]);
+  useEffect(() => {
+    if (!token) return;
+    if (recipientId != null) {
+      // Context-specific fetch
+      dispatch(fetchRecipientAssessmentsByRecipientId({ recipientId, token }));
+    } else {
+      // Global fetch
+      dispatch(fetchRecipientAssessments(token));
+    }
+  }, [dispatch, token, recipientId]);
 
-    // Use the hook
-    const { locks, getLockError } = useLockTracker("RECIPIENT_ASSESSMENT", assessmentIds);
+  const sortedAssessments = useMemo(() => {
+    if (!Array.isArray(items)) return [];
 
-    // Handlers
-    const handleEdit = useCallback((rId, aId) => {
-        // Use helper from hook to check lock status
-        const error = getLockError(aId, me);
-        if (error) {
-            setLockError(error);
-            return;
+    return [...items].sort((a, b) => {
+      // Sort by lastModifiedDate, fallback to creationDate
+      const dateA = new Date(a.lastModifiedDate || a.creationDate);
+      const dateB = new Date(b.lastModifiedDate || b.creationDate);
+      return dateB - dateA; // Newest first
+    });
+  }, [items]);
+
+  // --- LOCK TRACKING ---
+  const assessmentIds = useMemo(
+    () => sortedAssessments.map((a) => String(a.id)),
+    [sortedAssessments]
+  );
+
+  const { locks, getLockError } = useLockTracker(
+    "RECIPIENT_ASSESSMENT",
+    assessmentIds
+  );
+
+  // Handlers
+  const handleEdit = useCallback(
+    (rId, aId) => {
+      // 2. Bypass lock check if Admin
+      if (!isAdmin) {
+        const err = getLockError(aId, me);
+        if (err) {
+          setLockError(err);
+          return;
         }
+      }
 
-        setLockError(null);
-        const assessment = assessments.find(a => a.id === aId);
-        navigate(
-            `/recipients/${rId}/assessments/${aId}/edit`,
-            { state: { assessment } }
-        );
-    }, [getLockError, me, assessments, navigate]);
+      setLockError(null);
+      navigate(`/recipients/${rId}/assessments/${aId}/edit`);
+    },
+    [getLockError, me, navigate, isAdmin]
+  );
 
-    const handleDeleteRequest = useCallback((rId, aId) => {
-        setPending({ recipientId: rId, assessmentId: aId });
-        setDialogOpen(true);
-    }, []);
+  const handleDeleteRequest = useCallback((rId, aId) => {
+    setPending({ recipientId: rId, assessmentId: aId });
+    setDialogOpen(true);
+  }, []);
 
-    const handleDeleteConfirm = useCallback(() => {
-        const { recipientId, assessmentId } = pending;
-        if (token && recipientId != null && assessmentId != null) {
-            dispatch(deleteRecipientAssessment({ recipientId, assessmentId, token }));
-        }
-        setDialogOpen(false);
-        setPending({ recipientId: null, assessmentId: null });
-    }, [token, pending, dispatch]);
+  const handleDeleteConfirm = useCallback(() => {
+    const { recipientId, assessmentId } = pending;
+    if (token && recipientId != null && assessmentId != null) {
+      dispatch(deleteRecipientAssessment({ recipientId, assessmentId, token }));
+    }
+    setDialogOpen(false);
+    setPending({ recipientId: null, assessmentId: null });
+  }, [token, pending, dispatch]);
 
-    const handleDialogClose = useCallback(() => setDialogOpen(false), []);
+  const handleDialogClose = useCallback(() => setDialogOpen(false), []);
 
-    // Build table
-    const { columns, rows } = useMemo(() => getRecipientAssessmentsTableData(
-        assessments,
+  // Build table columns & rows
+  const { columns, rows } = useMemo(
+    () =>
+      getRecipientAssessmentsTableData(
+        sortedAssessments,
         handleEdit,
         handleDeleteRequest,
-        locks, // Pass locks from hook
-        me
-    ), [assessments, handleEdit, handleDeleteRequest, locks, me]);
+        locks,
+        me,
+        t,
+        isAdmin
+      ),
+    [sortedAssessments, handleEdit, handleDeleteRequest, locks, me, t, isAdmin]
+  );
 
-    return (
-        <RABox>
-            <RABox py={3} sx={{ '& .MuiTableRow-root': { height: 65 } }}>
-                <DataTable
-                    table={{ columns, rows }}
-                    canSearch
-                    showTotalEntries
-                    isSorted
-                    searchColumnKey="organization"
-                    searchPlaceholder="organization"
-                />
-            </RABox>
+  return (
+    <RABox>
+      <RABox py={3} sx={{ "& .MuiTableRow-root": { height: 65 } }}>
+        <DataTable
+          table={{ columns, rows }}
+          canSearch
+          showTotalEntries
+          isSorted
+          searchColumnKey="organization"
+          searchPlaceholder={t("recipientAssessments.list.searchPlaceholder")}
+        />
+      </RABox>
 
-            <RADialog
-                open={dialogOpen}
-                title="Confirm Deletion"
-                onClose={handleDialogClose}
-                onConfirm={handleDeleteConfirm}
-                cancelText="No, keep it"
-                confirmText="Yes, delete"
-            >
-                Are you sure you want to permanently delete this recipient assessment?
-            </RADialog>
+      <RADialog
+        open={dialogOpen}
+        title={t("recipientAssessments.list.confirmDeletionTitle")}
+        onClose={handleDialogClose}
+        onConfirm={handleDeleteConfirm}
+        cancelText={t("recipientAssessments.list.keepIt")}
+        confirmText={t("recipientAssessments.list.delete")}
+      >
+        {t("recipientAssessments.list.deleteWarning")}
+      </RADialog>
 
-            {/* Lock error alert */}
-            {lockError && (
-                <RABox
-                    sx={{
-                        position: 'fixed',
-                        bottom: theme.spacing(2),
-                        right: theme.spacing(2),
-                        zIndex: theme.zIndex.snackbar,
-                        width: 300,
-                    }}
-                >
-                    <RAAlert color="error" dismissible onClose={() => setLockError(null)}>
-                        <RATypography variant="body2" color="white">
-                            {lockError}
-                        </RATypography>
-                    </RAAlert>
-                </RABox>
-            )}
-
-            {/* Loading / fetch errors */}
-            {status === 'loading' && (
-                <RABox
-                    sx={{
-                        position: 'fixed',
-                        bottom: theme.spacing(2),
-                        right: theme.spacing(2),
-                        zIndex: theme.zIndex.snackbar,
-                        width: 300,
-                    }}
-                >
-                    <RAAlert color="info">
-                        <RATypography variant="body2" color="white">
-                            Loading recipient assessments…
-                        </RATypography>
-                    </RAAlert>
-                </RABox>
-            )}
-            {status === 'failed' && (
-                <RABox
-                    sx={{
-                        position: 'fixed',
-                        bottom: theme.spacing(2),
-                        right: theme.spacing(2),
-                        zIndex: theme.zIndex.snackbar,
-                        width: 300,
-                    }}
-                >
-                    <RAAlert color="error" dismissible>
-                        <RATypography variant="body2" color="white">
-                            Something went wrong. Please refresh page.
-                        </RATypography>
-                    </RAAlert>
-                </RABox>
-            )}
-        </RABox>
-    );
+      {/* Floating Alerts and Status messages */}
+      <RABox
+        sx={{
+          position: "fixed",
+          bottom: theme.spacing(2),
+          right: theme.spacing(2),
+          zIndex: theme.zIndex.snackbar,
+          width: 300,
+        }}
+      >
+        {lockError && (
+          <RAAlert color="error" dismissible onClose={() => setLockError(null)}>
+            <RATypography variant="body2" color="white">
+              {lockError}
+            </RATypography>
+          </RAAlert>
+        )}
+        {status === "loading" && (
+          <RAAlert color="info">
+            <RATypography variant="body2" color="white">
+              {t("recipientAssessments.list.loading")}
+            </RATypography>{" "}
+          </RAAlert>
+        )}
+        {status === "failed" && (
+          <RAAlert color="error" dismissible>
+            <RATypography variant="body2" color="white">
+              {/* 4. Use dynamic DB conflict error string if present */}
+              {typeof errorMsg === "string"
+                ? errorMsg
+                : t("recipientAssessments.list.error")}
+            </RATypography>
+          </RAAlert>
+        )}
+      </RABox>
+    </RABox>
+  );
 }

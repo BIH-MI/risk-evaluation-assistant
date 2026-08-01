@@ -154,8 +154,7 @@ export function ScaleCell({ initialValue, onCommit, disabled = false }) {
                     PaperProps: {
                       sx: {
                         padding: '0px',
-                        minWidth: 'unset !important', // 1. Remove the global min-width limit
-                        width: '105px', // 2. Match the input width
+                        minWidth: 'unset !important'
                       }
                     },
                     MenuListProps: {

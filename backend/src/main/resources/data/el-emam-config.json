@@ -1,0 +1,467 @@
+{
+  "name": "El Emam Risk Exposure Model",
+  "description": "Risk assessment split into Dataset Assessment (Data Risk) and Recipient Assessment (Context Risk). This config is a combination of El Emam questions and IPC method.",
+  "defaultLanguage": "en",
+  "riskCategories": [
+    {
+      "code": "IMPACT",
+      "name": "Impact",
+      "assessmentPhase": "DATASET_ASSESSMENT",
+      "riskEffect": "INCREASES_RISK",
+      "riskBands": [
+        { "label": "LOW", "rangeMinimum": 0.0, "rangeMaximum": 10.0 },
+        { "label": "MEDIUM", "rangeMinimum": 10, "rangeMaximum": 25.0 },
+        { "label": "HIGH", "rangeMinimum": 25, "rangeMaximum": 50.0 },
+        { "label": "MAX", "rangeMinimum": 50, "rangeMaximum": 100.0 }
+      ]
+    },
+    {
+      "code": "CONTROLS",
+      "name": "Controls",
+      "assessmentPhase": "RECIPIENT_ASSESSMENT",
+      "riskEffect": "DECREASES_RISK",
+      "riskBands": [
+        { "label": "NONE", "rangeMinimum": 0.0, "rangeMaximum": 5.0 },
+        { "label": "LOW", "rangeMinimum": 5, "rangeMaximum": 15.0 },
+        { "label": "MEDIUM", "rangeMinimum": 15, "rangeMaximum": 30.0 },
+        { "label": "HIGH", "rangeMinimum": 30, "rangeMaximum": 100.0 }
+      ]
+    },
+    {
+      "code": "LIKELIHOOD",
+      "name": "Likelihood",
+      "assessmentPhase": "RECIPIENT_ASSESSMENT",
+      "riskEffect": "INCREASES_RISK",
+      "riskBands": [
+        { "label": "LOW", "rangeMinimum": 0.0, "rangeMaximum": 10.0 },
+        { "label": "MEDIUM", "rangeMinimum": 10, "rangeMaximum": 30.0 },
+        { "label": "HIGH", "rangeMinimum": 30, "rangeMaximum": 50.0 },
+        { "label": "MAX", "rangeMinimum": 50, "rangeMaximum": 100.0 }
+      ]
+    }
+  ],
+  "questions": [
+    {
+      "categoryCode": "IMPACT",
+      "text": "The personal information is highly detailed",
+      "textTranslations": { "de": "Die personenbezogenen Daten sind sehr detailliert" },
+      "weight": 5.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "The database is large / many people would be affected if there was a breach",
+      "textTranslations": { "de": "Die Datenbank ist groß / bei einer Datenpanne wären viele Personen betroffen" },
+      "weight": 3.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "The information is of a highly sensitive personal nature",
+      "textTranslations": { "de": "Die Informationen sind von höchst sensibler, persönlicher Natur" },
+      "weight": 10.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "The information comes from a sensitive context",
+      "textTranslations": { "de": "Die Informationen stammen aus einem sensiblen Kontext" },
+      "weight": 5.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "The conditions that were established at the time the information was first collected are consistent with the intended purpose of the recipient",
+      "textTranslations": { "de": "Die zum Zeitpunkt der ursprünglichen Datenerhebung festgelegten Bedingungen stimmen mit dem beabsichtigten Zweck des Empfängers überein" },
+      "weight": 1.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "There is a commitment or promise not to disclose to any third party or institution",
+      "textTranslations": { "de": "Es gibt eine Verpflichtung oder Zusage, keine Daten an Dritte oder Institutionen weiterzugeben" },
+      "weight": 10.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "There is a caveat stating that information can be disclosed in a manner consistent with the original purpose for its collection",
+      "textTranslations": { "de": "Es gibt einen Vorbehalt, der besagt, dass Informationen in einer Weise offengelegt werden können, die mit dem ursprünglichen Zweck ihrer Erhebung vereinbar ist" },
+      "weight": 1.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "The information was compiled or obtained under guarantees that preclude some or all types of disclosure",
+      "textTranslations": { "de": "Die Informationen wurden unter Garantien zusammengestellt oder erlangt, die einige oder alle Arten der Offenlegung ausschließen" },
+      "weight": 10.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "The information was unsolicited or given freely or voluntarily with little expectation of it being maintained in total confidence",
+      "textTranslations": { "de": "Die Informationen wurden unaufgefordert, frei oder freiwillig mit geringer Erwartung an absolute Vertraulichkeit gegeben" },
+      "weight": 1.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "There is a risk in terms of the possible application of foreign laws",
+      "textTranslations": { "de": "Es besteht ein Risiko hinsichtlich der möglichen Anwendung ausländischer Gesetze" },
+      "weight": 3.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "IMPACT",
+      "text": "The potential injury to the patients in case of an inappropriate disclosure is grave or serious",
+      "textTranslations": { "de": "Der potenzielle Schaden für die Patienten im Falle einer unangemessenen Offenlegung ist gravierend oder schwerwiegend" },
+      "weight": 10.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "Access rights are only provided to users on a 'need to know' basis",
+      "textTranslations": { "de": "Zugriffsrechte werden den Benutzern nur nach dem 'Need-to-Know'-Prinzip erteilt" },
+      "weight": 10.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "The recipient has directly or indirectly worked/collaborated with the data custodian in the past",
+      "textTranslations": { "de": "Der Empfänger hat in der Vergangenheit direkt oder indirekt mit dem Datenverwalter zusammengearbeitet" },
+      "weight": 1.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "The data sharing agreement forbids the recipient from disclosing the database to third parties",
+      "textTranslations": { "de": "Die Datenaustauschvereinbarung verbietet dem Empfänger, die Datenbank an Dritte weiterzugeben" },
+      "weight": 10.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "The data sharing agreement is enforceable in all jurisdictions where the recipient will use the data",
+      "textTranslations": { "de": "Die Datenaustauschvereinbarung ist in allen Rechtsordnungen durchsetzbar, in denen der Empfänger die Daten verwenden wird" },
+      "weight": 3.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "The data sharing agreement will allow surprise audits of the recipient's record management system and practices",
+      "textTranslations": { "de": "Die Datenaustauschvereinbarung erlaubt unangekündigte Prüfungen des Aktenverwaltungssystems und der Praktiken des Empfängers" },
+      "weight": 5.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "The data sharing agreement stipulates that regular third party privacy and security audits need to be performed",
+      "textTranslations": { "de": "Die Datenaustauschvereinbarung schreibt vor, dass regelmäßige Datenschutz- und Sicherheitsprüfungen durch Dritte durchgeführt werden müssen" },
+      "weight": 5.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "The data sharing agreement imposes strong limits linking the database with other administrative or clinical data sources",
+      "textTranslations": { "de": "Die Datenaustauschvereinbarung legt strenge Grenzen für die Verknüpfung der Datenbank mit anderen administrativen oder klinischen Datenquellen fest" },
+      "weight": 10.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "The recipient has a written privacy policy",
+      "textTranslations": { "de": "Der Empfänger hat eine schriftliche Datenschutzrichtlinie" },
+      "weight": 3.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "There is a person responsible for privacy at the recipient's site",
+      "textTranslations": { "de": "Es gibt am Standort des Empfängers eine für den Datenschutz verantwortliche Person" },
+      "weight": 3.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "All members of the team on the recipient site have signed a confidentiality agreement",
+      "textTranslations": { "de": "Alle Teammitglieder am Standort des Empfängers haben eine Vertraulichkeitsvereinbarung unterzeichnet" },
+      "weight": 5.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "A threat and risk assessment has been completed on the recipient",
+      "textTranslations": { "de": "Eine Bedrohungs- und Risikobewertung wurde für den Empfänger durchgeführt" },
+      "weight": 10.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "Strong security procedures for the collection, transmission, storage and disposal of personal information have been documented",
+      "textTranslations": { "de": "Es wurden strenge Sicherheitsverfahren für die Erhebung, Übertragung, Speicherung und Entsorgung personenbezogener Daten dokumentiert" },
+      "weight": 5.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "IT & database staff are sufficiently trained in the requirements for protecting personal information",
+      "textTranslations": { "de": "Das IT- und Datenbankpersonal ist ausreichend in den Anforderungen zum Schutz personenbezogener Daten geschult" },
+      "weight": 5.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "Systems are designed so that access and changes to personal information can be audited by date and user authentication",
+      "textTranslations": { "de": "Die Systeme sind so konzipiert, dass Zugriff und Änderungen an personenbezogenen Daten nach Datum und Benutzerauthentifizierung geprüft werden können" },
+      "weight": 5.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "User accounts, access rights and security authorizations are fully controlled by a system or record management process",
+      "textTranslations": { "de": "Benutzerkonten, Zugriffsrechte und Sicherheitsberechtigungen werden vollständig durch ein System oder einen Aktenverwaltungsprozess kontrolliert" },
+      "weight": 5.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "The recipient has an adequate breach notification protocol in place and their staff are trained in its implementation",
+      "textTranslations": { "de": "Der Empfänger verfügt über ein angemessenes Protokoll zur Meldung von Datenschutzverletzungen und seine Mitarbeiter sind in dessen Umsetzung geschult" },
+      "weight": 3.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "Computer systems are housed in a physically secure environment",
+      "textTranslations": { "de": "Die Computersysteme sind in einer physisch sicheren Umgebung untergebracht" },
+      "weight": 5.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "There is no public access to areas where computers holding the data will be",
+      "textTranslations": { "de": "Es gibt keinen öffentlichen Zugang zu Bereichen, in denen sich die datenhaltenden Computer befinden" },
+      "weight": 10.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "CONTROLS",
+      "text": "The data will be destroyed once its purpose has been accomplished",
+      "textTranslations": { "de": "Die Daten werden vernichtet, sobald ihr Zweck erfüllt ist" },
+      "weight": 10.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "LIKELIHOOD",
+      "text": "The disclosed database has potential commercial or criminal value",
+      "textTranslations": { "de": "Die offengelegte Datenbank hat potenziellen kommerziellen oder kriminellen Wert" },
+      "weight": 10.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 5.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "LIKELIHOOD",
+      "text": "There is a likely non-commercial motive for the recipient to try to re-identify the disclosed database",
+      "textTranslations": { "de": "Es gibt ein wahrscheinliches nicht-kommerzielles Motiv für den Empfänger, zu versuchen, die offengelegte Datenbank zu reidentifizieren" },
+      "weight": 5.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 5.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "LIKELIHOOD",
+      "text": "The recipient has the technical expertise to attempt to re-identify the disclosed database",
+      "textTranslations": { "de": "Der Empfänger verfügt über die technische Expertise, um zu versuchen, die offengelegte Datenbank zu reidentifizieren" },
+      "weight": 10.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 5.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "LIKELIHOOD",
+      "text": "The recipient has the financial resources to attempt to re-identify the disclosed database",
+      "textTranslations": { "de": "Der Empfänger verfügt über die finanziellen Mittel, um zu versuchen, die offengelegte Datenbank zu reidentifizieren" },
+      "weight": 5.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 5.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "LIKELIHOOD",
+      "text": "The recipient may want to harm or embarrass the data custodian",
+      "textTranslations": { "de": "Der Empfänger könnte den Datenverwalter schädigen oder in Verlegenheit bringen wollen" },
+      "weight": 10.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    },
+    {
+      "categoryCode": "LIKELIHOOD",
+      "text": "If the recipient does have a possible motive, they can achieve their objectives through other means apart from re-identification",
+      "textTranslations": { "de": "Wenn der Empfänger ein mögliches Motiv hat, kann er seine Ziele auch durch andere Mittel als die Reidentifizierung erreichen" },
+      "weight": 1.0,
+      "options": [
+        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 5.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+      ]
+    }
+  ],
+  "riskMatrices": [
+    { "conditions": { "CONTROLS": "HIGH", "LIKELIHOOD": "LOW" }, "contextRisk": 0.05 },
+    { "conditions": { "CONTROLS": "HIGH", "LIKELIHOOD": "MEDIUM" }, "contextRisk": 0.10 },
+    { "conditions": { "CONTROLS": "HIGH", "LIKELIHOOD": "HIGH" }, "contextRisk": 0.20 },
+    { "conditions": { "CONTROLS": "HIGH", "LIKELIHOOD": "MAX" }, "contextRisk": 0.40 },
+    { "conditions": { "CONTROLS": "MEDIUM", "LIKELIHOOD": "LOW" }, "contextRisk": 0.20 },
+    { "conditions": { "CONTROLS": "MEDIUM", "LIKELIHOOD": "MEDIUM" }, "contextRisk": 0.30 },
+    { "conditions": { "CONTROLS": "MEDIUM", "LIKELIHOOD": "HIGH" }, "contextRisk": 0.40 },
+    { "conditions": { "CONTROLS": "MEDIUM", "LIKELIHOOD": "MAX" }, "contextRisk": 0.60 },
+    { "conditions": { "CONTROLS": "LOW", "LIKELIHOOD": "LOW" }, "contextRisk": 0.40 },
+    { "conditions": { "CONTROLS": "LOW", "LIKELIHOOD": "MEDIUM" }, "contextRisk": 0.50 },
+    { "conditions": { "CONTROLS": "LOW", "LIKELIHOOD": "HIGH" }, "contextRisk": 0.60 },
+    { "conditions": { "CONTROLS": "LOW", "LIKELIHOOD": "MAX" }, "contextRisk": 0.80 },
+    { "conditions": { "CONTROLS": "NONE", "LIKELIHOOD": "LOW" }, "contextRisk": 0.60 },
+    { "conditions": { "CONTROLS": "NONE", "LIKELIHOOD": "MEDIUM" }, "contextRisk": 0.80 },
+    { "conditions": { "CONTROLS": "NONE", "LIKELIHOOD": "HIGH" }, "contextRisk": 0.90 },
+    { "conditions": { "CONTROLS": "NONE", "LIKELIHOOD": "MAX" }, "contextRisk": 1.00 }
+  ],
+  "reidThresholds": [
+    { "riskClassification": "LOW", "thresholdValue": 0.10 },
+    { "riskClassification": "MEDIUM", "thresholdValue": 0.075 },
+    { "riskClassification": "HIGH", "thresholdValue": 0.05 },
+    { "riskClassification": "MAX", "thresholdValue": 0.05 }
+  ],
+  "active": true,
+  "default": true
+}

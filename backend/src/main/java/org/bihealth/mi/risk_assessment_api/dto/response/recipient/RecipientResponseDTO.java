@@ -18,14 +18,21 @@ import java.util.stream.Collectors;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RecipientResponseDTO {
-    private Integer id;
+    // Recipient identity and audit metadata.
+    private Long id;
     private String creatorUsername;
     private LocalDateTime creationDate;
+
+    // Users with explicit access to this recipient.
     private Set<String> sharedUsernames;
+
+    // Recipient profile fields.
     private String name;
     private String description;
     private String organizationLink;
-    private List<Integer> assessmentIds;
+
+    // Linked assessment IDs for navigation/list views.
+    private List<Long> assessmentIds;
 
     /**
      * Constructor to map a Recipient entity to this DTO.

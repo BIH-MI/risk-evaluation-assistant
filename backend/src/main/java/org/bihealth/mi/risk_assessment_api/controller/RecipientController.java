@@ -6,6 +6,7 @@ import org.bihealth.mi.risk_assessment_api.dto.response.recipient.RecipientRespo
 import org.bihealth.mi.risk_assessment_api.dto.response.recipient.RecipientAssessmentResponseDTO;
 import org.bihealth.mi.risk_assessment_api.security.SecurityUtils;
 import org.bihealth.mi.risk_assessment_api.service.RecipientService;
+import org.bihealth.mi.risk_assessment_api.service.RecipientAssessmentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -17,36 +18,54 @@ import jakarta.persistence.EntityNotFoundException;
 import java.util.List;
 
 /**
- * REST controller for managing Recipients and their nested RecipientAssessments.
+ * REST controller for recipient resources and recipient-level assessments.
+ *
+ * <p>Recipients describe the party receiving data. Their assessments capture
+ * contextual controls, contractual controls, and likelihood factors that later
+ * contribute to the context-risk part of the REA calculation.</p>
  */
 @RestController
 @RequestMapping("/api/recipients")
 public class RecipientController {
 
     private final RecipientService recipientService;
+    private final RecipientAssessmentService recipientAssessmentService;
 
-    public RecipientController(RecipientService recipientService) {
+    /**
+     * Creates the controller with separate services for recipient metadata and
+     * recipient assessment workflows.
+     */
+    public RecipientController(RecipientService recipientService, RecipientAssessmentService recipientAssessmentService) {
         this.recipientService = recipientService;
+        this.recipientAssessmentService = recipientAssessmentService;
     }
 
     /**
-     * Retrieves all recipients visible to the authenticated user (owned or shared).
-     *
-     * @param token The JWT token of the authenticated user.
-     * @return A ResponseEntity containing a list of recipients.
+     * Returns all recipients visible to the authenticated user.
      */
     @GetMapping
     public ResponseEntity<List<RecipientResponseDTO>> getAllRecipients(JwtAuthenticationToken token) {
         String username = SecurityUtils.getUsername(token);
-        List<RecipientResponseDTO> dtos = recipientService.findRecipientsByUsername(username);
-        return ResponseEntity.ok(dtos);
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
+        return ResponseEntity.ok(recipientService.getAllRecipients(username, isAdmin));
     }
 
     /**
-     * Creates a new recipient.
-     *
-     * @param dto   The request body containing the details of the recipient to create.
-     * @param token The JWT token of the authenticated user.
+     * Returns one recipient by ID after service-layer access checks.
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<RecipientResponseDTO> getRecipientById(@PathVariable Long id, JwtAuthenticationToken token) {
+        String username = SecurityUtils.getUsername(token);
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
+        try {
+            return ResponseEntity.ok(recipientService.getRecipientById(id, username, isAdmin));
+        } catch (EntityNotFoundException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());
+        }
+    }
+
+    /**
+     * Creates a new recipient profile for the authenticated user.
      */
     @PostMapping
     public ResponseEntity<RecipientResponseDTO> createRecipient(
@@ -54,135 +73,127 @@ public class RecipientController {
             JwtAuthenticationToken token
     ) {
         String username = SecurityUtils.getUsername(token);
-        RecipientResponseDTO created = recipientService.addRecipient(dto, username);
-        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
+        return new ResponseEntity<>(recipientService.createRecipient(dto, username, isAdmin), HttpStatus.CREATED);
     }
 
     /**
-     * Updates an existing recipient.
-     *
-     * @param id    The ID of the recipient to update.
-     * @param dto   The request body with the updated recipient information.
-     * @param token The JWT token of the authenticated user.
-     * @return A ResponseEntity containing the updated recipient.
+     * Updates recipient profile metadata for a recipient the user can edit.
      */
     @PutMapping("/{id}")
     public ResponseEntity<RecipientResponseDTO> updateRecipient(
-            @PathVariable Integer id,
+            @PathVariable Long id,
             @Validated @RequestBody RecipientRequestDTO dto,
             JwtAuthenticationToken token
     ) {
         String username = SecurityUtils.getUsername(token);
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
         try {
-            RecipientResponseDTO updated = recipientService.updateRecipient(id, dto, username);
-            return ResponseEntity.ok(updated);
+            return ResponseEntity.ok(recipientService.updateRecipient(id, dto, username, isAdmin));
         } catch (EntityNotFoundException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());
         }
     }
 
     /**
-     * Deletes a recipient by its ID.
-     *
-     * @param id    The ID of the recipient to delete.
-     * @param token The JWT token of the authenticated user.
-     * @return A ResponseEntity with a 204 NO CONTENT status on successful deletion.
+     * Deletes a recipient when permitted by the service layer.
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteRecipient(
-            @PathVariable Integer id,
-            JwtAuthenticationToken token
-    ) {
+    public ResponseEntity<Void> deleteRecipient(@PathVariable Long id, JwtAuthenticationToken token) {
         String username = SecurityUtils.getUsername(token);
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
         try {
-            recipientService.deleteRecipient(id, username);
+            recipientService.deleteRecipient(id, username, isAdmin);
             return ResponseEntity.noContent().build();
         } catch (EntityNotFoundException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());
         }
     }
 
-    // ------------------------------------------------------------------------
-    // Recipient‐level assessments
-    // ------------------------------------------------------------------------
+    // --- RECIPIENT ASSESSMENT ENDPOINTS ---
 
     /**
-     * Retrieves all recipient assessments visible to the authenticated user.
+     * Returns all recipient assessments visible to the authenticated user,
+     * regardless of parent recipient.
      *
-     * @param token The JWT token of the authenticated user.
-     * @return A ResponseEntity containing a list of recipient assessments.
+     * <p>This route is declared before {@code /{recipientId}/assessments} so
+     * the literal {@code assessments} path segment is not treated as a recipient
+     * ID.</p>
      */
     @GetMapping("/assessments")
-    public ResponseEntity<List<RecipientAssessmentResponseDTO>> getAllAssessments(
-            JwtAuthenticationToken token
-    ) {
+    public ResponseEntity<List<RecipientAssessmentResponseDTO>> getAllAssessments(JwtAuthenticationToken token) {
         String username = SecurityUtils.getUsername(token);
-        List<RecipientAssessmentResponseDTO> dtos = recipientService.findAssessmentsByUsername(username);
-        return ResponseEntity.ok(dtos);
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
+        return ResponseEntity.ok(recipientAssessmentService.getAllAssessments(username, isAdmin));
     }
 
     /**
-     * Adds a new assessment for a specific recipient.
-     *
-     * @param recipientId The ID of the parent recipient.
-     * @param dto         The request body containing the assessment details.
-     * @param token       The JWT token of the authenticated user.
-     * @return A ResponseEntity containing the newly created assessment with a 201 CREATED status.
+     * Returns all assessments attached to a specific recipient.
      */
-    @PostMapping("/{recipientId}/assessments")
-    public ResponseEntity<RecipientAssessmentResponseDTO> createAssessment(
-            @PathVariable Integer recipientId,
-            @Validated @RequestBody RecipientAssessmentRequestDTO dto,
+    @GetMapping("/{recipientId}/assessments")
+    public ResponseEntity<List<RecipientAssessmentResponseDTO>> getAssessmentsByRecipientId(
+            @PathVariable Long recipientId,
             JwtAuthenticationToken token
     ) {
         String username = SecurityUtils.getUsername(token);
-        RecipientAssessmentResponseDTO created = recipientService.addAssessment(recipientId, dto, username);
-        return ResponseEntity.status(HttpStatus.CREATED).body(created);
-    }
-
-    /**
-     * Updates an existing recipient assessment.
-     *
-     * @param recipientId  The ID of the parent recipient.
-     * @param assessmentId The ID of the assessment to update.
-     * @param dto          The request body with the updated assessment information.
-     * @param token        The JWT token of the authenticated user.
-     * @return A ResponseEntity containing the updated assessment.
-     */
-    @PutMapping("/{recipientId}/assessments/{assessmentId}")
-    public ResponseEntity<RecipientAssessmentResponseDTO> updateAssessment(
-            @PathVariable Integer recipientId,
-            @PathVariable Integer assessmentId,
-            @Validated @RequestBody RecipientAssessmentRequestDTO dto,
-            JwtAuthenticationToken token
-    ) {
-        String username = SecurityUtils.getUsername(token);
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
         try {
-            RecipientAssessmentResponseDTO updated = recipientService.updateAssessment(
-                    recipientId, assessmentId, dto, username);
-            return ResponseEntity.ok(updated);
+            return ResponseEntity.ok(recipientAssessmentService.getAssessmentsByRecipientId(recipientId, username, isAdmin));
         } catch (EntityNotFoundException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());
         }
     }
 
     /**
-     * Deletes a recipient assessment by its ID.
-     *
-     * @param recipientId  The ID of the parent recipient.
-     * @param assessmentId The ID of the assessment to delete.
-     * @param token        The JWT token of the authenticated user.
-     * @return A ResponseEntity with a 204 NO CONTENT status on successful deletion.
+     * Creates a framework-specific assessment for a recipient.
      */
-    @DeleteMapping("/{recipientId}/assessments/{assessmentId}")
-    public ResponseEntity<Void> deleteAssessment(
-            @PathVariable Integer recipientId,
-            @PathVariable Integer assessmentId,
+    @PostMapping("/{recipientId}/assessments")
+    public ResponseEntity<RecipientAssessmentResponseDTO> createAssessment(
+            @PathVariable Long recipientId,
+            @Validated @RequestBody RecipientAssessmentRequestDTO dto,
             JwtAuthenticationToken token
     ) {
         String username = SecurityUtils.getUsername(token);
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
         try {
-            recipientService.deleteAssessment(recipientId, assessmentId, username);
+            return new ResponseEntity<>(recipientAssessmentService.createAssessment(recipientId, dto, username, isAdmin), HttpStatus.CREATED);
+        } catch (EntityNotFoundException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());
+        }
+    }
+
+    /**
+     * Replaces the answers and metadata for an existing recipient assessment.
+     */
+    @PutMapping("/{recipientId}/assessments/{assessmentId}")
+    public ResponseEntity<RecipientAssessmentResponseDTO> updateAssessment(
+            @PathVariable Long recipientId,
+            @PathVariable Long assessmentId,
+            @Validated @RequestBody RecipientAssessmentRequestDTO dto,
+            JwtAuthenticationToken token
+    ) {
+        String username = SecurityUtils.getUsername(token);
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
+        try {
+            return ResponseEntity.ok(recipientAssessmentService.updateAssessment(recipientId, assessmentId, dto, username, isAdmin));
+        } catch (EntityNotFoundException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());
+        }
+    }
+
+    /**
+     * Deletes one assessment from a recipient.
+     */
+    @DeleteMapping("/{recipientId}/assessments/{assessmentId}")
+    public ResponseEntity<Void> deleteAssessment(
+            @PathVariable Long recipientId,
+            @PathVariable Long assessmentId,
+            JwtAuthenticationToken token
+    ) {
+        String username = SecurityUtils.getUsername(token);
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
+        try {
+            recipientAssessmentService.deleteAssessment(recipientId, assessmentId, username, isAdmin);
             return ResponseEntity.noContent().build();
         } catch (EntityNotFoundException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());

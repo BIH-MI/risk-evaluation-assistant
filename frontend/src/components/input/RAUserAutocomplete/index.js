@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { Autocomplete, Chip, CircularProgress, TextField } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
@@ -11,8 +11,11 @@ import { useUsersApi } from 'api/users';
 export default function RAUserAutocomplete({
                                                value,
                                                onChange,
+                                               label,
                                                placeholder = 'Shared users',
                                                multiple = false,
+                                               disabled = false,
+                                               sx,
                                            }) {
     const theme = useTheme();
     const chipBg = theme.palette.mode === 'light'
@@ -36,7 +39,7 @@ export default function RAUserAutocomplete({
         : (value ?? null);
 
     // Helper to ensure selected values are always in the options list
-    const mergeValueIntoOptions = (apiOptions) => {
+    const mergeValueIntoOptions = useCallback((apiOptions) => {
         const currentValues = Array.isArray(valueRef.current)
             ? valueRef.current
             : (valueRef.current ? [valueRef.current] : []);
@@ -48,13 +51,12 @@ export default function RAUserAutocomplete({
             }
         });
         return merged;
-    };
+    }, []);
 
     // 1. Initialize options
     useEffect(() => {
         setOptions(mergeValueIntoOptions([]));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [mergeValueIntoOptions]);
 
     // 2. Debounced search
     useEffect(() => {
@@ -81,7 +83,7 @@ export default function RAUserAutocomplete({
         }, 500);
 
         return () => clearTimeout(debounceRef.current);
-    }, [inputValue, fetchUsers]);
+    }, [inputValue, fetchUsers, mergeValueIntoOptions]);
 
     return (
         <RABox mt={1} sx={{ width: "100%" }}>
@@ -105,12 +107,16 @@ export default function RAUserAutocomplete({
                                     {user.firstName} {user.lastName}
                                 </RATypography>
                             }
-                            onDelete={(event) => {
-                                const filtered = value.filter(
-                                    (u) => u.username !== user.username
-                                );
-                                onChange(event, filtered);
-                            }}
+                            onDelete={
+                                disabled
+                                    ? undefined
+                                    : (event) => {
+                                        const filtered = value.filter(
+                                            (u) => u.username !== user.username
+                                        );
+                                        onChange(event, filtered);
+                                    }
+                            }
                             sx={{
                                 backgroundColor: chipBg,
                                 color: chipColor,
@@ -128,6 +134,7 @@ export default function RAUserAutocomplete({
                 value={normalizedValue}
                 loading={loading}
                 inputValue={inputValue}
+                disabled={disabled}
                 onInputChange={(_, v) => setInputValue(v)}
                 onChange={(e, newVal) => onChange(e, newVal)}
                 filterOptions={(options) => {
@@ -141,7 +148,11 @@ export default function RAUserAutocomplete({
                 }}
 
                 isOptionEqualToValue={(opt, val) => opt.username === val.username}
-                getOptionLabel={(opt) => `${opt.firstName} ${opt.lastName}`}
+                getOptionLabel={(opt) =>
+                    [opt.firstName, opt.lastName].filter(Boolean).join(' ') ||
+                    opt.username ||
+                    ''
+                }
                 noOptionsText={
                     inputValue.length < 2
                         ? "Type at least 2 characters to search"
@@ -181,6 +192,7 @@ export default function RAUserAutocomplete({
                 renderInput={(params) => (
                     <TextField
                         {...params}
+                        label={label}
                         placeholder={placeholder}
                         InputProps={{
                             ...params.InputProps,
@@ -200,7 +212,7 @@ export default function RAUserAutocomplete({
                         padding: 0,
                     },
                 }}
-                sx={{ width: "100%" }}
+                sx={{ width: "100%", ...sx }}
             />
         </RABox>
     );
@@ -223,6 +235,9 @@ RAUserAutocomplete.propTypes = {
         PropTypes.oneOf([null]),
     ]),
     onChange: PropTypes.func.isRequired,
+    label: PropTypes.string,
     placeholder: PropTypes.string,
     multiple: PropTypes.bool,
+    disabled: PropTypes.bool,
+    sx: PropTypes.object,
 };

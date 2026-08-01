@@ -30,7 +30,7 @@ const OnBlurRAInput = forwardRef(function OnBlurRAInput(
 });
 
 OnBlurRAInput.propTypes = {
-    value: PropTypes.string,
+    value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     onCommit: PropTypes.func.isRequired,
 };
 

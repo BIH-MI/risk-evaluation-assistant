@@ -16,14 +16,25 @@ import org.bihealth.mi.risk_assessment_api.repository.assessment.dataset.Dataset
 @NoArgsConstructor
 @AllArgsConstructor
 public class DataSharingActivityTableAttributeAssessmentRequestDTO {
-    private int id;
-    private Integer attributeId;
+    // Existing activity-specific attribute assessment ID when updating.
+    private Long id;
+
+    // ID of the dataset attribute assessment being overridden.
+    private Long attributeId;
+
+    // Activity-specific S/R/A/D metric values.
     private int sensitivity;
     private int replicability;
     private int availability;
     private int distinguishability;
+
+    // Whether this column should be treated as a direct identifier in this activity.
     private Boolean directIdentifier;
 
+    /**
+     * Keeps the JSON property name aligned with frontend payloads that send
+     * {@code isDirectIdentifier}.
+     */
     @JsonProperty("isDirectIdentifier")
     public Boolean getDirectIdentifier() {
         return directIdentifier;

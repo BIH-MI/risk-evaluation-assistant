@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 // MUI Components
 import Divider from "@mui/material/Divider";
@@ -71,6 +72,7 @@ const useButtonStyles = ({ darkMode }) => ({
 
 function Configurator() {
   const [controller, dispatch] = useMaterialUIController();
+  const { t } = useTranslation();
   const {
     openConfigurator,
     fixedNavbar,
@@ -118,7 +120,8 @@ function Configurator() {
         px={3}
         py={2}
       >
-        <RATypography variant="h5">Dashboard Settings</RATypography>
+        {/* Translated Title */}
+        <RATypography variant="h5">{t("configurator.title")}</RATypography>
         <Icon
           onClick={close}
           sx={({ typography: { size }, palette: { dark, white } }) => ({
@@ -135,7 +138,9 @@ function Configurator() {
 
       {/* Sidebar Colors */}
       <RABox px={3} py={2}>
-        <RATypography variant="h6">Sidebar Color</RATypography>
+        <RATypography variant="h6">
+          {t("configurator.sidebarColor")}
+        </RATypography>
         <Grid container spacing={1} mt={1}>
           {SIDENAV_COLORS.map((color) => (
             <Grid item key={color}>
@@ -182,7 +187,9 @@ function Configurator() {
 
       {/* Sidebar Types */}
       <RABox px={3} py={2}>
-        <RATypography variant="h6">Sidebar Style</RATypography>
+        <RATypography variant="h6">
+          {t("configurator.sidebarStyle")}
+        </RATypography>
         <RABox display="flex" gap={2} mt={1}>
           <RAButton
             onClick={applyDarkSidenav}
@@ -194,7 +201,7 @@ function Configurator() {
                 : styles.normal
             }
           >
-            Dark
+            {t("configurator.dark")}
           </RAButton>
           <RAButton
             onClick={applyWhiteSidenav}
@@ -206,7 +213,7 @@ function Configurator() {
                 : styles.normal
             }
           >
-            White
+            {t("configurator.white")}
           </RAButton>
         </RABox>
       </RABox>
@@ -220,7 +227,9 @@ function Configurator() {
           justifyContent="space-between"
           alignItems="center"
         >
-          <RATypography variant="h6">Fixed Navbar</RATypography>
+          <RATypography variant="h6">
+            {t("configurator.fixedNavbar")}
+          </RATypography>
           <Switch checked={fixedNavbar} onChange={toggleFixedNavbar} />
         </RABox>
 
@@ -229,7 +238,9 @@ function Configurator() {
           justifyContent="space-between"
           alignItems="center"
         >
-          <RATypography variant="h6">Light / Dark Mode</RATypography>
+          <RATypography variant="h6">
+            {t("configurator.lightDarkMode")}
+          </RATypography>
           <Switch checked={darkMode} onChange={toggleDarkMode} />
         </RABox>
       </RABox>

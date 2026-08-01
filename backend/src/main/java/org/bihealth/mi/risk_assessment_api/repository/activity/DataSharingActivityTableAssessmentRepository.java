@@ -9,8 +9,6 @@ import java.util.List;
 
 @Repository
 public interface DataSharingActivityTableAssessmentRepository
-        extends JpaRepository<DataSharingActivityTableAssessment, Integer> {
-
-
-    List<DataSharingActivityTableAssessment> findByDataSharingActivityId(Integer dataSharingActivityId);
+        extends JpaRepository<DataSharingActivityTableAssessment, Long> {
+    List<DataSharingActivityTableAssessment> findByDataSharingActivityId(Long dataSharingActivityId);
 }

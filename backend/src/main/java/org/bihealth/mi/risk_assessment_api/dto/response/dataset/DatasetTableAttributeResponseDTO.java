@@ -14,9 +14,14 @@ import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTableAttribute;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DatasetTableAttributeResponseDTO {
-    private Integer id;
+    // DatasetTableAttribute ID.
+    private Long id;
+
+    // Column name and data type.
     private String name;
     private String dataType;
+
+    // Whether this column is excluded from relevant processing.
     private boolean excluded;
 
     /**

@@ -17,9 +17,16 @@ import java.util.stream.Collectors;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DataSharingActivityTableAssessmentResponseDTO {
-    private Integer id;
-    private Integer tableId;
+    // Activity-specific table assessment ID.
+    private Long id;
+
+    // DatasetTableAssessment ID this override is based on.
+    private Long tableId;
+
+    // Display name of the underlying dataset table.
     private String tableName;
+
+    // Activity-specific attribute overrides for this table.
     private List<DataSharingActivityTableAttributeAssessmentResponseDTO> attributes;
 
     /**

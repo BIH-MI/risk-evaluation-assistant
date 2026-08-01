@@ -1,0 +1,186 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+
+body {
+    margin: 0;
+    font-family: "Roboto", "Helvetica", "Arial", sans-serif;
+    color: #7b809a; /* text.main */
+    background-color: #f0f2f5; /* light.main fallback if video loads slowly */
+}
+
+/* =========================================
+   VIDEO BACKGROUND SETTINGS
+   ========================================= */
+.rea-video-bg {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    min-width: 100%;
+    min-height: 100%;
+    width: auto;
+    height: auto;
+    transform: translateX(-50%) translateY(-50%);
+    z-index: -2;
+    object-fit: cover;
+}
+
+.rea-video-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(255, 255, 255, 0.25); /* Subtle wash to contrast the card */
+    z-index: -1;
+}
+
+/* =========================================
+   LAYOUT & CARD SETTINGS (boxShadows.js)
+   ========================================= */
+.rea-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+    box-sizing: border-box;
+    position: relative;
+    z-index: 1;
+}
+
+.rea-header {
+    color: #344767; /* dark.main */
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    margin-bottom: 40px;
+    text-transform: uppercase;
+    text-align: center;
+}
+
+.rea-card {
+    background: #ffffff;
+    border-radius: 8px; /* borderRadius.lg */
+    /* Map to boxShadows.md */
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+    padding: 40px;
+    width: 100%;
+    max-width: 450px;
+    box-sizing: border-box;
+}
+
+/* =========================================
+   TYPOGRAPHY (typography.js)
+   ========================================= */
+.rea-title { 
+    font-size: 24px; /* h4 */
+    font-weight: 700; 
+    margin: 0 0 24px 0; 
+    color: #344767; /* dark.main */
+}
+
+.rea-label {
+    display: block;
+    font-size: 14px; /* fontSizeSM */
+    font-weight: 500; /* fontWeightMedium */
+    margin-bottom: 8px;
+    color: #344767; /* dark.main */
+}
+
+.rea-required { color: #F44335; } /* error.main */
+.rea-text-center { text-align: center; }
+
+/* =========================================
+   INPUTS (input.js & colors.js)
+   ========================================= */
+.rea-form-group { margin-bottom: 20px; }
+.rea-input-container { position: relative; display: flex; align-items: center; }
+
+.rea-input {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 14px; /* fontSizeSM */
+    font-family: inherit;
+    color: #344767; /* dark.main */
+    border: 1px solid #d2d6da; /* inputBorderColor */
+    border-radius: 6px; /* borderRadius.md */
+    box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    background: transparent;
+}
+
+.rea-input:hover { border-color: #344767; } /* dark.main */
+.rea-input:focus {
+    outline: none;
+    border-color: #1A73E8; /* info.main */
+    box-shadow: inset 0 0 0 1px #1A73E8;
+}
+
+.rea-icon-button {
+    position: absolute;
+    right: 8px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    color: #7b809a; /* text.main */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.rea-icon-button:hover { color: #344767; } /* dark.main */
+.rea-icon-button svg { width: 20px; height: 20px; fill: currentColor; }
+
+.rea-checkbox-container { display: flex; align-items: center; margin-bottom: 20px; }
+.rea-checkbox-container input[type="checkbox"] { width: 16px; height: 16px; margin: 0 8px 0 0; cursor: pointer; accent-color: #419593;}
+.rea-checkbox-container label { font-size: 14px; cursor: pointer; color: #344767; }
+
+/* =========================================
+   BUTTONS & LINKS
+   ========================================= */
+.rea-link { color: #419593; text-decoration: none; font-size: 14px; font-weight: 500; }
+.rea-link:hover { text-decoration: underline; color: #30716f; }
+
+.rea-button {
+    width: 100%;
+    padding: 10px 22px;
+    font-size: 14px;
+    font-weight: 600; /* fontWeightMedium */
+    text-transform: uppercase;
+    font-family: inherit;
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: center;
+    box-sizing: border-box;
+    transition: background-color 250ms, box-shadow 250ms;
+}
+
+.rea-button-primary {
+    background-color: #419593; /* primary.main */
+    color: #ffffff;
+    border: none;
+    /* Map to coloredShadows logic */
+    box-shadow: 0 4px 20px 0 rgba(0,0,0,0.14), 0 7px 10px -5px rgba(65, 149, 147, 0.4); 
+}
+.rea-button-primary:hover {
+    background-color: #367c7a; /* slightly darker primary */
+    box-shadow: 0 4px 20px 0 rgba(0,0,0,0.14), 0 7px 10px -5px rgba(65, 149, 147, 0.6);
+}
+
+.rea-button-outlined {
+    background-color: transparent;
+    color: #419593; /* primary.main */
+    border: 1px solid rgba(65, 149, 147, 0.5);
+    text-decoration: none;
+    display: block;
+}
+.rea-button-outlined:hover { 
+    background-color: rgba(65, 149, 147, 0.04); 
+    border: 1px solid #419593; 
+}
+
+/* =========================================
+   ALERTS & DIVIDERS
+   ========================================= */
+.rea-divider { border-top: 1px solid #dee2e6; margin: 24px 0; } /* grey.300 */
+
+.rea-alert { padding: 12px 16px; border-radius: 6px; margin-bottom: 24px; font-size: 14px; }
+.rea-alert-error { background-color: #fcd3d0; color: #f61200; border: 1px solid #fcd3d0; } /* badgeColors.error */
+.rea-alert-success { background-color: #bce2be; color: #339537; border: 1px solid #bce2be; } /* badgeColors.success */

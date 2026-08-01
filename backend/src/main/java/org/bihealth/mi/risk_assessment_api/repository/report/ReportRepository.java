@@ -6,7 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 import java.util.Optional;
 
-public interface ReportRepository extends JpaRepository<Report, Integer> {
+public interface ReportRepository extends JpaRepository<Report, Long> {
     List<Report> findByCreatorUsername(String creatorUsername);
-    Optional<Report> findTopByDataSharingActivityIdOrderByIdDesc(Integer activityId);
+    Optional<Report> findTopByDataSharingActivityIdOrderByIdDesc(Long activityId);
 }

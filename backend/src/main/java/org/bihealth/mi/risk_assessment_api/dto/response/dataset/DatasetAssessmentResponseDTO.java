@@ -18,13 +18,23 @@ import java.util.stream.Collectors;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DatasetAssessmentResponseDTO {
-    private Integer id;
-    private Integer datasetId;
+    // Assessment and parent dataset identity.
+    private Long id;
+    private Long datasetId;
     private String datasetName;
+
+    // Configuration used to interpret the answers.
+    private Long configurationId;
+    private String configurationName;
+    private Long configurationVersion;
+
+    // Assessment metadata.
     private String creatorUsername;
     private String name;
     private String description;
     private LocalDateTime creationDate;
+
+    // Answer and table-assessment details returned for edit/detail screens.
     private List<AnswerResponseDTO> answers;
     private List<DatasetTableAssessmentResponseDTO> tableAssessments;
 
@@ -37,6 +47,10 @@ public class DatasetAssessmentResponseDTO {
         this.id               = entity.getId();
         this.datasetId        = entity.getDataset().getId();
         this.datasetName      = entity.getDataset().getName();
+
+        this.configurationId      = entity.getConfiguration().getId();
+        this.configurationName    = entity.getConfiguration().getName();
+
         this.creatorUsername  = entity.getCreatorUsername();
         this.name             = entity.getName();
         this.description      = entity.getDescription();

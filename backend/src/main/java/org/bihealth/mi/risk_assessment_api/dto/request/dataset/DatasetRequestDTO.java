@@ -10,14 +10,24 @@ import java.util.List;
 
 /**
  * Represents the top-level request payload for creating or updating a Dataset.
+ *
+ * <p>The payload can include nested table and attribute definitions so the
+ * service can persist the dataset aggregate in one workflow.</p>
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class DatasetRequestDTO {
+    // User-facing dataset name.
     private String name;
+
+    // Optional dataset description.
     private String description;
+
+    // Additional users who should be able to access the dataset.
     private List<String> sharedUsernames;
+
+    // Tables and columns that make up the dataset schema.
     private List<DatasetTableRequestDTO> tables;
 
     /**
@@ -44,4 +54,3 @@ public class DatasetRequestDTO {
         return ds;
     }
 }
-

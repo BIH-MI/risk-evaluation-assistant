@@ -9,7 +9,7 @@ import java.util.List;
 
 @Repository
 public interface DataSharingActivityTableAssessmentAttributeRepository
-        extends JpaRepository<DataSharingActivityTableAssessmentAttribute, Integer> {
+        extends JpaRepository<DataSharingActivityTableAssessmentAttribute, Long> {
 
-    List<DataSharingActivityTableAssessmentAttribute> findByTableAssessmentId(Integer tableAssessmentId);
+    List<DataSharingActivityTableAssessmentAttribute> findByTableAssessmentId(Long tableAssessmentId);
 }

@@ -3,7 +3,7 @@ import boxShadows from "assets/theme/base/boxShadows";
 import colors from "assets/theme/base/colors";
 
 const { white } = colors;
-const { md, xl } = boxShadows;
+const { xl } = boxShadows;
 const { borderRadius } = borders;
 
 const tableContainer = {

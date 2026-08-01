@@ -26,7 +26,7 @@ RUN mvn ${MAVEN_OPTS} clean package -DskipTests
 # STAGE 2: RUNTIME (JRE Only)
 # =======================================================
 # Use a smaller image for the final container
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:17-jre-noble
 
 WORKDIR /app
 

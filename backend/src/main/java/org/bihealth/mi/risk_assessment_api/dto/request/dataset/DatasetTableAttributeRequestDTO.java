@@ -15,9 +15,16 @@ import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTableAttribute;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DatasetTableAttributeRequestDTO {
-    private Integer id;
+    // Existing attribute ID when updating; omitted for new columns.
+    private Long id;
+
+    // Column name as displayed in the dataset schema.
     private String name;
+
+    // DataType enum name submitted as a string by the frontend.
     private String dataType;
+
+    // Excluded columns remain in the schema but are ignored by relevant workflows.
     private Boolean excluded;
 
     /**

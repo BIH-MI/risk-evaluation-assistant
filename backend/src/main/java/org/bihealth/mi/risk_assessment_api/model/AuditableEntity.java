@@ -14,29 +14,50 @@ import java.time.LocalDateTime;
  */
 @Getter
 @Setter
-@MappedSuperclass // This is the key annotation
+@MappedSuperclass
 public abstract class AuditableEntity {
 
+    // Database primary key inherited by all auditable entities.
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", updatable = false, nullable = false)
-    private Integer id;
+    private Long id;
 
+    // Username of the user or seed process that created the record.
     @Column(name = "creator_username", nullable = false)
     @NotNull
     private String creatorUsername;
 
+    // Common display name used by datasets, recipients, configurations, etc.
     @Column(name = "name")
     private String name;
 
+    // Optional common description field for UI detail screens.
     @Column(name = "description")
     private String description;
 
+    // Set once when the entity is first persisted.
     @Column(name = "creation_date", nullable = false, updatable = false)
     private LocalDateTime creationDate;
 
+    // Updated whenever JPA flushes a modified entity.
+    @Column(name = "last_modified_date")
+    private LocalDateTime lastModifiedDate;
+
+    /**
+     * Initializes creation and modification timestamps before the first insert.
+     */
     @PrePersist
     protected void onCreate() {
         this.creationDate = LocalDateTime.now();
+        this.lastModifiedDate = LocalDateTime.now();
+    }
+
+    /**
+     * Refreshes the modification timestamp before updates.
+     */
+    @PreUpdate
+    protected void onUpdate() {
+        this.lastModifiedDate = LocalDateTime.now();
     }
 }

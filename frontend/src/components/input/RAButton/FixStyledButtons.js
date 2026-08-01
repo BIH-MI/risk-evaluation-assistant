@@ -9,9 +9,10 @@ import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import AssignmentIcon from "@mui/icons-material/Assignment";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy"; // Import copy icon
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import AltRouteIcon from "@mui/icons-material/AltRoute";
+import RemoveRedEyeIcon from "@mui/icons-material/RemoveRedEye";
 import { useMaterialUIController } from "context";
 
 // Hook that returns the inverse background key *and* its contrast text color
@@ -30,19 +31,19 @@ export const SaveIconButton = forwardRef(({ onClick, ...rest }, ref) => {
   const { bgColor, textColor } = useInverseThemeColors();
 
   return (
-      <RAButton
-          component="span"
-          ref={ref}
-          onClick={onClick}
-          iconOnly
-          aria-label="save"
-          variant="contained"
-          color={bgColor} // background
-          size="small"
-          {...rest}
-      >
-        <SaveIcon fontSize="small" sx={{ color: textColor }} />
-      </RAButton>
+    <RAButton
+      component="span"
+      ref={ref}
+      onClick={onClick}
+      iconOnly
+      aria-label="save"
+      variant="contained"
+      color={bgColor} // background
+      size="small"
+      {...rest}
+    >
+      <SaveIcon fontSize="small" sx={{ color: textColor }} />
+    </RAButton>
   );
 });
 
@@ -61,19 +62,19 @@ export const EditIconButton = forwardRef(({ onClick, ...rest }, ref) => {
   const { bgColor, textColor } = useInverseThemeColors();
 
   return (
-      <RAButton
-          component="span"
-          ref={ref}
-          onClick={onClick}
-          iconOnly
-          aria-label="edit"
-          variant="contained"
-          color={bgColor}
-          size="small"
-          {...rest}
-      >
-        <EditIcon fontSize="small" sx={{ color: textColor }} />
-      </RAButton>
+    <RAButton
+      component="span"
+      ref={ref}
+      onClick={onClick}
+      iconOnly
+      aria-label="edit"
+      variant="contained"
+      color={bgColor}
+      size="small"
+      {...rest}
+    >
+      <EditIcon fontSize="small" sx={{ color: textColor }} />
+    </RAButton>
   );
 });
 
@@ -92,19 +93,19 @@ export const CancelIconButton = forwardRef(({ onClick, ...rest }, ref) => {
   const { bgColor, textColor } = useInverseThemeColors();
 
   return (
-      <RAButton
-          component="span"
-          ref={ref}
-          onClick={onClick}
-          iconOnly
-          aria-label="cancel"
-          variant="contained"
-          color={bgColor}
-          size="small"
-          {...rest}
-      >
-        <CloseIcon fontSize="small" sx={{ color: textColor }} />
-      </RAButton>
+    <RAButton
+      component="span"
+      ref={ref}
+      onClick={onClick}
+      iconOnly
+      aria-label="cancel"
+      variant="contained"
+      color={bgColor}
+      size="small"
+      {...rest}
+    >
+      <CloseIcon fontSize="small" sx={{ color: textColor }} />
+    </RAButton>
   );
 });
 
@@ -123,19 +124,19 @@ export const AssessmentIconButton = forwardRef(({ onClick, ...rest }, ref) => {
   const { bgColor, textColor } = useInverseThemeColors();
 
   return (
-      <RAButton
-          component="span"
-          ref={ref}
-          onClick={onClick}
-          iconOnly
-          aria-label="assessment"
-          variant="contained"
-          color={bgColor}
-          size="small"
-          {...rest}
-      >
-        <AssessmentIcon fontSize="small" sx={{ color: textColor }} />
-      </RAButton>
+    <RAButton
+      component="span"
+      ref={ref}
+      onClick={onClick}
+      iconOnly
+      aria-label="assessment"
+      variant="contained"
+      color={bgColor}
+      size="small"
+      {...rest}
+    >
+      <AssessmentIcon fontSize="small" sx={{ color: textColor }} />
+    </RAButton>
   );
 });
 
@@ -154,19 +155,19 @@ export const CopyIconButton = forwardRef(({ onClick, ...rest }, ref) => {
   const { bgColor, textColor } = useInverseThemeColors();
 
   return (
-      <RAButton
-          component="span"
-          ref={ref}
-          onClick={onClick}
-          iconOnly
-          aria-label="copy"
-          variant="contained"
-          color={bgColor}
-          size="small"
-          {...rest}
-      >
-        <ContentCopyIcon fontSize="small" sx={{ color: textColor }} />
-      </RAButton>
+    <RAButton
+      component="span"
+      ref={ref}
+      onClick={onClick}
+      iconOnly
+      aria-label="copy"
+      variant="contained"
+      color={bgColor}
+      size="small"
+      {...rest}
+    >
+      <ContentCopyIcon fontSize="small" sx={{ color: textColor }} />
+    </RAButton>
   );
 });
 
@@ -177,24 +178,55 @@ CopyIconButton.defaultProps = {
   onClick: undefined,
 };
 
+/**
+ * A circular, icon‐only button for forking.
+ * Background is the inverse theme color; icon uses its contrastText.
+ */
+export const ForkIconButton = forwardRef(({ onClick, ...rest }, ref) => {
+  const { bgColor, textColor } = useInverseThemeColors();
+
+  return (
+    <RAButton
+      component="span"
+      ref={ref}
+      onClick={onClick}
+      iconOnly
+      aria-label="fork"
+      variant="contained"
+      color={bgColor}
+      size="small"
+      {...rest}
+    >
+      <AltRouteIcon fontSize="small" sx={{ color: textColor }} />
+    </RAButton>
+  );
+});
+
+ForkIconButton.propTypes = {
+  onClick: PropTypes.func,
+};
+ForkIconButton.defaultProps = {
+  onClick: undefined,
+};
+
 export const FloatingAddButton = forwardRef(({ onClick, ...rest }, ref) => {
   const [controller] = useMaterialUIController();
   const { sidenavColor } = controller;
 
   return (
-      <RAButton
-          ref={ref}
-          onClick={onClick}
-          iconOnly
-          aria-label="add"
-          variant="gradient"
-          color={sidenavColor} // matches your sidenav theme color
-          circular
-          size="medium"
-          {...rest}
-      >
-        <AddIcon fontSize="small" />
-      </RAButton>
+    <RAButton
+      ref={ref}
+      onClick={onClick}
+      iconOnly
+      aria-label="add"
+      variant="gradient"
+      color={sidenavColor} // matches your sidenav theme color
+      circular
+      size="medium"
+      {...rest}
+    >
+      <AddIcon fontSize="small" />
+    </RAButton>
   );
 });
 
@@ -206,50 +238,49 @@ FloatingAddButton.defaultProps = {
 };
 
 export const AddIconButton = forwardRef(({ onClick, ...rest }, ref) => {
-    const { bgColor, textColor } = useInverseThemeColors();
+  const { bgColor, textColor } = useInverseThemeColors();
 
-    return (
-        <RAButton
-            component="span"
-            ref={ref}
-            onClick={onClick}
-            iconOnly
-            aria-label="report"
-            variant="contained"
-            color={bgColor}
-            size="small"
-            {...rest}
-        >
-            <AddIcon fontSize="small" sx={{ color: textColor }} />
-        </RAButton>
-    );
+  return (
+    <RAButton
+      component="span"
+      ref={ref}
+      onClick={onClick}
+      iconOnly
+      aria-label="report"
+      variant="contained"
+      color={bgColor}
+      size="small"
+      {...rest}
+    >
+      <AddIcon fontSize="small" sx={{ color: textColor }} />
+    </RAButton>
+  );
 });
 
 AddIconButton.propTypes = {
-    onClick: PropTypes.func,
+  onClick: PropTypes.func,
 };
 AddIconButton.defaultProps = {
-    onClick: undefined,
+  onClick: undefined,
 };
-
 
 export const ReportIconButton = forwardRef(({ onClick, ...rest }, ref) => {
   const { bgColor, textColor } = useInverseThemeColors();
 
   return (
-      <RAButton
-          component="span"
-          ref={ref}
-          onClick={onClick}
-          iconOnly
-          aria-label="report"
-          variant="contained"
-          color={bgColor}
-          size="small"
-          {...rest}
-      >
-        <AssignmentIcon fontSize="small" sx={{ color: textColor }} />
-      </RAButton>
+    <RAButton
+      component="span"
+      ref={ref}
+      onClick={onClick}
+      iconOnly
+      aria-label="report"
+      variant="contained"
+      color={bgColor}
+      size="small"
+      {...rest}
+    >
+      <AssignmentIcon fontSize="small" sx={{ color: textColor }} />
+    </RAButton>
   );
 });
 
@@ -260,30 +291,60 @@ ReportIconButton.defaultProps = {
   onClick: undefined,
 };
 
-
 export const LinkIconButton = forwardRef(({ onClick, ...rest }, ref) => {
-    const { bgColor, textColor } = useInverseThemeColors();
+  const { bgColor, textColor } = useInverseThemeColors();
 
-    return (
-        <RAButton
-            component="span"
-            ref={ref}
-            onClick={onClick}
-            iconOnly
-            aria-label="report"
-            variant="contained"
-            color={bgColor}
-            size="small"
-            {...rest}
-        >
-            <OpenInNewIcon fontSize="small" sx={{ color: textColor }} />
-        </RAButton>
-    );
+  return (
+    <RAButton
+      component="span"
+      ref={ref}
+      onClick={onClick}
+      iconOnly
+      aria-label="report"
+      variant="contained"
+      color={bgColor}
+      size="small"
+      {...rest}
+    >
+      <OpenInNewIcon fontSize="small" sx={{ color: textColor }} />
+    </RAButton>
+  );
 });
 
 LinkIconButton.propTypes = {
-    onClick: PropTypes.func,
+  onClick: PropTypes.func,
 };
 LinkIconButton.defaultProps = {
-    onClick: undefined,
+  onClick: undefined,
+};
+
+/**
+ * A circular, icon-only button for viewing.
+ * Background is the inverse theme color; icon uses its contrastText.
+ */
+export const ViewIconButton = forwardRef(({ onClick, ...rest }, ref) => {
+  const { bgColor, textColor } = useInverseThemeColors();
+
+  return (
+    <RAButton
+      component="span"
+      ref={ref}
+      onClick={onClick}
+      iconOnly
+      aria-label="view"
+      variant="contained"
+      color={bgColor}
+      size="small"
+      {...rest}
+    >
+      <RemoveRedEyeIcon fontSize="small" sx={{ color: textColor }} />
+    </RAButton>
+  );
+});
+
+ViewIconButton.propTypes = {
+  onClick: PropTypes.func,
+};
+ViewIconButton.defaultProps = {
+  onClick: undefined,
 };

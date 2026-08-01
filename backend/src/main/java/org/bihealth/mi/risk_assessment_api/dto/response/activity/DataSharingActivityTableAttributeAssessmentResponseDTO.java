@@ -14,15 +14,27 @@ import org.bihealth.mi.risk_assessment_api.model.assessment.activity.DataSharing
 @NoArgsConstructor
 @AllArgsConstructor
 public class DataSharingActivityTableAttributeAssessmentResponseDTO {
-    private Integer id;
-    private Integer attributeId;
+    // Activity-specific attribute assessment ID.
+    private Long id;
+
+    // Underlying DatasetTableAttribute ID.
+    private Long attributeId;
+
+    // Column name.
     private String name;
+
+    // Activity-specific S/R/A/D metric values.
     private int sensitivity;
     private int replicability;
     private int availability;
     private int distinguishability;
+
+    // Direct identifier flag exposed as isDirectIdentifier in JSON.
     private Boolean directIdentifier;
 
+    /**
+     * Preserves the frontend-facing JSON property name {@code isDirectIdentifier}.
+     */
     @JsonProperty("isDirectIdentifier")
     public Boolean getDirectIdentifier() {
         return directIdentifier;

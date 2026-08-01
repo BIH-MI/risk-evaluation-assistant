@@ -1,5 +1,6 @@
 // api/users.js
 import { useAuth } from 'react-oidc-context';
+import { useCallback } from 'react';
 
 export function useUsersApi() {
     const { user } = useAuth();
@@ -9,7 +10,9 @@ export function useUsersApi() {
     /**
      * Search users by free-text
      */
-    async function fetchUsers(search) {
+    const fetchUsers = useCallback(async (search) => {
+        if (!token) throw new Error("Cannot fetch users without an access token");
+
         const res = await fetch(
             `${apiUrl}/api/users?search=${encodeURIComponent(search)}`,
             {
@@ -20,8 +23,6 @@ export function useUsersApi() {
             }
         );
         if (!res.ok) {
-            const text = await res.text();
-            console.error("[fetchUsers] error:", text.slice(0, 200));
             throw new Error(`Fetch users failed: ${res.status}`);
         }
         const data = await res.json();
@@ -33,12 +34,19 @@ export function useUsersApi() {
             // role:         u.role         ?? "",
             // organization: u.organization ?? "",
         }));
-    }
+    }, [apiUrl, token]);
 
     /**
      * Batch fetch users by exact usernames
      */
-    async function fetchUsersByUsernames(usernames) {
+    const fetchUsersByUsernames = useCallback(async (usernames) => {
+        if (!token) {
+            throw new Error("Cannot fetch users without an access token");
+        }
+        if (!Array.isArray(usernames) || usernames.length === 0) {
+            return [];
+        }
+
         const res = await fetch(
             `${apiUrl}/api/users/batch`,
             {
@@ -52,9 +60,7 @@ export function useUsersApi() {
             }
         );
         if (!res.ok) {
-            const text = await res.text();
-            console.error("[fetchUsersByUsernames] error:", text.slice(0, 200));
-            throw new Error(`Fetch users by usernames failed:å ${res.status}`);
+            throw new Error(`Fetch users by usernames failed: ${res.status}`);
         }
         const data = await res.json();
         return data.map(u => ({
@@ -65,7 +71,7 @@ export function useUsersApi() {
             // role:         u.role         ?? "",
             // organization: u.organization ?? "",
         }));
-    }
+    }, [apiUrl, token]);
 
     return { fetchUsers, fetchUsersByUsernames };
 }

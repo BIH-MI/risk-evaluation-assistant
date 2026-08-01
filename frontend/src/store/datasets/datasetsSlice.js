@@ -27,7 +27,7 @@ const datasetsSlice = createSlice({
       })
       .addCase(fetchDatasets.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.error.message;
+        state.error = action.payload || action.error.message;
       })
 
       // Handling the addDataset actions
@@ -41,7 +41,7 @@ const datasetsSlice = createSlice({
       })
       .addCase(addDataset.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.error.message;
+        state.error = action.payload || action.error.message;
       })
 
       // Handling the deleteDataset actions
@@ -57,7 +57,7 @@ const datasetsSlice = createSlice({
       })
       .addCase(deleteDataset.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.error.message;
+        state.error = action.payload || action.error.message;
       })
 
       // Handling the updateDataset actions
@@ -76,7 +76,7 @@ const datasetsSlice = createSlice({
       })
       .addCase(updateDataset.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.error.message;
+        state.error = action.payload || action.error.message;
       });
   },
 });

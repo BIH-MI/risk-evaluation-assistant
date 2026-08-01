@@ -13,15 +13,20 @@ import java.util.Optional;
 
 /**
  * Service for managing a simple optimistic locking mechanism for entities.
+ *
  * This helps prevent concurrent modifications from different users in the UI.
+ * Locks are intentionally generic: callers identify the protected record by
+ * entity type and entity ID, and the service handles refresh, expiration, and
+ * admin override behavior.
  */
 @Service
 public class EntityLockService {
 
+    // Repository for the lock table, which has a unique key on entity type + ID.
     @Autowired
     private EntityLockRepository repo;
 
-    // Configurable timeout: 30 minutes of inactivity
+    // Lock lease duration. Refreshing the same lock extends this window.
     private static final long LOCK_TIMEOUT_MINUTES = 30;
 
     /**
@@ -31,10 +36,12 @@ public class EntityLockService {
      * @param entityType The type of entity being locked (e.g., "dataset", "recipient").
      * @param entityId   The ID of the entity being locked.
      * @param username   The username of the user acquiring the lock.
+     * @param isAdmin    Whether the requesting user has admin privileges.
      * @throws IllegalStateException if another user holds a valid, unexpired lock.
      */
     @Transactional
-    public void acquireLock(String entityType, String entityId, String username) {        Instant now = Instant.now();
+    public void acquireLock(String entityType, String entityId, String username, boolean isAdmin) {
+        Instant now = Instant.now();
         Instant newExpiry = now.plus(LOCK_TIMEOUT_MINUTES, ChronoUnit.MINUTES);
 
         var optLock = repo.findByEntityTypeAndEntityId(entityType, entityId);
@@ -42,30 +49,34 @@ public class EntityLockService {
         if (optLock.isPresent()) {
             var existing = optLock.get();
 
-            // SCENARIO 1: The SAME user is returning (refreshing the lock)
-            // We allow this even if the lock technically "expired" in the DB but wasn't cleaned up yet,
-            // or if the user closed the browser and came back.
+            // Same user: refresh the lock lease and keep ownership unchanged.
             if (existing.getUsername().equals(username)) {
                 existing.setExpiresAt(newExpiry);
-                existing.setLockedAt(now); // Optional: update locked_at to show last activity
+                existing.setLockedAt(now);
                 repo.save(existing);
                 return;
             }
 
-            // SCENARIO 2: A DIFFERENT user wants the lock
-            // We only block if the lock is still valid (time hasn't run out)
+            // Different user with a still-valid lock: block regular users, but
+            // allow admins to take ownership.
             if (existing.getExpiresAt() != null && existing.getExpiresAt().isAfter(now)) {
-                throw new IllegalStateException(
-                        String.format("%s[%s] is locked by %s", entityType, entityId, existing.getUsername())
-                );
+                if (!isAdmin) {
+                    throw new IllegalStateException(
+                            String.format("%s[%s] is locked by %s", entityType, entityId, existing.getUsername())
+                    );
+                }
             }
 
-            // If we get here, the lock exists but is expired (and owned by someone else).
-            // We "steal" it by deleting the old one.
-            repo.delete(existing);
+            // Admin override or expired lock: update the existing row in place
+            // rather than delete/reinsert, avoiding unique-constraint races.
+            existing.setUsername(username);
+            existing.setLockedAt(now);
+            existing.setExpiresAt(newExpiry);
+            repo.save(existing);
+            return;
         }
 
-        // SCENARIO 3: No lock exists (or we just deleted the expired one)
+        // No lock exists yet for this entity.
         var lock = new EntityLock();
         lock.setEntityType(entityType);
         lock.setEntityId(entityId);
@@ -76,16 +87,18 @@ public class EntityLockService {
     }
 
     /**
-     * Releases a lock on an entity, but only if the requesting user is the one who holds it.
+     * Releases a lock on an entity. Admins can release any lock, regular users can only release their own.
      *
      * @param entityType The type of the entity.
      * @param entityId   The ID of the entity.
      * @param username   The user attempting to release the lock.
+     * @param isAdmin    Whether the requesting user has admin privileges.
      */
     @Transactional
-    public void releaseLock(String entityType, String entityId, String username) {
+    public void releaseLock(String entityType, String entityId, String username, boolean isAdmin) {
         repo.findByEntityTypeAndEntityId(entityType, entityId)
-                .filter(lock -> lock.getUsername().equals(username))
+                // Regular users can release only their own locks; admins can release any lock.
+                .filter(lock -> isAdmin || lock.getUsername().equals(username))
                 .ifPresent(repo::delete);
     }
 
@@ -98,6 +111,8 @@ public class EntityLockService {
      */
     @Transactional(readOnly = true)
     public Optional<String> whoHasLock(String entityType, String entityId) {
+        // This reports the current row as-is. Expired rows are removed by the
+        // scheduled cleanup job.
         return repo.findByEntityTypeAndEntityId(entityType, entityId)
                 .map(lock -> lock.getUsername());
     }
@@ -114,7 +129,7 @@ public class EntityLockService {
     /**
      * Cleans up locks that have been abandoned for longer than the timeout.
      */
-    @Scheduled(fixedRate = 60 * 1000) // Run every minute
+    @Scheduled(fixedRate = 60 * 1000)
     @Transactional
     public void cleanupExpiredLocks() {
         repo.deleteByExpiresAtBefore(Instant.now());

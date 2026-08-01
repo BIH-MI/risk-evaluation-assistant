@@ -28,7 +28,7 @@ REA is implemented as a three-tier, containerized web application orchestrated w
 This section outlines the basic configurations available for the application. Docker Compose uses one environment file to configure Keycloak, Nginx, PostgreSQL, and the Spring Boot backend.
 
 - **Local (`.env.local`)**: Uses `KC_REALM_FILE=realm-config-local.json` to import the localhost Keycloak realm and enables backend sample data through setup variables such as `APP_SETUP_LOAD_SAMPLE_DATA`.
-- **Production (`.env.prod`)**: Treat this file as a template. Before deployment, configure the production Keycloak realm and clients, users and roles, public URLs, secure credentials, TLS certificates, and Nginx reverse-proxy settings for your domain.
+- **Production (`.env.prod`)**: Treat this file as a template. Before deployment, configure the production Keycloak realm, TLS certificates, and Nginx reverse-proxy settings for your domain.
 
 ### 🔐 Keycloak
 
@@ -44,8 +44,6 @@ REA uses two application roles:
 - **Simple user (`ROLE_USER`)**: Can work with assigned or shared datasets, recipients, assessments, and data-sharing activities, but cannot change global configurations or override other users' work.
 
 ### 🌱 Backend - Spring Boot
-
-#### Risk Logic Configuration
 
 On application startup, two loaders initialize the database:
 

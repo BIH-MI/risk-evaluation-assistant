@@ -406,7 +406,7 @@ public class DataLoader implements CommandLineRunner {
                 entry("[d-03]", "not use"),
                 entry("[d-04]", "not used"),
                 entry("[d-05]", "not used"),
-                entry("[d-06]", "within +/- 365 days"),
+                entry("[d-06]", "within +/- 90 days"),
                 entry("[d-07]", "Only the year"),
                 entry("[d-08]", "not used"),
                 entry("[d-09]", "groups of 5"),
@@ -644,14 +644,14 @@ public class DataLoader implements CommandLineRunner {
                         entry("[cit-10]", "yes")
                 );
             } else if (recipient.getName().contains("Commercial")) {
-                // Moderate-risk commercial partner: compliant basics, fewer audit guarantees, and medium likelihood.
+                // Commercial partner: strong controls, but elevated likelihood because hospital-affiliated staff have EHR access.
                 answers = Map.ofEntries(
                         entry("[c-01]", "with adequate safeguards"),
                         entry("[c-02]", "no health-related"),
                         entry("[c-03]", "100 to 1.000"),
                         entry("[c-04]", "25 to 100"),
                         entry("[c-05]", "no"),
-                        entry("[c-06]", "not affiliated"),
+                        entry("[c-06]", "WITH access"),
                         entry("[c-07]", "no"),
                         entry("[cit-01]", "yes"),
                         entry("[cit-02]", "yes"),
@@ -771,7 +771,7 @@ public class DataLoader implements CommandLineRunner {
         DataSharingActivity act8 = new DataSharingActivity();
         act8.setCreatorUsername("user");
         act8.setName("LEOSS / HealthTech Solutions (SPHN)");
-        act8.setDescription("Commercial data sharing agreement evaluated under the SPHN framework, with standard organizational safeguards and moderate contextual exposure.");
+        act8.setDescription("Commercial data sharing agreement evaluated under the SPHN framework, with strong controls but elevated likelihood due to hospital-affiliated staff with EHR access.");
         act8.setDatasetAssessment(sphnDA);
         act8.setRecipientAssessment(sphnRAs.get(1));
         act8.setSharedUsernames(new HashSet<>(Set.of("max.mustermann", "sophie.becker")));

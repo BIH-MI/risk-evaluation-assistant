@@ -34,6 +34,7 @@ import { fetchRecipientAssessments } from "store/recipientAssessments/recipientA
 
 import { useUsersApi } from "api/users";
 import { useActiveLock } from "hooks/locks/useActiveLock";
+import { normalizeAttributeScaleValue } from "utils/AttributeScale";
 
 const selectSx = {
   "& .MuiOutlinedInput-root": { height: 56 },
@@ -129,11 +130,36 @@ export default function AddEditDataSharingActivity() {
           name: attr.name,
           isDirectIdentifier: isDI,
           isExcluded: isExcluded,
-          sensitivity: isDI || isExcluded ? null : attr.sensitivity ?? 2,
-          replicability: isDI || isExcluded ? null : attr.replicability ?? 2,
-          availability: isDI || isExcluded ? null : attr.availability ?? 2,
+          sensitivity:
+            isDI || isExcluded
+              ? null
+              : normalizeAttributeScaleValue(attr.sensitivity, "sensitivity", {
+                  allowNull: false,
+                }),
+          replicability:
+            isDI || isExcluded
+              ? null
+              : normalizeAttributeScaleValue(
+                  attr.replicability,
+                  "replicability",
+                  { allowNull: false }
+                ),
+          availability:
+            isDI || isExcluded
+              ? null
+              : normalizeAttributeScaleValue(
+                  attr.availability,
+                  "availability",
+                  { allowNull: false }
+                ),
           distinguishability:
-            isDI || isExcluded ? null : attr.distinguishability ?? 2,
+            isDI || isExcluded
+              ? null
+              : normalizeAttributeScaleValue(
+                  attr.distinguishability,
+                  "distinguishability",
+                  { allowNull: false }
+                ),
         };
       }),
     }));

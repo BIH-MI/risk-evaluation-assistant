@@ -27,7 +27,7 @@ export function CSVDropzone({
         complete: ({ data: rows, meta: { fields = [] } }) => {
           const columnMeta = fields.map((field) => {
             const vals = rows.map((r) => r[field]);
-            const { dataType } = detectMeasurement(vals);
+            const { dataType } = detectMeasurement(vals, field);
             return {
               field,
               level: dataType,

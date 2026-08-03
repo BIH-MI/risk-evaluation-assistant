@@ -427,7 +427,7 @@
     "riskFactorsBreakdown": "Risk Factors Breakdown",
     "attributeLevelAssessment": "Attribute-Level Risk Assessment",
     "identifiabilityThreshold": "Identifiability Threshold (1-9)",
-    "sensitivityThreshold": "Sensitivity Threshold (1-3)",
+    "sensitivityThreshold": "Sensitivity Threshold ({{scaleRange}})",
     "generatingPdf": "Generating PDF...",
     "downloadPdf": "Download PDF",
     "general": {

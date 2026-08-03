@@ -6,6 +6,10 @@ import Checkbox from "@mui/material/Checkbox";
 import RAInput from "../../components/input/RAInput";
 import { MemoScaleCell } from "../../components/display/Tables/DataTable/CustomDataTableComponents/RowComponents";
 import { Trans, useTranslation } from "react-i18next";
+import {
+  ATTRIBUTE_SCALE_RANGE_LABEL,
+  normalizeAttributeScaleValue,
+} from "utils/AttributeScale";
 
 export default function AttributeLevelAssessment({
   tableAssessments,
@@ -127,10 +131,24 @@ export default function AttributeLevelAssessment({
           };
         }
 
-        const r = attr.replicability ?? 0;
-        const a = attr.availability ?? 0;
-        const d = attr.distinguishability ?? 0;
-        const s = attr.sensitivity ?? 0;
+        const r = normalizeAttributeScaleValue(
+          attr.replicability,
+          "replicability",
+          { allowNull: false }
+        );
+        const a = normalizeAttributeScaleValue(
+          attr.availability,
+          "availability",
+          { allowNull: false }
+        );
+        const d = normalizeAttributeScaleValue(
+          attr.distinguishability,
+          "distinguishability",
+          { allowNull: false }
+        );
+        const s = normalizeAttributeScaleValue(attr.sensitivity, "sensitivity", {
+          allowNull: false,
+        });
         const totalScore = r + a + d;
 
         return {
@@ -172,9 +190,10 @@ export default function AttributeLevelAssessment({
           values={{
             identThreshold: identifiabilityThreshold,
             sensThreshold: sensitivityThreshold,
+            scaleRange: ATTRIBUTE_SCALE_RANGE_LABEL,
           }}
           components={{ strong: <strong /> }}
-          defaults="Each table's attributes are scored on replicability, availability, distinguishability, and sensitivity (1-3). An attribute is automatically marked as a Quasi-Identifier if the sum of its Replicability, Availability, and Distinguishability scores is greater than <strong>{{identThreshold}}</strong>. It is marked as a Sensitive Attribute if its Sensitivity score is greater than <strong>{{sensThreshold}}</strong>."
+          defaults="Each table's attributes are scored on replicability, availability, distinguishability, and sensitivity ({{scaleRange}}). An attribute is automatically marked as a Quasi-Identifier if the sum of its Replicability, Availability, and Distinguishability scores is greater than <strong>{{identThreshold}}</strong>. It is marked as a Sensitive Attribute if its Sensitivity score is greater than <strong>{{sensThreshold}}</strong>."
         />
       </RATypography>
 

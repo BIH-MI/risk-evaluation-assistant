@@ -84,6 +84,11 @@ The local realm provides these demo accounts:
 
 These credentials are for local development only. The full list of imported local users is defined in `keycloak/realm-config-local.json`.
 
+## Developer Guides
+
+- [Frontend guide](./frontend/README.md)
+- [Backend guide](./backend/README.md)
+
 <br />
 <br />
 

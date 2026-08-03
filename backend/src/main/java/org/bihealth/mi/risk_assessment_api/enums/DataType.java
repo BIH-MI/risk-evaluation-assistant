@@ -5,6 +5,7 @@ public enum DataType {
     DATE,
     DATETIME,
     DECIMAL,
+    GEOSPATIAL,
     INTEGER,
     STRING
 }

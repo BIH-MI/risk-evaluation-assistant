@@ -22,6 +22,13 @@ import GeneralInfo from "./GeneralInfo";
 
 import { calculateTotalRiskApi } from "../../api/risk";
 import { fetchConfiguration } from "store/configurations/configurationThunks";
+import {
+  ATTRIBUTE_SCALE_DEFAULTS,
+  ATTRIBUTE_SCALE_MAX,
+  ATTRIBUTE_SCALE_MIN,
+  ATTRIBUTE_SCALE_RANGE_LABEL,
+  normalizeAttributeScaleValue,
+} from "utils/AttributeScale";
 
 const pdfStyles = `
   .pdf-export-mode {
@@ -40,6 +47,41 @@ const pdfStyles = `
     display: table-header-group;
   }
 `;
+
+const normalizeReportAttributeScores = (attr) => {
+  const isDirectIdentifier = Boolean(attr.isDirectIdentifier);
+  const isExcluded = Boolean(attr.isExcluded);
+
+  return {
+    ...attr,
+    sensitivity:
+      isDirectIdentifier || isExcluded
+        ? null
+        : normalizeAttributeScaleValue(attr.sensitivity, "sensitivity", {
+            allowNull: false,
+          }),
+    replicability:
+      isDirectIdentifier || isExcluded
+        ? null
+        : normalizeAttributeScaleValue(attr.replicability, "replicability", {
+            allowNull: false,
+          }),
+    availability:
+      isDirectIdentifier || isExcluded
+        ? null
+        : normalizeAttributeScaleValue(attr.availability, "availability", {
+            allowNull: false,
+          }),
+    distinguishability:
+      isDirectIdentifier || isExcluded
+        ? null
+        : normalizeAttributeScaleValue(
+            attr.distinguishability,
+            "distinguishability",
+            { allowNull: false }
+          ),
+  };
+};
 
 const safeFileSegment = (value, fallback) => {
   const segment = String(value || fallback || "report")
@@ -129,24 +171,29 @@ export default function DataSharingReportPage() {
 
   const effectiveTables = useMemo(() => {
     if (activity?.tableAssessments && activity.tableAssessments.length > 0) {
-      return activity.tableAssessments;
+      return activity.tableAssessments.map((ta) => ({
+        ...ta,
+        attributes: (ta.attributes || []).map(normalizeReportAttributeScores),
+      }));
     }
     if (!dsAssessment?.tableAssessments) return [];
     return dsAssessment.tableAssessments.map((ta) => ({
       id: ta.tableId,
       tableId: ta.tableId,
       tableName: ta.tableName,
-      attributes: (ta.attributes || []).map((attr) => ({
-        id: attr.id ?? attr.attributeId,
-        attributeId: attr.attributeId ?? attr.id,
-        name: attr.name,
-        sensitivity: attr.sensitivity ?? 1,
-        replicability: attr.replicability ?? 1,
-        availability: attr.availability ?? 1,
-        distinguishability: attr.distinguishability ?? 1,
-        isDirectIdentifier: Boolean(attr.isDirectIdentifier),
-        isExcluded: Boolean(attr.isExcluded),
-      })),
+      attributes: (ta.attributes || []).map((attr) =>
+        normalizeReportAttributeScores({
+          id: attr.id ?? attr.attributeId,
+          attributeId: attr.attributeId ?? attr.id,
+          name: attr.name,
+          sensitivity: attr.sensitivity,
+          replicability: attr.replicability,
+          availability: attr.availability,
+          distinguishability: attr.distinguishability,
+          isDirectIdentifier: Boolean(attr.isDirectIdentifier),
+          isExcluded: Boolean(attr.isExcluded),
+        })
+      ),
     }));
   }, [activity?.tableAssessments, dsAssessment?.tableAssessments]);
 
@@ -154,7 +201,9 @@ export default function DataSharingReportPage() {
   const [manualRiskThreshold, setManualRiskThreshold] = useState("");
 
   const [identifiabilityThreshold, setIdentifiabilityThreshold] = useState("5");
-  const [sensitivityThreshold, setSensitivityThreshold] = useState("2");
+  const [sensitivityThreshold, setSensitivityThreshold] = useState(
+    String(ATTRIBUTE_SCALE_DEFAULTS.sensitivity)
+  );
 
   const [totalRiskResult, setTotalRiskResult] = useState(null);
   const [isComputing, setIsComputing] = useState(false);
@@ -421,9 +470,15 @@ export default function DataSharingReportPage() {
                 sx={{ maxWidth: 250 }}
               />
               <RAInput
-                label={t("report.sensitivityThreshold")}
+                label={t("report.sensitivityThreshold", {
+                  scaleRange: ATTRIBUTE_SCALE_RANGE_LABEL,
+                })}
                 type="number"
-                inputProps={{ min: 1, max: 3, step: 1 }}
+                inputProps={{
+                  min: ATTRIBUTE_SCALE_MIN,
+                  max: ATTRIBUTE_SCALE_MAX,
+                  step: 1,
+                }}
                 value={sensitivityThreshold}
                 onChange={(e) => {
                   const v = e.target.value;
@@ -431,7 +486,12 @@ export default function DataSharingReportPage() {
                   const num = parseInt(v, 10);
                   if (!isNaN(num))
                     setSensitivityThreshold(
-                      String(Math.max(1, Math.min(3, num)))
+                      String(
+                        Math.max(
+                          ATTRIBUTE_SCALE_MIN,
+                          Math.min(ATTRIBUTE_SCALE_MAX, num)
+                        )
+                      )
                     );
                 }}
                 fullWidth

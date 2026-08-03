@@ -3,6 +3,7 @@ export const DataType = {
     BOOLEAN:  "BOOLEAN",
     DATETIME: "DATETIME",
     DECIMAL:  "DECIMAL",
+    GEOSPATIAL: "GEOSPATIAL",
     INTEGER:  "INTEGER",
     STRING:   "STRING",
 };

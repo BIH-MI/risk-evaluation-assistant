@@ -4,6 +4,7 @@ import {
   MemoScaleCell,
   MemoCheckboxCell,
 } from "../RowComponents";
+import { getDefaultAttributeScaleMetrics } from "utils/AttributeScale";
 
 export function useDatasetAssessmentFormTableConfig(
   tables,
@@ -21,10 +22,7 @@ export function useDatasetAssessmentFormTableConfig(
         id: Date.now(),
         attributeId: Date.now(),
         name: "",
-        sensitivity: 1,
-        replicability: 1,
-        availability: 1,
-        distinguishability: 1,
+        ...getDefaultAttributeScaleMetrics(),
         isDirectIdentifier: false,
         isExcluded: false,
       };

@@ -7,16 +7,16 @@ import RABox from 'components/layout/RABox';
 import RATypography from 'components/display/RATypography';
 // DataType options
 import { DataTypeOptions } from 'utils/DataType';
-
-// Measurement icons
-import lowIcon from '../../../../../../assets/images/icons/measurements/low.png';
-import mediumIcon from '../../../../../../assets/images/icons/measurements/medium.png';
-import highIcon from '../../../../../../assets/images/icons/measurements/high.png';
+import {
+    ATTRIBUTE_SCALE_OPTIONS,
+    normalizeAttributeScaleValue,
+} from 'utils/AttributeScale';
 
 // DataType icons
 import booleanIcon from '../../../../../../assets/images/icons/datatypes/booleanIcon.png';
 import dateIcon from '../../../../../../assets/images/icons/datatypes/dateIcon.png';
 import decimalIcon from '../../../../../../assets/images/icons/datatypes/decimalIcon.png';
+import geolocationIcon from '../../../../../../assets/images/icons/datatypes/geolocationIcon.png';
 import integerIcon from '../../../../../../assets/images/icons/datatypes/integerIcon.png';
 import stringIcon from '../../../../../../assets/images/icons/datatypes/stringIcon.png';
 import Icon from '@mui/material/Icon';
@@ -94,19 +94,18 @@ export function NameCell({ initialValue, onCommit, disabled = false }) {
 }
 export const MemoNameCell = React.memo(NameCell);
 
-const LEVEL_ICON_MAP = { 1: lowIcon, 2: mediumIcon, 3: highIcon };
-const LEVEL_LABELS = { 1: 'Low', 2: 'Medium', 3: 'High' };
-
-const ScaleOption = React.memo(({ level }) => {
-    const label = LEVEL_LABELS[level] || '';
+const ScaleOption = React.memo(({ option }) => {
+    const label = option?.label || '';
     return (
         <RABox display="flex" alignItems="center" gap={1} width="10%">
-            <RABox
-                component="img"
-                src={LEVEL_ICON_MAP[level]}
-                alt={`level-${level}`}
-                sx={{ height: 20 }}
-            />
+            {option?.icon && (
+                <RABox
+                    component="img"
+                    src={option.icon}
+                    alt={label || `level-${option.value}`}
+                    sx={{ height: 20 }}
+                />
+            )}
             <RATypography variant="caption" fontWeight="medium" sx={{ textTransform: 'capitalize' }}>
                 {label}
             </RATypography>
@@ -115,16 +114,16 @@ const ScaleOption = React.memo(({ level }) => {
 });
 
 export function ScaleCell({ initialValue, onCommit, disabled = false }) {
-    const safe = [1,2,3].includes(initialValue) ? initialValue : initialValue == null ? null : 1;
+    const safe = normalizeAttributeScaleValue(initialValue);
     const [value, setValue] = useState(safe);
     const ref = useRef(null);
 
     useEffect(() => {
-        setValue([1,2,3].includes(initialValue) ? initialValue : initialValue == null ? null : 1);
+        setValue(normalizeAttributeScaleValue(initialValue));
     }, [initialValue]);
 
     const handleChange = useCallback(e => {
-        const next = Number(e.target.value);
+        const next = normalizeAttributeScaleValue(e.target.value, undefined, { allowNull: false });
         setValue(next);
         onCommit(next);
     }, [onCommit]);
@@ -168,9 +167,9 @@ export function ScaleCell({ initialValue, onCommit, disabled = false }) {
                   }
                 }}
             >
-                {[1,2,3].map(level => (
-                    <MenuItem key={level} value={level}>
-                        <ScaleOption level={level} />
+                {ATTRIBUTE_SCALE_OPTIONS.map(option => (
+                    <MenuItem key={option.value} value={option.value}>
+                        <ScaleOption option={option} />
                     </MenuItem>
                 ))}
             </RAInput>
@@ -219,6 +218,7 @@ const DATATYPE_ICON_MAP = {
     BOOLEAN: booleanIcon,
     DATETIME: dateIcon,
     DECIMAL: decimalIcon,
+    GEOSPATIAL: geolocationIcon,
     INTEGER: integerIcon,
     STRING: stringIcon,
 };

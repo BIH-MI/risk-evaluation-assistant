@@ -9,6 +9,9 @@ import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTableAttribute;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
+import static org.bihealth.mi.risk_assessment_api.utils.AttributeScale.MAX_VALUE;
+import static org.bihealth.mi.risk_assessment_api.utils.AttributeScale.MIN_VALUE;
+
 /**
  * Represents the assessed risk scores for a single attribute (column) within a DatasetTableAssessment.
  * This stores the "default" risk profile for a column.
@@ -46,19 +49,19 @@ public class DatasetTableAssessmentAttribute {
 
     // Metric values are nullable for direct identifiers where S/R/A/D scoring is not applicable.
     @Column(name = "sensitivity", nullable = true)
-    @Min(1) @Max(3)
+    @Min(MIN_VALUE) @Max(MAX_VALUE)
     private Integer sensitivity;
 
     @Column(name = "replicability", nullable = true)
-    @Min(1) @Max(3)
+    @Min(MIN_VALUE) @Max(MAX_VALUE)
     private Integer replicability;
 
     @Column(name = "availability", nullable = true)
-    @Min(1) @Max(3)
+    @Min(MIN_VALUE) @Max(MAX_VALUE)
     private Integer availability;
 
     @Column(name = "distinguishability", nullable = true)
-    @Min(1) @Max(3)
+    @Min(MIN_VALUE) @Max(MAX_VALUE)
     private Integer distinguishability;
 
     /**

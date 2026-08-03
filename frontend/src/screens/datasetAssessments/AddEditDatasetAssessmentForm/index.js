@@ -15,6 +15,10 @@ import PaginatedQuestionnaire from "components/input/RAQuestionnaire/PaginatedQu
 import OnBlurRAInput from "components/input/RAInput/OnBlurRAInput";
 import DatasetTablesAssessment from "components/display/Tables/DataTable/CustomDataTableComponents/DatasetTablesAssessment";
 import RAAlert from "components/feedback/RAAlert";
+import {
+  getDefaultAttributeScaleMetrics,
+  normalizeAttributeScaleValue,
+} from "utils/AttributeScale";
 
 import {
   addDatasetAssessment,
@@ -208,12 +212,34 @@ export default function AddEditDatasetAssessmentForm() {
                 id: asmAttr?.id ?? null,
                 name: attr.name,
                 attributeId: attr.id,
-                sensitivity: excluded ? null : asmAttr?.sensitivity ?? 2,
-                replicability: excluded ? null : asmAttr?.replicability ?? 2,
-                availability: excluded ? null : asmAttr?.availability ?? 2,
+                sensitivity: excluded
+                  ? null
+                  : normalizeAttributeScaleValue(
+                      asmAttr?.sensitivity,
+                      "sensitivity",
+                      { allowNull: false }
+                    ),
+                replicability: excluded
+                  ? null
+                  : normalizeAttributeScaleValue(
+                      asmAttr?.replicability,
+                      "replicability",
+                      { allowNull: false }
+                    ),
+                availability: excluded
+                  ? null
+                  : normalizeAttributeScaleValue(
+                      asmAttr?.availability,
+                      "availability",
+                      { allowNull: false }
+                    ),
                 distinguishability: excluded
                   ? null
-                  : asmAttr?.distinguishability ?? 2,
+                  : normalizeAttributeScaleValue(
+                      asmAttr?.distinguishability,
+                      "distinguishability",
+                      { allowNull: false }
+                    ),
                 isDirectIdentifier: excluded
                   ? null
                   : Boolean(asmAttr?.isDirectIdentifier),
@@ -233,10 +259,14 @@ export default function AddEditDatasetAssessmentForm() {
             id: null,
             name: attr.name,
             attributeId: attr.id,
-            sensitivity: attr.excluded ? null : 2,
-            replicability: attr.excluded ? null : 2,
-            availability: attr.excluded ? null : 2,
-            distinguishability: attr.excluded ? null : 2,
+            ...(attr.excluded
+              ? {
+                  sensitivity: null,
+                  replicability: null,
+                  availability: null,
+                  distinguishability: null,
+                }
+              : getDefaultAttributeScaleMetrics()),
             isDirectIdentifier: attr.excluded ? null : false,
             isExcluded: attr.excluded,
           })),

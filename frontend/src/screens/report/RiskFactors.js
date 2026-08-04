@@ -1,5 +1,4 @@
 import React from "react";
-import colors from "../../assets/theme/base/colors";
 import { Grid } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import RABox from "../../components/layout/RABox";
@@ -74,21 +73,22 @@ export default function RiskFactors({ totalRiskResult, dsConfig, rcConfig }) {
     return (
       <Grid item xs={12} md={4} key={catCode}>
         <RABox
-          border="1px solid #e0e0e0"
-          borderRadius="8px"
           p={3}
           height="100%"
-          bgcolor="#ffffff"
           display="flex"
           flexDirection="column"
-          boxShadow="0 2px 4px rgba(0,0,0,0.05)"
           gap={1}
+          sx={({ palette, boxShadows }) => ({
+            border: `1px solid ${palette.light.main}`,
+            borderRadius: "8px",
+            bgcolor: palette.background.card || palette.background.default,
+            boxShadow: boxShadows.sm,
+          })}
         >
           <RABox display="flex" justifyContent="center" alignItems="center">
             <RATypography
               variant="h6"
               fontWeight="bold"
-              sx={{ color: colors.dark.main }}
             >
               {categoryName}
             </RATypography>

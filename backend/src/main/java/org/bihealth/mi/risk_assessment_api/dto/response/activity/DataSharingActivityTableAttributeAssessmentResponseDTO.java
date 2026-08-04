@@ -20,8 +20,12 @@ public class DataSharingActivityTableAttributeAssessmentResponseDTO {
     // Underlying DatasetTableAttribute ID.
     private Long attributeId;
 
+    // DatasetTableAssessmentAttribute ID this activity override points to.
+    private Long tableAssessmentAttributeId;
+
     // Column name.
     private String name;
+    private String dataType;
 
     // Activity-specific S/R/A/D metric values.
     private int sensitivity;
@@ -50,7 +54,9 @@ public class DataSharingActivityTableAttributeAssessmentResponseDTO {
     ) {
         this.id = attr.getId();
         this.attributeId = attr.getTableAssessmentAttribute().getAttribute().getId();
+        this.tableAssessmentAttributeId = attr.getTableAssessmentAttribute().getId();
         this.name = attr.getTableAssessmentAttribute().getAttribute().getName();
+        this.dataType = attr.getTableAssessmentAttribute().getAttribute().getDataType().name();
         this.sensitivity = attr.getSensitivity();
         this.replicability = attr.getReplicability();
         this.availability = attr.getAvailability();

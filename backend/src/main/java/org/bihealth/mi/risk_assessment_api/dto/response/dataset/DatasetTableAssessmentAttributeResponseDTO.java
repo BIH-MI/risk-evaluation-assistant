@@ -20,6 +20,7 @@ public class DatasetTableAssessmentAttributeResponseDTO {
 
     // Column display name.
     private String name;
+    private String dataType;
 
     // Default direct identifier flag for this dataset assessment.
     private Boolean directIdentifier;
@@ -39,6 +40,7 @@ public class DatasetTableAssessmentAttributeResponseDTO {
         this.id                 = entity.getId();
         this.attributeId        = entity.getAttribute().getId();
         this.name               = entity.getAttribute().getName();
+        this.dataType           = entity.getAttribute().getDataType().name();
         this.directIdentifier   = entity.isDirectIdentifier();
         this.sensitivity        = entity.getSensitivity();
         this.replicability      = entity.getReplicability();

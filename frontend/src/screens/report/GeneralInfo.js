@@ -11,9 +11,10 @@ const InfoCard = ({ title, items }) => (
     sx={{
       p: 3,
       height: "100%",
-      border: "1px solid #e0e0e0",
+      border: ({ palette }) => `1px solid ${palette.light.main}`,
       borderRadius: 2,
-      bgcolor: "white",
+      bgcolor: ({ palette }) =>
+        palette.background.card || palette.background.default,
     }}
   >
     <RATypography variant="h5" fontWeight="bold" textAlign="center" mb={2}>

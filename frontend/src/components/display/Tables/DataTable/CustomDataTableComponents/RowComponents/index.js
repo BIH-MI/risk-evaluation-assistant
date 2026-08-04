@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { MenuItem, Checkbox, IconButton, InputAdornment } from '@mui/material';
+import { MenuItem, Checkbox, IconButton, InputAdornment, Tooltip } from '@mui/material';
 import { useMaterialUIController } from 'context';
 import { useTheme } from '@mui/material/styles';
 import RAInput from 'components/input/RAInput';
@@ -21,6 +21,46 @@ import integerIcon from '../../../../../../assets/images/icons/datatypes/integer
 import stringIcon from '../../../../../../assets/images/icons/datatypes/stringIcon.png';
 import Icon from '@mui/material/Icon';
 
+const DATATYPE_ICON_MAP = {
+    BOOLEAN: booleanIcon,
+    DATETIME: dateIcon,
+    DECIMAL: decimalIcon,
+    GEOSPATIAL: geolocationIcon,
+    INTEGER: integerIcon,
+    STRING: stringIcon,
+};
+
+const formatDataTypeLabel = (dataType) => {
+    if (!dataType) return '';
+    return String(dataType)
+        .toLowerCase()
+        .replace(/(^|[_\s-])\w/g, (match) => match.toUpperCase())
+        .replace(/[_-]/g, ' ');
+};
+
+const DataTypeTooltipContent = React.memo(({ dataType }) => {
+    const normalizedDataType = String(dataType || '').toUpperCase();
+    const label = formatDataTypeLabel(dataType);
+    const icon = DATATYPE_ICON_MAP[normalizedDataType];
+
+    if (!label) return '';
+
+    return (
+        <RABox display="flex" alignItems="center" gap={1}>
+            {icon && (
+                <RABox
+                    component="img"
+                    src={icon}
+                    alt={label}
+                    sx={{ width: 18, height: 18 }}
+                />
+            )}
+            <RATypography variant="caption" color="white" fontWeight="medium">
+                {label}
+            </RATypography>
+        </RABox>
+    );
+});
 
 // Shared styles
 const sxInput = {
@@ -72,12 +112,19 @@ const sxSelect = {
 /**
  * NameCell
  */
-export function NameCell({ initialValue, onCommit, disabled = false }) {
+export function NameCell({
+    initialValue,
+    onCommit = () => {},
+    disabled = false,
+    tooltip = '',
+    dataType = '',
+}) {
     const [text, setText] = useState(initialValue || '');
     const ref = useRef(null);
     useEffect(() => setText(initialValue || ''), [initialValue]);
+    const title = dataType ? <DataTypeTooltipContent dataType={dataType} /> : tooltip;
 
-    return (
+    const input = (
         <RAInput
             variant="outlined"
             size="small"
@@ -90,6 +137,18 @@ export function NameCell({ initialValue, onCommit, disabled = false }) {
             fullWidth
             sx={sxInput}
         />
+    );
+
+    if (!title) {
+        return input;
+    }
+
+    return (
+        <Tooltip title={title} arrow placement="top">
+            <RABox component="span" display="block" width="100%">
+                {input}
+            </RABox>
+        </Tooltip>
     );
 }
 export const MemoNameCell = React.memo(NameCell);
@@ -213,15 +272,6 @@ export function CheckboxCell({ initialValue, onCommit, disabled = false }) {
     );
 }
 export const MemoCheckboxCell = React.memo(CheckboxCell);
-
-const DATATYPE_ICON_MAP = {
-    BOOLEAN: booleanIcon,
-    DATETIME: dateIcon,
-    DECIMAL: decimalIcon,
-    GEOSPATIAL: geolocationIcon,
-    INTEGER: integerIcon,
-    STRING: stringIcon,
-};
 
 const IconLabel = React.memo(({ src, alt, label, textColor }) => (
     <RABox display="flex" alignItems="center" gap={1} sx={{ whiteSpace: 'nowrap', color: textColor, p: 0 }}>

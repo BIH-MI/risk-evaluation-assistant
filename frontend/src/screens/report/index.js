@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { useAuth } from "react-oidc-context";
 import { useDispatch, useSelector } from "react-redux";
 import { CircularProgress } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 
 import RABox from "../../components/layout/RABox";
@@ -22,6 +23,7 @@ import GeneralInfo from "./GeneralInfo";
 
 import { calculateTotalRiskApi } from "../../api/risk";
 import { fetchConfiguration } from "store/configurations/configurationThunks";
+import { useMaterialUIController } from "context";
 import {
   ATTRIBUTE_SCALE_DEFAULTS,
   ATTRIBUTE_SCALE_MAX,
@@ -98,6 +100,9 @@ export default function DataSharingReportPage() {
   const token = user?.access_token;
   const dispatch = useDispatch();
   const { t } = useTranslation();
+  const [controller] = useMaterialUIController();
+  const { darkMode } = controller;
+  const theme = useTheme();
 
   const reportContainerRef = useRef(null);
 
@@ -348,7 +353,15 @@ export default function DataSharingReportPage() {
       <div
         ref={reportContainerRef}
         className={isGeneratingPdf ? "pdf-export-mode" : ""}
-        style={{ backgroundColor: "white", padding: "20px" }}
+        style={{
+          backgroundColor: isGeneratingPdf
+            ? "white"
+            : darkMode
+            ? theme.palette.background.default
+            : theme.palette.white.main,
+          minHeight: "100vh",
+          padding: "20px",
+        }}
       >
         <RABox
           p={4}

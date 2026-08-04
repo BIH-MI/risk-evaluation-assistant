@@ -211,6 +211,7 @@ export default function AddEditDatasetAssessmentForm() {
               return {
                 id: asmAttr?.id ?? null,
                 name: attr.name,
+                dataType: attr.dataType,
                 attributeId: attr.id,
                 sensitivity: excluded
                   ? null
@@ -258,6 +259,7 @@ export default function AddEditDatasetAssessmentForm() {
           attributes: tbl.attributes.map((attr) => ({
             id: null,
             name: attr.name,
+            dataType: attr.dataType,
             attributeId: attr.id,
             ...(attr.excluded
               ? {

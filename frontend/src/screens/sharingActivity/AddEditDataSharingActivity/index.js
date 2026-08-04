@@ -113,21 +113,89 @@ export default function AddEditDataSharingActivity() {
 
   const { fetchUsersByUsernames } = useUsersApi();
 
-  const mapTablesToState = (sourceList) => {
+  const dataTypeByDatasetAttribute = useMemo(() => {
+    const map = new Map();
+    datasets.forEach((dataset) => {
+      (dataset.tables || []).forEach((table) => {
+        (table.attributes || []).forEach((attribute) => {
+          map.set(`${dataset.id}:${attribute.id}`, attribute.dataType);
+        });
+      });
+    });
+    return map;
+  }, [datasets]);
+
+  const tableAssessmentAttributeByDatasetAttribute = useMemo(() => {
+    const map = new Map();
+    allDatasetAssessments.forEach((assessment) => {
+      (assessment.tableAssessments || []).forEach((tableAssessment) => {
+        (tableAssessment.attributes || []).forEach((attribute) => {
+          if (attribute.attributeId != null && attribute.id != null) {
+            map.set(`${assessment.id}:${attribute.attributeId}`, attribute.id);
+          }
+        });
+      });
+    });
+    return map;
+  }, [allDatasetAssessments]);
+
+  const getDataTypeForAttribute = useCallback(
+    (sourceDatasetId, datasetAttributeId) => {
+      if (!sourceDatasetId || !datasetAttributeId) return "";
+      return dataTypeByDatasetAttribute.get(
+        `${sourceDatasetId}:${datasetAttributeId}`
+      ) || "";
+    },
+    [dataTypeByDatasetAttribute]
+  );
+
+  const getTableAssessmentAttributeId = useCallback(
+    (sourceDatasetAssessmentId, datasetAttributeId) => {
+      if (!sourceDatasetAssessmentId || !datasetAttributeId) return null;
+      return tableAssessmentAttributeByDatasetAttribute.get(
+        `${sourceDatasetAssessmentId}:${datasetAttributeId}`
+      ) || null;
+    },
+    [tableAssessmentAttributeByDatasetAttribute]
+  );
+
+  const mapTablesToState = useCallback((sourceList, sourceDatasetId, sourceDatasetAssessmentId, isActivityOverride = false) => {
     if (!sourceList) return [];
     return sourceList.map((ta) => ({
-      id: ta.id || null,
-      tableId: ta.tableId || ta.table?.id,
+      id: isActivityOverride ? ta.id || null : null,
+      tableId: isActivityOverride
+        ? ta.tableAssessmentId || ta.tableId || ta.table?.id
+        : ta.tableAssessmentId || ta.id || ta.tableId || ta.table?.id,
+      datasetTableId: isActivityOverride
+        ? ta.datasetTableId || ta.table?.table?.id
+        : ta.datasetTableId || ta.tableId || ta.table?.id,
       tableName: ta.tableName || ta.table?.name,
       attributes: (ta.attributes || []).map((attr) => {
-        const attrId = attr.tableAssessmentAttribute?.id || attr.id;
+        const datasetAttributeId =
+          attr.datasetAttributeId ||
+          attr.attributeId ||
+          attr.tableAssessmentAttribute?.attribute?.id ||
+          attr.attribute?.id;
+        const tableAssessmentAttributeId =
+          attr.tableAssessmentAttributeId ||
+          attr.tableAssessmentAttribute?.id ||
+          getTableAssessmentAttributeId(
+            sourceDatasetAssessmentId,
+            datasetAttributeId
+          ) ||
+          (isActivityOverride ? attr.id : null);
         const isDI = Boolean(attr.isDirectIdentifier);
         const isExcluded = Boolean(attr.isExcluded);
 
         return {
-          id: attr.id || null,
-          attributeId: attrId,
+          id: isActivityOverride ? attr.id || null : null,
+          attributeId: tableAssessmentAttributeId,
+          tableAssessmentAttributeId,
+          datasetAttributeId,
           name: attr.name,
+          dataType:
+            attr.dataType ||
+            getDataTypeForAttribute(sourceDatasetId, datasetAttributeId),
           isDirectIdentifier: isDI,
           isExcluded: isExcluded,
           sensitivity:
@@ -163,7 +231,7 @@ export default function AddEditDataSharingActivity() {
         };
       }),
     }));
-  };
+  }, [getDataTypeForAttribute, getTableAssessmentAttributeId]);
 
   // 1. Fetch Data
   useEffect(() => {
@@ -195,12 +263,19 @@ export default function AddEditDataSharingActivity() {
       setOverrideTables(hasOverrides);
 
       if (hasOverrides) {
-        setTables(mapTablesToState(existingActivity.tableAssessments));
+        setTables(
+          mapTablesToState(
+            existingActivity.tableAssessments,
+            existingActivity.datasetId,
+            existingActivity.datasetAssessmentId,
+            true
+          )
+        );
       }
 
       formLoadedRef.current = true;
     }
-  }, [isEdit, existingActivity]);
+  }, [isEdit, existingActivity, mapTablesToState]);
 
   // 3. Handle Table Loading
   useEffect(() => {
@@ -212,9 +287,68 @@ export default function AddEditDataSharingActivity() {
     if (!selectedAssessment) return;
 
     if (!isEdit || (isEdit && !overrideTables)) {
-      setTables(mapTablesToState(selectedAssessment.tableAssessments));
+      setTables(
+        mapTablesToState(
+          selectedAssessment.tableAssessments,
+          selectedAssessment.datasetId,
+          selectedAssessment.id
+        )
+      );
     }
-  }, [datasetAssessmentId, isEdit, overrideTables, allDatasetAssessments]);
+  }, [
+    datasetAssessmentId,
+    isEdit,
+    overrideTables,
+    allDatasetAssessments,
+    mapTablesToState,
+  ]);
+
+  useEffect(() => {
+    setTables((prevTables) => {
+      let changed = false;
+      const nextTables = prevTables.map((table) => ({
+        ...table,
+        attributes: table.attributes.map((attr) => {
+          const updates = {};
+
+          if (!attr.dataType) {
+            const dataType = getDataTypeForAttribute(
+              datasetId,
+              attr.datasetAttributeId
+            );
+            if (dataType) {
+              updates.dataType = dataType;
+            }
+          }
+
+          if (!attr.tableAssessmentAttributeId && attr.datasetAttributeId) {
+            const tableAssessmentAttributeId = getTableAssessmentAttributeId(
+              datasetAssessmentId,
+              attr.datasetAttributeId
+            );
+            if (tableAssessmentAttributeId) {
+              updates.attributeId = tableAssessmentAttributeId;
+              updates.tableAssessmentAttributeId = tableAssessmentAttributeId;
+            }
+          }
+
+          if (Object.keys(updates).length === 0) {
+            return attr;
+          }
+
+          changed = true;
+          return { ...attr, ...updates };
+        }),
+      }));
+
+      return changed ? nextTables : prevTables;
+    });
+  }, [
+    datasetId,
+    datasetAssessmentId,
+    getDataTypeForAttribute,
+    getTableAssessmentAttributeId,
+  ]);
 
   // Fetch Users
   useEffect(() => {
@@ -266,13 +400,14 @@ export default function AddEditDataSharingActivity() {
         tableAssessments: overrideTables
           ? tables.map((tbl) => ({
               id: tbl.id,
-              tableId: tbl.tableId,
+              tableId: tbl.tableAssessmentId || tbl.tableId,
               tableName: tbl.tableName,
               attributes: tbl.attributes
                 .filter((attr) => !attr.isExcluded)
                 .map((attr) => ({
                   id: attr.id,
-                  attributeId: attr.attributeId,
+                  attributeId:
+                    attr.tableAssessmentAttributeId || attr.attributeId,
                   sensitivity: attr.sensitivity,
                   replicability: attr.replicability,
                   availability: attr.availability,

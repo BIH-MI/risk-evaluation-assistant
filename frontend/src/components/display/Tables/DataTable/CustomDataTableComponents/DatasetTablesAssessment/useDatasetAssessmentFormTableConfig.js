@@ -105,7 +105,11 @@ export function useDatasetAssessmentFormTableConfig(
           align: "left",
           width: "30%",
           Cell: ({ row }) => (
-            <MemoNameCell disabled initialValue={row.original.name} />
+            <MemoNameCell
+              disabled
+              initialValue={row.original.name}
+              dataType={row.original.dataType}
+            />
           ),
         },
         {

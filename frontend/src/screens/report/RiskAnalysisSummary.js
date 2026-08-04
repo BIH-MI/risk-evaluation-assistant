@@ -110,7 +110,9 @@ export default function RiskAnalysisSummary({
         p={2}
         sx={{
           borderRadius: 2,
-          border: "1px solid #e0e0e0",
+          border: ({ palette }) => `1px solid ${palette.light.main}`,
+          bgcolor: ({ palette }) =>
+            palette.background.card || palette.background.default,
         }}
       >
         <RATypography variant="h6" textAlign="left" mb={1}>
@@ -169,10 +171,10 @@ export default function RiskAnalysisSummary({
                 }
               }}
               fullWidth
-              sx={{
-                bgcolor: "white",
+              sx={({ palette }) => ({
+                bgcolor: palette.background.default,
                 "& .MuiOutlinedInput-root": { height: 40 },
-              }}
+              })}
             />
           </RABox>
         </RABox>
@@ -183,7 +185,9 @@ export default function RiskAnalysisSummary({
         p={2}
         sx={{
           borderRadius: 2,
-          border: "1px solid #e0e0e0",
+          border: ({ palette }) => `1px solid ${palette.light.main}`,
+          bgcolor: ({ palette }) =>
+            palette.background.card || palette.background.default,
         }}
       >
         <RATypography variant="h6" textAlign="left" mb={1}>
@@ -220,7 +224,9 @@ export default function RiskAnalysisSummary({
         p={2}
         sx={{
           borderRadius: 2,
-          border: "1px solid #e0e0e0",
+          border: ({ palette }) => `1px solid ${palette.light.main}`,
+          bgcolor: ({ palette }) =>
+            palette.background.card || palette.background.default,
         }}
       >
         <RATypography variant="h6" textAlign="left" mb={1} color="dark">

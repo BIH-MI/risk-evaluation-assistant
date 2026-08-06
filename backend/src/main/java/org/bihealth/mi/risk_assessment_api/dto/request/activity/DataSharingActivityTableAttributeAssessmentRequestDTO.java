@@ -23,10 +23,10 @@ public class DataSharingActivityTableAttributeAssessmentRequestDTO {
     private Long attributeId;
 
     // Activity-specific S/R/A/D metric values.
-    private int sensitivity;
-    private int replicability;
-    private int availability;
-    private int distinguishability;
+    private Double sensitivity;
+    private Double replicability;
+    private Double availability;
+    private Double distinguishability;
 
     // Whether this column should be treated as a direct identifier in this activity.
     private Boolean directIdentifier;
@@ -38,6 +38,11 @@ public class DataSharingActivityTableAttributeAssessmentRequestDTO {
     @JsonProperty("isDirectIdentifier")
     public Boolean getDirectIdentifier() {
         return directIdentifier;
+    }
+
+    @JsonProperty("isDirectIdentifier")
+    public void setDirectIdentifier(Boolean directIdentifier) {
+        this.directIdentifier = directIdentifier;
     }
 
     /**

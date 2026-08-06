@@ -2,15 +2,11 @@ package org.bihealth.mi.risk_assessment_api.model.assessment.dataset;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.Setter;
 import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTableAttribute;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
-
-import static org.bihealth.mi.risk_assessment_api.utils.AttributeScale.MAX_VALUE;
-import static org.bihealth.mi.risk_assessment_api.utils.AttributeScale.MIN_VALUE;
 
 /**
  * Represents the assessed risk scores for a single attribute (column) within a DatasetTableAssessment.
@@ -49,20 +45,16 @@ public class DatasetTableAssessmentAttribute {
 
     // Metric values are nullable for direct identifiers where S/R/A/D scoring is not applicable.
     @Column(name = "sensitivity", nullable = true)
-    @Min(MIN_VALUE) @Max(MAX_VALUE)
-    private Integer sensitivity;
+    private Double sensitivity;
 
     @Column(name = "replicability", nullable = true)
-    @Min(MIN_VALUE) @Max(MAX_VALUE)
-    private Integer replicability;
+    private Double replicability;
 
     @Column(name = "availability", nullable = true)
-    @Min(MIN_VALUE) @Max(MAX_VALUE)
-    private Integer availability;
+    private Double availability;
 
     @Column(name = "distinguishability", nullable = true)
-    @Min(MIN_VALUE) @Max(MAX_VALUE)
-    private Integer distinguishability;
+    private Double distinguishability;
 
     /**
      * Required by JPA.

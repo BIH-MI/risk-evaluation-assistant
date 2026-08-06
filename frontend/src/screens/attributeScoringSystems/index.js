@@ -1,0 +1,183 @@
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useAuth } from "react-oidc-context";
+import { useNavigate } from "react-router-dom";
+import { useTheme } from "@mui/material/styles";
+
+import DataTable from "components/display/Tables/DataTable";
+import RAAlert from "components/feedback/RAAlert";
+import RADialog from "components/feedback/RADialog";
+import RABox from "components/layout/RABox";
+import RATypography from "components/display/RATypography";
+import { isAdminUser } from "utils/auth";
+import {
+  archiveAttributeScoringSystemApi,
+  duplicateAttributeScoringSystemApi,
+  fetchAttributeScoringSystemsApi,
+  setDefaultAttributeScoringSystemApi,
+} from "api/attributeScoringSystems";
+
+import getScoringSystemTableData from "./getScoringSystemTableData";
+
+export default function AttributeScoringSystems() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const token = user?.access_token;
+  const isAdmin = isAdminUser(user);
+  const theme = useTheme();
+
+  const [systems, setSystems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [archiveTarget, setArchiveTarget] = useState(null);
+
+  const loadSystems = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    setErrorMsg("");
+    try {
+      const data = await fetchAttributeScoringSystemsApi(token);
+      setSystems(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setErrorMsg(err.message || "Failed to load scoring systems.");
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    loadSystems();
+  }, [loadSystems]);
+
+  const sortedSystems = useMemo(() => {
+    return [...systems].sort((a, b) => {
+      const dateA = new Date(a.lastModifiedDate || a.creationDate || 0);
+      const dateB = new Date(b.lastModifiedDate || b.creationDate || 0);
+      return dateB - dateA;
+    });
+  }, [systems]);
+
+  const openCreateDialog = useCallback(() => {
+    navigate("/configuration/attribute-scoring-systems/new");
+  }, [navigate]);
+
+  const openEditDialog = useCallback((system) => {
+    navigate(`/configuration/attribute-scoring-systems/${system.id}/edit`);
+  }, [navigate]);
+
+  const handleDuplicate = useCallback(
+    async (system) => {
+      if (!token) return;
+      try {
+        await duplicateAttributeScoringSystemApi(system.id, token);
+        await loadSystems();
+      } catch (err) {
+        setErrorMsg(err.message || "Failed to duplicate scoring system.");
+      }
+    },
+    [loadSystems, token]
+  );
+
+  const handleSetDefault = useCallback(
+    async (system) => {
+      if (!token) return;
+      try {
+        await setDefaultAttributeScoringSystemApi(system.id, token);
+        await loadSystems();
+      } catch (err) {
+        setErrorMsg(err.message || "Failed to set default scoring system.");
+      }
+    },
+    [loadSystems, token]
+  );
+
+  const handleArchiveConfirm = useCallback(async () => {
+    if (!archiveTarget || !token) return;
+    try {
+      await archiveAttributeScoringSystemApi(archiveTarget.id, token);
+      setArchiveTarget(null);
+      await loadSystems();
+    } catch (err) {
+      setErrorMsg(err.message || "Failed to archive scoring system.");
+      setArchiveTarget(null);
+    }
+  }, [archiveTarget, loadSystems, token]);
+
+  const { columns, rows } = useMemo(
+    () =>
+      getScoringSystemTableData(
+        sortedSystems,
+        openEditDialog,
+        handleDuplicate,
+        handleSetDefault,
+        setArchiveTarget
+      ),
+    [handleDuplicate, handleSetDefault, openEditDialog, sortedSystems]
+  );
+
+  if (!isAdmin) {
+    return (
+      <RABox p={3}>
+        <RAAlert color="warning">
+          <RATypography variant="body2" color="white">
+            Only administrators can manage scoring systems.
+          </RATypography>
+        </RAAlert>
+      </RABox>
+    );
+  }
+
+  return (
+    <RABox>
+      <RABox py={3} sx={{ "& .MuiTableRow-root": { height: 56 } }}>
+        <DataTable
+          table={{ columns, rows }}
+          canSearch
+          canAdd
+          searchColumnKey="displayName"
+          searchPlaceholder="scoring systems..."
+          onAddClick={openCreateDialog}
+        />
+      </RABox>
+
+      <RADialog
+        open={Boolean(archiveTarget)}
+        title="Archive Scoring System"
+        onClose={() => setArchiveTarget(null)}
+        onConfirm={handleArchiveConfirm}
+        cancelText="Cancel"
+        confirmText="Archive"
+      >
+        <RATypography variant="body2">
+          Archive {archiveTarget?.name}? Existing assessments will keep using
+          their saved scoring-system version, but this system will no longer be
+          selectable for new assessments.
+        </RATypography>
+      </RADialog>
+
+      <RABox
+        sx={{
+          position: "fixed",
+          bottom: theme.spacing(2),
+          right: theme.spacing(2),
+          zIndex: theme.zIndex.snackbar,
+          width: 360,
+        }}
+      >
+        {loading && (
+          <RAAlert color="info">
+            <RATypography variant="body2" color="white">
+              Loading scoring systems...
+            </RATypography>
+          </RAAlert>
+        )}
+        {errorMsg && (
+          <RAAlert color="error" dismissible onClose={() => setErrorMsg("")}>
+            <RATypography variant="body2" color="white">
+              {errorMsg}
+            </RATypography>
+          </RAAlert>
+        )}
+      </RABox>
+    </RABox>
+  );
+}

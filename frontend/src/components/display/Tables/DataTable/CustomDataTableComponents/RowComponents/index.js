@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { MenuItem, Checkbox, IconButton, InputAdornment, Tooltip } from '@mui/material';
 import { useMaterialUIController } from 'context';
 import { useTheme } from '@mui/material/styles';
@@ -9,6 +9,7 @@ import RATypography from 'components/display/RATypography';
 import { DataTypeOptions } from 'utils/DataType';
 import {
     ATTRIBUTE_SCALE_OPTIONS,
+    getOptionsForAttributeField,
     normalizeAttributeScaleValue,
 } from 'utils/AttributeScale';
 
@@ -86,14 +87,18 @@ const sxInput = {
 // Styling for the select input and dropdown
 const sxSelect = {
     '& .MuiOutlinedInput-root': {
-        height: 45,
+        height: 42,
         padding: 0,
         '&.Mui-disabled': {
             backgroundColor: 'transparent',
         }
     },
     '& .MuiOutlinedInput-input': {
-        textAlign: 'center',
+        textAlign: 'left',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        padding: '8px !important',
         '&.Mui-disabled': {
             color: 'dark.main',
             WebkitTextFillColor: 'currentColor',
@@ -106,7 +111,7 @@ const sxSelect = {
             opacity: 1
         }
     },
-    width: '85%'
+    width: '116px'
 };
 
 /**
@@ -156,36 +161,89 @@ export const MemoNameCell = React.memo(NameCell);
 const ScaleOption = React.memo(({ option }) => {
     const label = option?.label || '';
     return (
-        <RABox display="flex" alignItems="center" gap={1} width="10%">
+        <RABox display="flex" alignItems="center" gap={0.75} width="100%" minWidth={0}>
             {option?.icon && (
                 <RABox
                     component="img"
                     src={option.icon}
                     alt={label || `level-${option.value}`}
-                    sx={{ height: 20 }}
+                    sx={{ width: 22, height: 22, objectFit: 'contain' }}
                 />
             )}
-            <RATypography variant="caption" fontWeight="medium" sx={{ textTransform: 'capitalize' }}>
+            <RATypography variant="caption" fontWeight="medium" noWrap sx={{ textTransform: 'capitalize' }}>
                 {label}
             </RATypography>
         </RABox>
     );
 });
 
-export function ScaleCell({ initialValue, onCommit, disabled = false }) {
-    const safe = normalizeAttributeScaleValue(initialValue);
+const ScaleSelectedValue = React.memo(({ option }) => {
+    const label = option?.label || '';
+
+    if (!option?.icon) {
+        return (
+            <RATypography variant="caption" fontWeight="medium" noWrap>
+                {label || option?.value}
+            </RATypography>
+        );
+    }
+
+    return (
+        <RABox display="flex" alignItems="center" justifyContent="flex-start" gap={0.75} width="100%" minWidth={0}>
+            <RABox
+                component="img"
+                src={option.icon}
+                alt={label || `level-${option.value}`}
+                sx={{ width: 22, height: 22, objectFit: 'contain', display: 'block', flexShrink: 0 }}
+            />
+            <RATypography
+                variant="caption"
+                fontWeight="medium"
+                noWrap
+                sx={{ textTransform: 'capitalize', lineHeight: 1, minWidth: 0 }}
+            >
+                {label}
+            </RATypography>
+        </RABox>
+    );
+});
+
+export function ScaleCell({
+    initialValue,
+    onCommit = () => {},
+    disabled = false,
+    field,
+    scoringSystem,
+    options,
+}) {
+    const scaleOptions = useMemo(
+        () => options || getOptionsForAttributeField(field, scoringSystem),
+        [field, options, scoringSystem]
+    );
+    const selectableOptions = useMemo(
+        () => (scaleOptions.length > 0 ? scaleOptions : ATTRIBUTE_SCALE_OPTIONS),
+        [scaleOptions]
+    );
+    const safe = normalizeAttributeScaleValue(initialValue, field, { scoringSystem });
     const [value, setValue] = useState(safe);
     const ref = useRef(null);
+    const selectedOption = useMemo(
+        () => selectableOptions.find(option => option.value === value),
+        [selectableOptions, value]
+    );
 
     useEffect(() => {
-        setValue(normalizeAttributeScaleValue(initialValue));
-    }, [initialValue]);
+        setValue(normalizeAttributeScaleValue(initialValue, field, { scoringSystem }));
+    }, [initialValue, field, scoringSystem]);
 
     const handleChange = useCallback(e => {
-        const next = normalizeAttributeScaleValue(e.target.value, undefined, { allowNull: false });
+        const next = normalizeAttributeScaleValue(e.target.value, field, {
+            allowNull: false,
+            scoringSystem,
+        });
         setValue(next);
         onCommit(next);
-    }, [onCommit]);
+    }, [field, onCommit, scoringSystem]);
 
     if (value == null) {
         return (
@@ -196,7 +254,7 @@ export function ScaleCell({ initialValue, onCommit, disabled = false }) {
     }
 
     return (
-        <RABox display="flex" justifyContent="center" width="120px">
+        <RABox display="flex" justifyContent="flex-start" width="116px">
             <RAInput
                 variant="outlined"
                 select
@@ -208,25 +266,29 @@ export function ScaleCell({ initialValue, onCommit, disabled = false }) {
                 sx={sxSelect}
                 disabled={disabled}
                 SelectProps={{
+                  renderValue: () => <ScaleSelectedValue option={selectedOption} />,
                   MenuProps: {
                     PaperProps: {
                       sx: {
                         padding: '0px',
-                        minWidth: 'unset !important'
+                        width: '116px',
+                        minWidth: '116px !important',
+                        maxWidth: '116px'
                       }
                     },
                     MenuListProps: {
                       sx: {
-                        // 3. Target the menu items inside to remove their limit too
                         '& .MuiMenuItem-root': {
-                          minWidth: 'unset !important',
+                          width: '116px',
+                          minWidth: '116px !important',
+                          maxWidth: '116px',
                         }
                       }
                     }
                   }
                 }}
             >
-                {ATTRIBUTE_SCALE_OPTIONS.map(option => (
+                {selectableOptions.map(option => (
                     <MenuItem key={option.value} value={option.value}>
                         <ScaleOption option={option} />
                     </MenuItem>
@@ -235,7 +297,25 @@ export function ScaleCell({ initialValue, onCommit, disabled = false }) {
         </RABox>
     );
 }
-export const MemoScaleCell = React.memo(ScaleCell);
+
+const getScoringSystemMemoKey = (scoringSystem) => {
+    if (!scoringSystem) return '';
+    return [
+        scoringSystem.id ?? '',
+        scoringSystem.versionNumber ?? scoringSystem.currentVersion ?? '',
+        scoringSystem.name ?? '',
+    ].join(':');
+};
+
+const areScaleCellPropsEqual = (prev, next) =>
+    Object.is(prev.initialValue, next.initialValue) &&
+    prev.disabled === next.disabled &&
+    prev.field === next.field &&
+    prev.commitKey === next.commitKey &&
+    prev.options === next.options &&
+    getScoringSystemMemoKey(prev.scoringSystem) === getScoringSystemMemoKey(next.scoringSystem);
+
+export const MemoScaleCell = React.memo(ScaleCell, areScaleCellPropsEqual);
 
 export function CheckboxCell({ initialValue, onCommit, disabled = false }) {
     const [checked, setChecked] = React.useState(initialValue != null ? !!initialValue : null);

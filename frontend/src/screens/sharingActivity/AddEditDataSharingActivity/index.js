@@ -34,7 +34,10 @@ import { fetchRecipientAssessments } from "store/recipientAssessments/recipientA
 
 import { useUsersApi } from "api/users";
 import { useActiveLock } from "hooks/locks/useActiveLock";
-import { normalizeAttributeScaleValue } from "utils/AttributeScale";
+import {
+  LEGACY_ATTRIBUTE_SCORING_SYSTEM,
+  normalizeAttributeScaleValue,
+} from "utils/AttributeScale";
 
 const selectSx = {
   "& .MuiOutlinedInput-root": { height: 56 },
@@ -96,6 +99,18 @@ export default function AddEditDataSharingActivity() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const formLoadedRef = useRef(false);
+
+  const selectedDatasetAssessment = useMemo(
+    () =>
+      allDatasetAssessments.find(
+        (assessment) => String(assessment.id) === String(datasetAssessmentId)
+      ),
+    [allDatasetAssessments, datasetAssessmentId]
+  );
+
+  const selectedScoringSystem =
+    selectedDatasetAssessment?.attributeScoringSystem ||
+    LEGACY_ATTRIBUTE_SCORING_SYSTEM;
 
   // --- Locking ---
   const [lockError, setLockError] = useState(null);
@@ -159,7 +174,7 @@ export default function AddEditDataSharingActivity() {
     [tableAssessmentAttributeByDatasetAttribute]
   );
 
-  const mapTablesToState = useCallback((sourceList, sourceDatasetId, sourceDatasetAssessmentId, isActivityOverride = false) => {
+  const mapTablesToState = useCallback((sourceList, sourceDatasetId, sourceDatasetAssessmentId, isActivityOverride = false, scoringSystem = LEGACY_ATTRIBUTE_SCORING_SYSTEM) => {
     if (!sourceList) return [];
     return sourceList.map((ta) => ({
       id: isActivityOverride ? ta.id || null : null,
@@ -203,6 +218,7 @@ export default function AddEditDataSharingActivity() {
               ? null
               : normalizeAttributeScaleValue(attr.sensitivity, "sensitivity", {
                   allowNull: false,
+                  scoringSystem,
                 }),
           replicability:
             isDI || isExcluded
@@ -210,7 +226,7 @@ export default function AddEditDataSharingActivity() {
               : normalizeAttributeScaleValue(
                   attr.replicability,
                   "replicability",
-                  { allowNull: false }
+                  { allowNull: false, scoringSystem }
                 ),
           availability:
             isDI || isExcluded
@@ -218,7 +234,7 @@ export default function AddEditDataSharingActivity() {
               : normalizeAttributeScaleValue(
                   attr.availability,
                   "availability",
-                  { allowNull: false }
+                  { allowNull: false, scoringSystem }
                 ),
           distinguishability:
             isDI || isExcluded
@@ -226,7 +242,7 @@ export default function AddEditDataSharingActivity() {
               : normalizeAttributeScaleValue(
                   attr.distinguishability,
                   "distinguishability",
-                  { allowNull: false }
+                  { allowNull: false, scoringSystem }
                 ),
         };
       }),
@@ -263,19 +279,26 @@ export default function AddEditDataSharingActivity() {
       setOverrideTables(hasOverrides);
 
       if (hasOverrides) {
+        const activityDatasetAssessment = allDatasetAssessments.find(
+          (assessment) =>
+            String(assessment.id) ===
+            String(existingActivity.datasetAssessmentId)
+        );
         setTables(
           mapTablesToState(
             existingActivity.tableAssessments,
             existingActivity.datasetId,
             existingActivity.datasetAssessmentId,
-            true
+            true,
+            activityDatasetAssessment?.attributeScoringSystem ||
+              LEGACY_ATTRIBUTE_SCORING_SYSTEM
           )
         );
       }
 
       formLoadedRef.current = true;
     }
-  }, [isEdit, existingActivity, mapTablesToState]);
+  }, [isEdit, existingActivity, mapTablesToState, allDatasetAssessments]);
 
   // 3. Handle Table Loading
   useEffect(() => {
@@ -291,7 +314,9 @@ export default function AddEditDataSharingActivity() {
         mapTablesToState(
           selectedAssessment.tableAssessments,
           selectedAssessment.datasetId,
-          selectedAssessment.id
+          selectedAssessment.id,
+          false,
+          selectedAssessment.attributeScoringSystem || LEGACY_ATTRIBUTE_SCORING_SYSTEM
         )
       );
     }
@@ -611,7 +636,11 @@ export default function AddEditDataSharingActivity() {
               {t("dataSharingActivities.form.datasetTablesAssessment")}{" "}
             </RATypography>
 
-            <DatasetTablesAssessment tables={tables} setTables={setTables} />
+            <DatasetTablesAssessment
+              tables={tables}
+              setTables={setTables}
+              scoringSystem={selectedScoringSystem}
+            />
           </RABox>
         )}
 

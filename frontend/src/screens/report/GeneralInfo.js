@@ -53,6 +53,7 @@ export default function GeneralInfo({
   rcAssessment,
   dsConfig,
   rcConfig,
+  attributeScoringSystem,
 }) {
   const { t } = useTranslation();
 
@@ -79,6 +80,19 @@ export default function GeneralInfo({
                 isLink: true,
                 linkTo: "/configurations",
                 linkState: { configId: dsConfig?.id },
+              },
+              {
+                label: t(
+                  "report.general.attributeScoringSystem",
+                  "Scoring System"
+                ),
+                value: attributeScoringSystem
+                  ? `${attributeScoringSystem.name} v${
+                      attributeScoringSystem.versionNumber ||
+                      attributeScoringSystem.currentVersion ||
+                      1
+                    }`
+                  : "—",
               },
             ]}
           />

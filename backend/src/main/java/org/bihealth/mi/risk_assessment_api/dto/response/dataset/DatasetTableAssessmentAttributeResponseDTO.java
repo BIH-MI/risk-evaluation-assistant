@@ -26,10 +26,10 @@ public class DatasetTableAssessmentAttributeResponseDTO {
     private Boolean directIdentifier;
 
     // Default S/R/A/D metric values for this attribute.
-    private Integer sensitivity;
-    private Integer replicability;
-    private Integer availability;
-    private Integer distinguishability;
+    private Double sensitivity;
+    private Double replicability;
+    private Double availability;
+    private Double distinguishability;
 
     /**
      * Constructor to map a DatasetTableAssessmentAttribute entity to this DTO.

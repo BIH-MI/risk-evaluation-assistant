@@ -30,10 +30,10 @@ public class DatasetTableAssessmentAttributeRequestDTO {
     private Boolean isDirectIdentifier;
 
     // S/R/A/D metric values used by dataset attribute assessment screens.
-    private Integer sensitivity;
-    private Integer replicability;
-    private Integer availability;
-    private Integer distinguishability;
+    private Double sensitivity;
+    private Double replicability;
+    private Double availability;
+    private Double distinguishability;
 
     /**
      * Explicit getter preserves the JSON property name {@code isDirectIdentifier}

@@ -12,6 +12,8 @@ import SidenavCollapse from "components/navigation/Sidenav/SidenavCollapse";
 import SidenavRoot from "components/navigation/Sidenav/SidenavRoot";
 import sidenavLogoLabel from "components/navigation/Sidenav/styles/sidenav";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "react-oidc-context";
+import { isAdminUser } from "utils/auth";
 
 import {
   setMiniSidenav,
@@ -35,6 +37,8 @@ function Sidenav({ color, brand, brandName, routes, ...rest }) {
     .replace(/^\/|\/$/g, "");
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const isAdmin = isAdminUser(user);
   let textColor = "white";
 
   if (transparentSidenav || (whiteSidenav && !darkMode)) {
@@ -73,8 +77,12 @@ function Sidenav({ color, brand, brandName, routes, ...rest }) {
 
   // Render all the routes from the routes.js (All the visible items on the Sidenav)
   const renderRoutes = routes.map(
-    ({ type, name, icon, title, noCollapse, key, href, route }) => {
+    ({ type, name, icon, title, noCollapse, key, href, route, adminOnly }) => {
       let returnValue;
+
+      if (adminOnly && !isAdmin) {
+        return null;
+      }
 
       if (type === "collapse") {
         returnValue = href ? (

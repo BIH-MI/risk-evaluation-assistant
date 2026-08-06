@@ -25,10 +25,10 @@ import { calculateTotalRiskApi } from "../../api/risk";
 import { fetchConfiguration } from "store/configurations/configurationThunks";
 import { useMaterialUIController } from "context";
 import {
-  ATTRIBUTE_SCALE_DEFAULTS,
-  ATTRIBUTE_SCALE_MAX,
-  ATTRIBUTE_SCALE_MIN,
-  ATTRIBUTE_SCALE_RANGE_LABEL,
+  LEGACY_ATTRIBUTE_SCORING_SYSTEM,
+  formatScoreRange,
+  getIdentifiabilityScoreRange,
+  getSensitivityScoreRange,
   normalizeAttributeScaleValue,
 } from "utils/AttributeScale";
 
@@ -50,7 +50,7 @@ const pdfStyles = `
   }
 `;
 
-const normalizeReportAttributeScores = (attr) => {
+const normalizeReportAttributeScores = (attr, scoringSystem) => {
   const isDirectIdentifier = Boolean(attr.isDirectIdentifier);
   const isExcluded = Boolean(attr.isExcluded);
 
@@ -61,18 +61,21 @@ const normalizeReportAttributeScores = (attr) => {
         ? null
         : normalizeAttributeScaleValue(attr.sensitivity, "sensitivity", {
             allowNull: false,
+            scoringSystem,
           }),
     replicability:
       isDirectIdentifier || isExcluded
         ? null
         : normalizeAttributeScaleValue(attr.replicability, "replicability", {
             allowNull: false,
+            scoringSystem,
           }),
     availability:
       isDirectIdentifier || isExcluded
         ? null
         : normalizeAttributeScaleValue(attr.availability, "availability", {
             allowNull: false,
+            scoringSystem,
           }),
     distinguishability:
       isDirectIdentifier || isExcluded
@@ -80,7 +83,7 @@ const normalizeReportAttributeScores = (attr) => {
         : normalizeAttributeScaleValue(
             attr.distinguishability,
             "distinguishability",
-            { allowNull: false }
+            { allowNull: false, scoringSystem }
           ),
   };
 };
@@ -155,6 +158,11 @@ export default function DataSharingReportPage() {
     [configItems, rcAssessment]
   );
 
+  const attributeScoringSystem =
+    dsAssessment?.attributeScoringSystem || LEGACY_ATTRIBUTE_SCORING_SYSTEM;
+  const identifiabilityRange = getIdentifiabilityScoreRange(attributeScoringSystem);
+  const sensitivityRange = getSensitivityScoreRange(attributeScoringSystem);
+
   // Fetch configs if they aren't loaded in the store
   useEffect(() => {
     if (token) {
@@ -178,7 +186,9 @@ export default function DataSharingReportPage() {
     if (activity?.tableAssessments && activity.tableAssessments.length > 0) {
       return activity.tableAssessments.map((ta) => ({
         ...ta,
-        attributes: (ta.attributes || []).map(normalizeReportAttributeScores),
+        attributes: (ta.attributes || []).map((attr) =>
+          normalizeReportAttributeScores(attr, attributeScoringSystem)
+        ),
       }));
     }
     if (!dsAssessment?.tableAssessments) return [];
@@ -197,18 +207,20 @@ export default function DataSharingReportPage() {
           distinguishability: attr.distinguishability,
           isDirectIdentifier: Boolean(attr.isDirectIdentifier),
           isExcluded: Boolean(attr.isExcluded),
-        })
+        }, attributeScoringSystem)
       ),
     }));
-  }, [activity?.tableAssessments, dsAssessment?.tableAssessments]);
+  }, [
+    activity?.tableAssessments,
+    dsAssessment?.tableAssessments,
+    attributeScoringSystem,
+  ]);
 
   const [isThresholdOverwritten, setIsThresholdOverwritten] = useState(false);
   const [manualRiskThreshold, setManualRiskThreshold] = useState("");
 
   const [identifiabilityThreshold, setIdentifiabilityThreshold] = useState("5");
-  const [sensitivityThreshold, setSensitivityThreshold] = useState(
-    String(ATTRIBUTE_SCALE_DEFAULTS.sensitivity)
-  );
+  const [sensitivityThreshold, setSensitivityThreshold] = useState("2");
 
   const [totalRiskResult, setTotalRiskResult] = useState(null);
   const [isComputing, setIsComputing] = useState(false);
@@ -243,6 +255,24 @@ export default function DataSharingReportPage() {
   useEffect(() => {
     handleCalculate();
   }, [handleCalculate]);
+
+  useEffect(() => {
+    if (!dsAssessment) return;
+    setIdentifiabilityThreshold(
+      String(
+        dsAssessment.attributeIdentifiabilityThreshold ??
+          attributeScoringSystem.defaultIdentifiabilityThreshold ??
+          5
+      )
+    );
+    setSensitivityThreshold(
+      String(
+        dsAssessment.attributeSensitivityThreshold ??
+          attributeScoringSystem.defaultSensitivityThreshold ??
+          2
+      )
+    );
+  }, [dsAssessment, attributeScoringSystem]);
 
   const handleDownloadPdf = () => {
     setIsGeneratingPdf(true);
@@ -293,6 +323,22 @@ export default function DataSharingReportPage() {
     const summaryData = [
       { Metric: "Activity Title", Value: activity?.name || "N/A" },
       {
+        Metric: "Scoring System",
+        Value: `${attributeScoringSystem.name || "N/A"} v${
+          attributeScoringSystem.versionNumber ||
+          attributeScoringSystem.currentVersion ||
+          1
+        }`,
+      },
+      {
+        Metric: "Identifiability Threshold",
+        Value: identifiabilityThreshold || "N/A",
+      },
+      {
+        Metric: "Sensitivity Threshold",
+        Value: sensitivityThreshold || "N/A",
+      },
+      {
         Metric: "Final Risk Classification",
         Value: totalRiskResult?.finalRisk?.categoricalValue ?? "N/A",
       },
@@ -326,6 +372,8 @@ export default function DataSharingReportPage() {
           Availability: attr.availability || 0,
           Distinguishability: attr.distinguishability || 0,
           Sensitivity: attr.sensitivity || 0,
+          "Identifiability Threshold": Number(identifiabilityThreshold) || 0,
+          "Sensitivity Threshold": Number(sensitivityThreshold) || 0,
           "Total QI Score":
             (attr.replicability || 0) +
             (attr.availability || 0) +
@@ -383,6 +431,7 @@ export default function DataSharingReportPage() {
             rcAssessment={rcAssessment}
             dsConfig={dsConfig}
             rcConfig={rcConfig}
+            attributeScoringSystem={attributeScoringSystem}
           />
 
           {/* ======================= PAGE 2: RISK FACTORS ======================= */}
@@ -466,17 +515,28 @@ export default function DataSharingReportPage() {
               data-html2canvas-ignore="true"
             >
               <RAInput
-                label={t("report.identifiabilityThreshold")}
+                label={t("report.identifiabilityThreshold", {
+                  scaleRange: formatScoreRange(identifiabilityRange),
+                })}
                 type="number"
-                inputProps={{ min: 1, max: 9, step: 1 }}
+                inputProps={{
+                  min: identifiabilityRange.min,
+                  max: identifiabilityRange.max,
+                  step: "any",
+                }}
                 value={identifiabilityThreshold}
                 onChange={(e) => {
                   const v = e.target.value;
                   if (v === "") return setIdentifiabilityThreshold("");
-                  const num = parseInt(v, 10);
+                  const num = Number(v);
                   if (!isNaN(num))
                     setIdentifiabilityThreshold(
-                      String(Math.max(1, Math.min(9, num)))
+                      String(
+                        Math.max(
+                          identifiabilityRange.min,
+                          Math.min(identifiabilityRange.max, num)
+                        )
+                      )
                     );
                 }}
                 fullWidth
@@ -484,25 +544,25 @@ export default function DataSharingReportPage() {
               />
               <RAInput
                 label={t("report.sensitivityThreshold", {
-                  scaleRange: ATTRIBUTE_SCALE_RANGE_LABEL,
+                  scaleRange: formatScoreRange(sensitivityRange),
                 })}
                 type="number"
                 inputProps={{
-                  min: ATTRIBUTE_SCALE_MIN,
-                  max: ATTRIBUTE_SCALE_MAX,
-                  step: 1,
+                  min: sensitivityRange.min,
+                  max: sensitivityRange.max,
+                  step: "any",
                 }}
                 value={sensitivityThreshold}
                 onChange={(e) => {
                   const v = e.target.value;
                   if (v === "") return setSensitivityThreshold("");
-                  const num = parseInt(v, 10);
+                  const num = Number(v);
                   if (!isNaN(num))
                     setSensitivityThreshold(
                       String(
                         Math.max(
-                          ATTRIBUTE_SCALE_MIN,
-                          Math.min(ATTRIBUTE_SCALE_MAX, num)
+                          sensitivityRange.min,
+                          Math.min(sensitivityRange.max, num)
                         )
                       )
                     );
@@ -516,6 +576,7 @@ export default function DataSharingReportPage() {
               tableAssessments={effectiveTables}
               identifiabilityThreshold={Number(identifiabilityThreshold) || 0}
               sensitivityThreshold={Number(sensitivityThreshold) || 0}
+              scoringSystem={attributeScoringSystem}
             />
           </RABox>
         </RABox>

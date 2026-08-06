@@ -4,6 +4,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import org.bihealth.mi.risk_assessment_api.dto.response.questionnaire.AnswerResponseDTO;
+import org.bihealth.mi.risk_assessment_api.dto.response.scoring.AttributeScoringSystemResponseDTO;
 import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetAssessment;
 
 import java.util.List;
@@ -28,6 +29,15 @@ public class DatasetAssessmentResponseDTO {
     private String configurationName;
     private Long configurationVersion;
 
+    // Attribute scoring snapshot selected for this assessment.
+    private Long attributeScoringSystemId;
+    private Long attributeScoringSystemVersionId;
+    private Integer attributeScoringSystemVersion;
+    private String attributeScoringSystemName;
+    private Double attributeIdentifiabilityThreshold;
+    private Double attributeSensitivityThreshold;
+    private AttributeScoringSystemResponseDTO attributeScoringSystem;
+
     // Assessment metadata.
     private String creatorUsername;
     private String name;
@@ -50,6 +60,18 @@ public class DatasetAssessmentResponseDTO {
 
         this.configurationId      = entity.getConfiguration().getId();
         this.configurationName    = entity.getConfiguration().getName();
+
+        if (entity.getAttributeScoringSystem() != null) {
+            this.attributeScoringSystemId = entity.getAttributeScoringSystem().getId();
+        }
+        if (entity.getAttributeScoringSystemVersion() != null) {
+            this.attributeScoringSystemVersionId = entity.getAttributeScoringSystemVersion().getId();
+            this.attributeScoringSystemVersion = entity.getAttributeScoringSystemVersion().getVersionNumber();
+            this.attributeScoringSystemName = entity.getAttributeScoringSystemVersion().getName();
+            this.attributeScoringSystem = new AttributeScoringSystemResponseDTO(entity.getAttributeScoringSystemVersion());
+        }
+        this.attributeIdentifiabilityThreshold = entity.getAttributeIdentifiabilityThreshold();
+        this.attributeSensitivityThreshold = entity.getAttributeSensitivityThreshold();
 
         this.creatorUsername  = entity.getCreatorUsername();
         this.name             = entity.getName();

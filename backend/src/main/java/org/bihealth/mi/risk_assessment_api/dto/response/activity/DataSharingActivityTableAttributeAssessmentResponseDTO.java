@@ -28,10 +28,10 @@ public class DataSharingActivityTableAttributeAssessmentResponseDTO {
     private String dataType;
 
     // Activity-specific S/R/A/D metric values.
-    private int sensitivity;
-    private int replicability;
-    private int availability;
-    private int distinguishability;
+    private Double sensitivity;
+    private Double replicability;
+    private Double availability;
+    private Double distinguishability;
 
     // Direct identifier flag exposed as isDirectIdentifier in JSON.
     private Boolean directIdentifier;

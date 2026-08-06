@@ -4,7 +4,14 @@ import {
   MemoScaleCell,
   MemoCheckboxCell,
 } from "../RowComponents";
-import { getDefaultAttributeScaleMetrics } from "utils/AttributeScale";
+import {
+  getDefaultAttributeScaleMetrics,
+} from "utils/AttributeScale";
+
+const getTableIdsKey = (tables) =>
+  (Array.isArray(tables) ? tables : [])
+    .map((tbl) => String(tbl.tableId))
+    .join("|");
 
 export function useDatasetAssessmentFormTableConfig(
   tables,
@@ -14,7 +21,11 @@ export function useDatasetAssessmentFormTableConfig(
   t
 ) {
 
-  const { showOverridden = false } = options;
+  const {
+    showOverridden = false,
+    scoringSystem = null,
+  } = options;
+  const tableIdsKey = getTableIdsKey(tables);
 
   const addAttr = useCallback(
     (tableId) => {
@@ -22,7 +33,7 @@ export function useDatasetAssessmentFormTableConfig(
         id: Date.now(),
         attributeId: Date.now(),
         name: "",
-        ...getDefaultAttributeScaleMetrics(),
+        ...getDefaultAttributeScaleMetrics(scoringSystem),
         isDirectIdentifier: false,
         isExcluded: false,
       };
@@ -35,7 +46,7 @@ export function useDatasetAssessmentFormTableConfig(
         })
       );
     },
-    [setTables]
+    [scoringSystem, setTables]
   );
 
   const changeAttr = useCallback(
@@ -97,8 +108,10 @@ export function useDatasetAssessmentFormTableConfig(
 
   const columnsByTable = useMemo(() => {
     const map = {};
-    tables.forEach((tbl) => {
-      map[tbl.tableId] = [
+    const tableIds = tableIdsKey ? tableIdsKey.split("|") : [];
+
+    tableIds.forEach((tableId) => {
+      map[tableId] = [
         {
           Header: t("datasetAssessments.attributesTable.name"),
           accessor: "name",
@@ -119,13 +132,16 @@ export function useDatasetAssessmentFormTableConfig(
           width: "10%",
           Cell: ({ row }) => (
             <MemoScaleCell
+              field="replicability"
+              scoringSystem={scoringSystem}
+              commitKey={`${tableId}:${row.original.attributeId}:replicability`}
               initialValue={
                 row.original.isDirectIdentifier
                   ? null
                   : row.original.replicability
               }
               onCommit={(val) => {
-                changeAttr(tbl.tableId, row.original.attributeId, {
+                changeAttr(tableId, row.original.attributeId, {
                   replicability: val,
                 });
               }}
@@ -139,13 +155,16 @@ export function useDatasetAssessmentFormTableConfig(
           width: "10%",
           Cell: ({ row }) => (
             <MemoScaleCell
+              field="availability"
+              scoringSystem={scoringSystem}
+              commitKey={`${tableId}:${row.original.attributeId}:availability`}
               initialValue={
                 row.original.isDirectIdentifier
                   ? null
                   : row.original.availability
               }
               onCommit={(val) => {
-                changeAttr(tbl.tableId, row.original.attributeId, {
+                changeAttr(tableId, row.original.attributeId, {
                   availability: val,
                 });
               }}
@@ -159,13 +178,16 @@ export function useDatasetAssessmentFormTableConfig(
           width: "10%",
           Cell: ({ row }) => (
             <MemoScaleCell
+              field="distinguishability"
+              scoringSystem={scoringSystem}
+              commitKey={`${tableId}:${row.original.attributeId}:distinguishability`}
               initialValue={
                 row.original.isDirectIdentifier
                   ? null
                   : row.original.distinguishability
               }
               onCommit={(val) => {
-                changeAttr(tbl.tableId, row.original.attributeId, {
+                changeAttr(tableId, row.original.attributeId, {
                   distinguishability: val,
                 });
               }}
@@ -179,13 +201,16 @@ export function useDatasetAssessmentFormTableConfig(
           width: "10%",
           Cell: ({ row }) => (
             <MemoScaleCell
+              field="sensitivity"
+              scoringSystem={scoringSystem}
+              commitKey={`${tableId}:${row.original.attributeId}:sensitivity`}
               initialValue={
                 row.original.isDirectIdentifier
                   ? null
                   : row.original.sensitivity
               }
               onCommit={(val) => {
-                changeAttr(tbl.tableId, row.original.attributeId, {
+                changeAttr(tableId, row.original.attributeId, {
                   sensitivity: val,
                 });
               }}
@@ -201,7 +226,7 @@ export function useDatasetAssessmentFormTableConfig(
             <MemoCheckboxCell
               initialValue={row.original.isDirectIdentifier}
               onCommit={(checked) => {
-                changeAttr(tbl.tableId, row.original.attributeId, {
+                changeAttr(tableId, row.original.attributeId, {
                   isDirectIdentifier: checked,
                 });
               }}
@@ -216,14 +241,14 @@ export function useDatasetAssessmentFormTableConfig(
                 align: "center",
                 Cell: ({ row }) => {
                   const attr = row.original;
-                  const overridden = isOverridden(tbl.tableId, attr);
+                  const overridden = isOverridden(tableId, attr);
                   return (
                     <MemoCheckboxCell
                       initialValue={overridden}
                       disabled={!overridden}
                       onCommit={(checked) => {
                         if (!checked) {
-                          toggleOverride(tbl.tableId, attr.attributeId, attr);
+                          toggleOverride(tableId, attr.attributeId, attr);
                         }
                       }}
                     />
@@ -236,10 +261,11 @@ export function useDatasetAssessmentFormTableConfig(
     });
     return map;
   }, [
-    tables,
+    tableIdsKey,
     changeAttr,
     showOverridden,
     isOverridden,
+    scoringSystem,
     toggleOverride,
     t,
   ]);

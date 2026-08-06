@@ -7,7 +7,8 @@ import RAInput from "../../components/input/RAInput";
 import { MemoScaleCell } from "../../components/display/Tables/DataTable/CustomDataTableComponents/RowComponents";
 import { Trans, useTranslation } from "react-i18next";
 import {
-  ATTRIBUTE_SCALE_RANGE_LABEL,
+  formatScoreRange,
+  getSensitivityScoreRange,
   normalizeAttributeScaleValue,
 } from "utils/AttributeScale";
 
@@ -15,8 +16,10 @@ export default function AttributeLevelAssessment({
   tableAssessments,
   identifiabilityThreshold,
   sensitivityThreshold,
+  scoringSystem,
 }) {
   const { t } = useTranslation();
+  const sensitivityRange = getSensitivityScoreRange(scoringSystem);
 
   // Column definitions
   const columns = useMemo(
@@ -37,6 +40,8 @@ export default function AttributeLevelAssessment({
         align: "center",
         Cell: ({ value }) => (
           <MemoScaleCell
+            field="replicability"
+            scoringSystem={scoringSystem}
             initialValue={value}
             onCommit={() => {}}
             disabled={true}
@@ -50,6 +55,8 @@ export default function AttributeLevelAssessment({
         align: "center",
         Cell: ({ value }) => (
           <MemoScaleCell
+            field="availability"
+            scoringSystem={scoringSystem}
             initialValue={value}
             onCommit={() => {}}
             disabled={true}
@@ -63,6 +70,8 @@ export default function AttributeLevelAssessment({
         align: "center",
         Cell: ({ value }) => (
           <MemoScaleCell
+            field="distinguishability"
+            scoringSystem={scoringSystem}
             initialValue={value}
             onCommit={() => {}}
             disabled={true}
@@ -76,6 +85,8 @@ export default function AttributeLevelAssessment({
         align: "center",
         Cell: ({ value }) => (
           <MemoScaleCell
+            field="sensitivity"
+            scoringSystem={scoringSystem}
             initialValue={value}
             onCommit={() => {}}
             disabled={true}
@@ -107,7 +118,7 @@ export default function AttributeLevelAssessment({
         Cell: ({ value }) => <Checkbox checked={value} disabled />,
       },
     ],
-    [t]
+    [scoringSystem, t]
   );
 
   // Build the per-table data
@@ -134,20 +145,21 @@ export default function AttributeLevelAssessment({
         const r = normalizeAttributeScaleValue(
           attr.replicability,
           "replicability",
-          { allowNull: false }
+          { allowNull: false, scoringSystem }
         );
         const a = normalizeAttributeScaleValue(
           attr.availability,
           "availability",
-          { allowNull: false }
+          { allowNull: false, scoringSystem }
         );
         const d = normalizeAttributeScaleValue(
           attr.distinguishability,
           "distinguishability",
-          { allowNull: false }
+          { allowNull: false, scoringSystem }
         );
         const s = normalizeAttributeScaleValue(attr.sensitivity, "sensitivity", {
           allowNull: false,
+          scoringSystem,
         });
         const totalScore = r + a + d;
 
@@ -180,7 +192,12 @@ export default function AttributeLevelAssessment({
         rows,
       };
     });
-  }, [tableAssessments, identifiabilityThreshold, sensitivityThreshold]);
+  }, [
+    tableAssessments,
+    identifiabilityThreshold,
+    sensitivityThreshold,
+    scoringSystem,
+  ]);
 
   return (
     <RABox mt={3} mb={3}>
@@ -190,7 +207,7 @@ export default function AttributeLevelAssessment({
           values={{
             identThreshold: identifiabilityThreshold,
             sensThreshold: sensitivityThreshold,
-            scaleRange: ATTRIBUTE_SCALE_RANGE_LABEL,
+            scaleRange: formatScoreRange(sensitivityRange),
           }}
           components={{ strong: <strong /> }}
           defaults="Each table's attributes are scored on replicability, availability, distinguishability, and sensitivity ({{scaleRange}}). An attribute is automatically marked as a Quasi-Identifier if the sum of its Replicability, Availability, and Distinguishability scores is greater than <strong>{{identThreshold}}</strong>. It is marked as a Sensitive Attribute if its Sensitivity score is greater than <strong>{{sensThreshold}}</strong>."

@@ -14,6 +14,7 @@
     "editRecipientAssessment": "Edit Recipient Assessment",
     "dataSharingActivities": "Data Sharing Activities",
     "configurations": "Configurations",
+    "attributeScoringSystems": "Scoring Systems",
     "documentation": "Documentation"
   },
   "configurator": {
@@ -426,7 +427,7 @@
     "riskAnalysisSummary": "Risk Analysis Summary",
     "riskFactorsBreakdown": "Risk Factors Breakdown",
     "attributeLevelAssessment": "Attribute-Level Risk Assessment",
-    "identifiabilityThreshold": "Identifiability Threshold (1-9)",
+    "identifiabilityThreshold": "Identifiability Threshold ({{scaleRange}})",
     "sensitivityThreshold": "Sensitivity Threshold ({{scaleRange}})",
     "generatingPdf": "Generating PDF...",
     "downloadPdf": "Download PDF",

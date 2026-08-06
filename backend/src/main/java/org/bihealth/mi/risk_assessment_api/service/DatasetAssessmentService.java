@@ -14,6 +14,8 @@ import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Answer;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Question;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.QuestionOption;
+import org.bihealth.mi.risk_assessment_api.model.scoring.AttributeScoringDimension;
+import org.bihealth.mi.risk_assessment_api.model.scoring.AttributeScoringSystemVersion;
 import org.bihealth.mi.risk_assessment_api.repository.assessment.dataset.DatasetAssessmentRepository;
 import org.bihealth.mi.risk_assessment_api.repository.configuration.RiskConfigurationRepository;
 import org.bihealth.mi.risk_assessment_api.repository.dataset.DatasetRepository;
@@ -50,6 +52,7 @@ public class DatasetAssessmentService {
     private final QuestionRepository questionRepo;
     private final DatasetTableRepository tableRepo;
     private final DatasetTableAttributeRepository attributeRepo;
+    private final AttributeScoringSystemService attributeScoringSystemService;
 
     /**
      * Creates the service with the repositories required for assessment creation
@@ -62,7 +65,8 @@ public class DatasetAssessmentService {
             RiskConfigurationRepository configRepo,
             QuestionRepository questionRepo,
             DatasetTableRepository tableRepo,
-            DatasetTableAttributeRepository attributeRepo
+            DatasetTableAttributeRepository attributeRepo,
+            AttributeScoringSystemService attributeScoringSystemService
     ) {
         this.assessmentRepo = assessmentRepo;
         this.datasetRepo = datasetRepo;
@@ -70,6 +74,7 @@ public class DatasetAssessmentService {
         this.questionRepo = questionRepo;
         this.tableRepo = tableRepo;
         this.attributeRepo = attributeRepo;
+        this.attributeScoringSystemService = attributeScoringSystemService;
     }
 
     /**
@@ -159,11 +164,18 @@ public class DatasetAssessmentService {
             configRepo.save(config);
         }
 
+        AttributeScoringSystemVersion scoringVersion =
+                attributeScoringSystemService.getSelectedActiveVersion(dto.getAttributeScoringSystemId());
+
         // Build the assessment aggregate manually because answers and table
         // metadata require validating referenced IDs against existing entities.
         DatasetAssessment assessment = new DatasetAssessment();
         assessment.setDataset(dataset);
         assessment.setConfiguration(config);
+        assessment.setAttributeScoringSystem(scoringVersion.getScoringSystem());
+        assessment.setAttributeScoringSystemVersion(scoringVersion);
+        assessment.setAttributeIdentifiabilityThreshold(scoringVersion.getDefaultIdentifiabilityThreshold());
+        assessment.setAttributeSensitivityThreshold(scoringVersion.getDefaultSensitivityThreshold());
         assessment.setName(dto.getName());
         assessment.setDescription(dto.getDescription());
         assessment.setCreatorUsername(username);
@@ -199,7 +211,7 @@ public class DatasetAssessmentService {
 
                 if (tDto.getAttributes() != null) {
                     for (DatasetTableAssessmentAttributeRequestDTO aDto : tDto.getAttributes()) {
-                        ta.getAttributes().add(aDto.toEntity(ta, attributeRepo));
+                        ta.getAttributes().add(createAttributeAssessment(ta, aDto, scoringVersion));
                     }
                 }
                 assessment.getTableAssessments().add(ta);
@@ -229,6 +241,13 @@ public class DatasetAssessmentService {
 
         existing.setName(dto.getName());
         existing.setDescription(dto.getDescription());
+
+        AttributeScoringSystemVersion scoringVersion = ensureAttributeScoringVersion(existing);
+        if (dto.getAttributeScoringSystemId() != null
+                && existing.getAttributeScoringSystem() != null
+                && !existing.getAttributeScoringSystem().getId().equals(dto.getAttributeScoringSystemId())) {
+            throw new IllegalArgumentException("The attribute scoring system cannot be changed for an existing assessment.");
+        }
 
         // Update existing answers by question ID or create missing answers.
         if (dto.getAnswers() != null) {
@@ -281,13 +300,9 @@ public class DatasetAssessmentService {
                     for (DatasetTableAssessmentAttributeRequestDTO aDto : tDto.getAttributes()) {
                         DatasetTableAssessmentAttribute attr = attrMap.get(aDto.getAttributeId());
                         if (attr == null) {
-                            ta.getAttributes().add(aDto.toEntity(ta, attributeRepo));
+                            ta.getAttributes().add(createAttributeAssessment(ta, aDto, scoringVersion));
                         } else {
-                            attr.setDirectIdentifier(aDto.getIsDirectIdentifier());
-                            attr.setSensitivity(aDto.getSensitivity());
-                            attr.setReplicability(aDto.getReplicability());
-                            attr.setAvailability(aDto.getAvailability());
-                            attr.setDistinguishability(aDto.getDistinguishability());
+                            applyAttributeScores(attr, aDto, scoringVersion, attr.getAttribute());
                         }
                     }
                 }
@@ -312,5 +327,67 @@ public class DatasetAssessmentService {
         verifyDatasetAccess(existing.getDataset(), username, isAdmin);
 
         assessmentRepo.delete(existing);
+    }
+
+    private DatasetTableAssessmentAttribute createAttributeAssessment(
+            DatasetTableAssessment tableAssessment,
+            DatasetTableAssessmentAttributeRequestDTO dto,
+            AttributeScoringSystemVersion scoringVersion
+    ) {
+        DatasetTableAttribute datasetAttribute = attributeRepo.findById(dto.getAttributeId())
+                .orElseThrow(() -> new EntityNotFoundException("Attribute not found: " + dto.getAttributeId()));
+
+        DatasetTableAssessmentAttribute attribute = new DatasetTableAssessmentAttribute();
+        attribute.setAssessment(tableAssessment);
+        attribute.setAttribute(datasetAttribute);
+        applyAttributeScores(attribute, dto, scoringVersion, datasetAttribute);
+        return attribute;
+    }
+
+    private void applyAttributeScores(
+            DatasetTableAssessmentAttribute attribute,
+            DatasetTableAssessmentAttributeRequestDTO dto,
+            AttributeScoringSystemVersion scoringVersion,
+            DatasetTableAttribute datasetAttribute
+    ) {
+        boolean directIdentifier = Boolean.TRUE.equals(dto.getIsDirectIdentifier());
+        boolean excluded = datasetAttribute != null && datasetAttribute.isExcluded();
+        attribute.setDirectIdentifier(directIdentifier);
+
+        if (directIdentifier || excluded) {
+            attribute.setSensitivity(null);
+            attribute.setReplicability(null);
+            attribute.setAvailability(null);
+            attribute.setDistinguishability(null);
+            return;
+        }
+
+        String context = "Attribute " + dto.getAttributeId();
+        attributeScoringSystemService.validateScoreValue(
+                scoringVersion, AttributeScoringDimension.SENSITIVITY, dto.getSensitivity(), context);
+        attributeScoringSystemService.validateScoreValue(
+                scoringVersion, AttributeScoringDimension.REPLICABILITY, dto.getReplicability(), context);
+        attributeScoringSystemService.validateScoreValue(
+                scoringVersion, AttributeScoringDimension.AVAILABILITY, dto.getAvailability(), context);
+        attributeScoringSystemService.validateScoreValue(
+                scoringVersion, AttributeScoringDimension.DISTINGUISHABILITY, dto.getDistinguishability(), context);
+
+        attribute.setSensitivity(dto.getSensitivity());
+        attribute.setReplicability(dto.getReplicability());
+        attribute.setAvailability(dto.getAvailability());
+        attribute.setDistinguishability(dto.getDistinguishability());
+    }
+
+    private AttributeScoringSystemVersion ensureAttributeScoringVersion(DatasetAssessment assessment) {
+        if (assessment.getAttributeScoringSystemVersion() != null) {
+            return assessment.getAttributeScoringSystemVersion();
+        }
+
+        AttributeScoringSystemVersion scoringVersion = attributeScoringSystemService.getDefaultActiveVersion();
+        assessment.setAttributeScoringSystem(scoringVersion.getScoringSystem());
+        assessment.setAttributeScoringSystemVersion(scoringVersion);
+        assessment.setAttributeIdentifiabilityThreshold(scoringVersion.getDefaultIdentifiabilityThreshold());
+        assessment.setAttributeSensitivityThreshold(scoringVersion.getDefaultSensitivityThreshold());
+        return scoringVersion;
     }
 }

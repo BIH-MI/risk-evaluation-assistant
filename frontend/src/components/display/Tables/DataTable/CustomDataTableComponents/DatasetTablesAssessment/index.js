@@ -12,6 +12,7 @@ function DatasetTablesAssessment({
   originals,
   showShowExcludedCheckbox = true,
   showOverriddenColumn = false,
+  scoringSystem = null,
 }) {
   const { t } = useTranslation();
 
@@ -19,7 +20,10 @@ function DatasetTablesAssessment({
     tables,
     setTables,
     originals,
-    { showOverridden: showOverriddenColumn },
+    {
+      showOverridden: showOverriddenColumn,
+      scoringSystem,
+    },
     t
   );
 

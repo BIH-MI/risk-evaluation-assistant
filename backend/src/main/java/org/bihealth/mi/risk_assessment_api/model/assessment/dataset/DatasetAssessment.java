@@ -7,6 +7,8 @@ import lombok.Getter;
 import lombok.Setter;
 import org.bihealth.mi.risk_assessment_api.model.assessment.BaseAssessment;
 import org.bihealth.mi.risk_assessment_api.model.dataset.Dataset;
+import org.bihealth.mi.risk_assessment_api.model.scoring.AttributeScoringSystem;
+import org.bihealth.mi.risk_assessment_api.model.scoring.AttributeScoringSystemVersion;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
@@ -32,6 +34,23 @@ public class DatasetAssessment extends BaseAssessment {
     @JoinColumn(name = "dataset_id", nullable = false)
     @JsonBackReference
     private Dataset dataset;
+
+    // Attribute scoring system selected when this assessment was created.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "attribute_scoring_system_id")
+    private AttributeScoringSystem attributeScoringSystem;
+
+    // Immutable version that preserves the exact score options used.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "attribute_scoring_system_version_id")
+    private AttributeScoringSystemVersion attributeScoringSystemVersion;
+
+    // Assessment-local thresholds initialized from the selected scoring system.
+    @Column(name = "attribute_identifiability_threshold")
+    private Double attributeIdentifiabilityThreshold;
+
+    @Column(name = "attribute_sensitivity_threshold")
+    private Double attributeSensitivityThreshold;
 
     // Default table/attribute risk metadata captured for this dataset assessment.
     @OneToMany(

@@ -13,6 +13,7 @@ import org.bihealth.mi.risk_assessment_api.model.questionnaire.Answer;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Question;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.QuestionOption;
 import org.bihealth.mi.risk_assessment_api.model.recipient.*;
+import org.bihealth.mi.risk_assessment_api.model.scoring.AttributeScoringSystemVersion;
 import org.bihealth.mi.risk_assessment_api.repository.activity.DataSharingActivityRepository;
 import org.bihealth.mi.risk_assessment_api.repository.assessment.dataset.DatasetAssessmentRepository;
 import org.bihealth.mi.risk_assessment_api.repository.assessment.dataset.DatasetTableAssessmentAttributeRepository;
@@ -24,6 +25,7 @@ import org.bihealth.mi.risk_assessment_api.repository.dataset.DatasetTableReposi
 import org.bihealth.mi.risk_assessment_api.repository.questionnaire.AnswerRepository;
 import org.bihealth.mi.risk_assessment_api.repository.questionnaire.QuestionRepository;
 import org.bihealth.mi.risk_assessment_api.repository.recipient.RecipientRepository;
+import org.bihealth.mi.risk_assessment_api.service.AttributeScoringSystemService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
@@ -42,7 +44,7 @@ import static java.util.Map.entry;
  * risk configurations are already persisted and then creates sample data that
  * exercises those configurations without changing the risk formula itself.</p>
  */
-@Order(2)
+@Order(3)
 @Component
 public class DataLoader implements CommandLineRunner {
 
@@ -63,6 +65,7 @@ public class DataLoader implements CommandLineRunner {
     private final RecipientAssessmentRepository recipientAssessmentRepository;
     private final DataSharingActivityRepository dataSharingActivityRepository;
     private final RiskConfigurationRepository configRepo;
+    private final AttributeScoringSystemService attributeScoringSystemService;
 
     public DataLoader(
             QuestionRepository questionRepo,
@@ -75,7 +78,8 @@ public class DataLoader implements CommandLineRunner {
             RecipientRepository recipientRepository,
             RecipientAssessmentRepository recipientAssessmentRepository,
             DataSharingActivityRepository dataSharingActivityRepository,
-            RiskConfigurationRepository configRepo
+            RiskConfigurationRepository configRepo,
+            AttributeScoringSystemService attributeScoringSystemService
     ) {
         this.questionRepo = questionRepo;
         this.answerRepo = answerRepo;
@@ -88,6 +92,7 @@ public class DataLoader implements CommandLineRunner {
         this.recipientAssessmentRepository = recipientAssessmentRepository;
         this.dataSharingActivityRepository = dataSharingActivityRepository;
         this.configRepo = configRepo;
+        this.attributeScoringSystemService = attributeScoringSystemService;
     }
 
     @Override
@@ -249,10 +254,10 @@ public class DataLoader implements CommandLineRunner {
             dtaa.setAssessment(dta);
             dtaa.setAttribute(attr);
             dtaa.setDirectIdentifier((Boolean) m[4]);
-            dtaa.setSensitivity(m[0] == null ? null : (Integer) m[0]);
-            dtaa.setReplicability(m[1] == null ? null : (Integer) m[1]);
-            dtaa.setAvailability(m[2] == null ? null : (Integer) m[2]);
-            dtaa.setDistinguishability(m[3] == null ? null : (Integer) m[3]);
+            dtaa.setSensitivity(m[0] == null ? null : ((Number) m[0]).doubleValue());
+            dtaa.setReplicability(m[1] == null ? null : ((Number) m[1]).doubleValue());
+            dtaa.setAvailability(m[2] == null ? null : ((Number) m[2]).doubleValue());
+            dtaa.setDistinguishability(m[3] == null ? null : ((Number) m[3]).doubleValue());
             tableAssessmentAttributeRepo.save(dtaa);
         }
     }
@@ -343,6 +348,7 @@ public class DataLoader implements CommandLineRunner {
         DatasetAssessment da = new DatasetAssessment();
         da.setDataset(dataset);
         da.setConfiguration(config);
+        applyDefaultAttributeScoringSystem(da);
         da.setName("LEOSS Assessment (El Emam)");
         da.setDescription("Invasion-of-Privacy answers for the LEOSS Public Use File (No critical triggers applied).");
         da.setCreatorUsername("user");
@@ -388,6 +394,7 @@ public class DataLoader implements CommandLineRunner {
         DatasetAssessment da = new DatasetAssessment();
         da.setDataset(dataset);
         da.setConfiguration(config);
+        applyDefaultAttributeScoringSystem(da);
         da.setName("LEOSS Assessment (SPHN)");
         da.setDescription("SPHN Data Risk evaluation mapped for the LEOSS Public Use File (No critical triggers applied).");
         da.setCreatorUsername("user");
@@ -435,6 +442,14 @@ public class DataLoader implements CommandLineRunner {
 
         dataset.getDatasetAssessments().add(da);
         return assessmentRepo.save(da);
+    }
+
+    private void applyDefaultAttributeScoringSystem(DatasetAssessment assessment) {
+        AttributeScoringSystemVersion scoringVersion = attributeScoringSystemService.getDefaultActiveVersion();
+        assessment.setAttributeScoringSystem(scoringVersion.getScoringSystem());
+        assessment.setAttributeScoringSystemVersion(scoringVersion);
+        assessment.setAttributeIdentifiabilityThreshold(scoringVersion.getDefaultIdentifiabilityThreshold());
+        assessment.setAttributeSensitivityThreshold(scoringVersion.getDefaultSensitivityThreshold());
     }
 
     /**

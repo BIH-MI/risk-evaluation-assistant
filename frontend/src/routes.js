@@ -37,6 +37,8 @@ import AddEditRecipientAssessmentForm from "./screens/recipientAssessments/AddEd
 import AddEditDatasetAssessmentForm from "./screens/datasetAssessments/AddEditDatasetAssessmentForm";
 import ConfigurationPage from "./screens/configurations";
 import AddEditConfigurationForm from "./screens/configurations/AddEditConfigurationForm";
+import AttributeScoringSystems from "./screens/attributeScoringSystems";
+import AddEditAttributeScoringSystem from "./screens/attributeScoringSystems/AddEditAttributeScoringSystem";
 
 const routes = [
   {
@@ -185,6 +187,27 @@ const routes = [
     route: "/configuration",
     icon: <Icon fontSize="small">settings</Icon>,
     component: <ConfigurationPage />,
+  },
+  {
+    type: "collapse",
+    name: "navigation.attributeScoringSystems",
+    key: "configuration/attribute-scoring-systems",
+    route: "/configuration/attribute-scoring-systems",
+    icon: <Icon fontSize="small">tune</Icon>,
+    component: <AttributeScoringSystems />,
+    adminOnly: true,
+  },
+  {
+    key: "configuration-attribute-scoring-systems-new",
+    route: "/configuration/attribute-scoring-systems/new",
+    component: <AddEditAttributeScoringSystem />,
+    adminOnly: true,
+  },
+  {
+    key: "configuration-attribute-scoring-systems-edit",
+    route: "/configuration/attribute-scoring-systems/:id/edit",
+    component: <AddEditAttributeScoringSystem />,
+    adminOnly: true,
   },
   {
     key: "configuration-new",

@@ -36,17 +36,17 @@ public class DataSharingActivityTableAssessmentAttribute {
     private DatasetTableAssessmentAttribute tableAssessmentAttribute;
 
     // Activity-specific S/R/A/D metric values.
-    @Column(name = "sensitivity", nullable = false)
-    private Integer sensitivity;
+    @Column(name = "sensitivity", nullable = true)
+    private Double sensitivity;
 
-    @Column(name = "replicability", nullable = false)
-    private Integer replicability;
+    @Column(name = "replicability", nullable = true)
+    private Double replicability;
 
-    @Column(name = "availability", nullable = false)
-    private Integer availability;
+    @Column(name = "availability", nullable = true)
+    private Double availability;
 
-    @Column(name = "distinguishability", nullable = false)
-    private Integer distinguishability;
+    @Column(name = "distinguishability", nullable = true)
+    private Double distinguishability;
 
     // Activity-specific direct identifier flag.
     @Column(name = "is_direct_identifier", nullable = false)

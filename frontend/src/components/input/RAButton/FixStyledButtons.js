@@ -9,10 +9,12 @@ import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import AssignmentIcon from "@mui/icons-material/Assignment";
+import ArchiveIcon from "@mui/icons-material/Archive";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import AltRouteIcon from "@mui/icons-material/AltRoute";
 import RemoveRedEyeIcon from "@mui/icons-material/RemoveRedEye";
+import StarIcon from "@mui/icons-material/Star";
 import { useMaterialUIController } from "context";
 
 // Hook that returns the inverse background key *and* its contrast text color
@@ -206,6 +208,68 @@ ForkIconButton.propTypes = {
   onClick: PropTypes.func,
 };
 ForkIconButton.defaultProps = {
+  onClick: undefined,
+};
+
+/**
+ * A circular, icon-only button for setting a default item.
+ * Background is the inverse theme color; icon uses its contrastText.
+ */
+export const DefaultIconButton = forwardRef(({ onClick, ...rest }, ref) => {
+  const { bgColor, textColor } = useInverseThemeColors();
+
+  return (
+    <RAButton
+      component="span"
+      ref={ref}
+      onClick={onClick}
+      iconOnly
+      aria-label="set default"
+      variant="contained"
+      color={bgColor}
+      size="small"
+      {...rest}
+    >
+      <StarIcon fontSize="small" sx={{ color: textColor }} />
+    </RAButton>
+  );
+});
+
+DefaultIconButton.propTypes = {
+  onClick: PropTypes.func,
+};
+DefaultIconButton.defaultProps = {
+  onClick: undefined,
+};
+
+/**
+ * A circular, icon-only button for archiving.
+ * Background is the inverse theme color; icon uses its contrastText.
+ */
+export const ArchiveIconButton = forwardRef(({ onClick, ...rest }, ref) => {
+  const { bgColor, textColor } = useInverseThemeColors();
+
+  return (
+    <RAButton
+      component="span"
+      ref={ref}
+      onClick={onClick}
+      iconOnly
+      aria-label="archive"
+      variant="contained"
+      color={bgColor}
+      size="small"
+      {...rest}
+    >
+      <ArchiveIcon fontSize="small" sx={{ color: textColor }} />
+    </RAButton>
+  );
+});
+
+ArchiveIconButton.propTypes = {
+  onClick: PropTypes.func,
+};
+ArchiveIconButton.defaultProps = {
   onClick: undefined,
 };
 

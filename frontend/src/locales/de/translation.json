@@ -19,6 +19,7 @@
     "editRecipientAssessment": "Empfänger-Bewertung bearbeiten",
     "dataSharingActivities": "Datenfreigabe-Aktivitäten",
     "configurations": "Konfigurationen",
+    "attributeScoringSystems": "Bewertungssysteme",
     "documentation": "Dokumentation"
   },
   "configurator": {
@@ -436,7 +437,7 @@
     "riskAnalysisSummary": "Zusammenfassung der Risikoanalyse",
     "riskFactorsBreakdown": "Aufschlüsselung der Risikofaktoren",
     "attributeLevelAssessment": "Risikobewertung auf Attributebene",
-    "identifiabilityThreshold": "Identifizierbarkeits-Schwellenwert (1-9)",
+    "identifiabilityThreshold": "Identifizierbarkeits-Schwellenwert ({{scaleRange}})",
     "sensitivityThreshold": "Sensibilitäts-Schwellenwert ({{scaleRange}})",
     "generatingPdf": "PDF wird erstellt...",
     "downloadPdf": "PDF herunterladen",

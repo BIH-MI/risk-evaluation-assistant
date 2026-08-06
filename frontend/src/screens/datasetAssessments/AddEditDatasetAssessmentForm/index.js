@@ -16,9 +16,12 @@ import OnBlurRAInput from "components/input/RAInput/OnBlurRAInput";
 import DatasetTablesAssessment from "components/display/Tables/DataTable/CustomDataTableComponents/DatasetTablesAssessment";
 import RAAlert from "components/feedback/RAAlert";
 import {
+  LEGACY_ATTRIBUTE_SCORING_SYSTEM,
+  formatScoreValue,
   getDefaultAttributeScaleMetrics,
   normalizeAttributeScaleValue,
 } from "utils/AttributeScale";
+import { fetchAttributeScoringSystemsApi } from "api/attributeScoringSystems";
 
 import {
   addDatasetAssessment,
@@ -64,6 +67,8 @@ export default function AddEditDatasetAssessmentForm() {
   const [description, setDescription] = useState("");
   const [selectedDatasetId, setSelectedDatasetId] = useState(datasetId || "");
   const [selectedConfigId, setSelectedConfigId] = useState("");
+  const [selectedScoringSystemId, setSelectedScoringSystemId] = useState("");
+  const [scoringSystems, setScoringSystems] = useState([]);
   const [answers, setAnswers] = useState({});
   const [tables, setTables] = useState([]);
 
@@ -89,6 +94,28 @@ export default function AddEditDatasetAssessmentForm() {
     () => configurations.find((c) => c.id === selectedConfigId),
     [configurations, selectedConfigId]
   );
+
+  const selectedScoringSystem = useMemo(() => {
+    if (isEditMode && assessment?.attributeScoringSystem) {
+      return assessment.attributeScoringSystem;
+    }
+    return (
+      scoringSystems.find(
+        (system) => String(system.id) === String(selectedScoringSystemId)
+      ) ||
+      scoringSystems.find((system) => system.defaultSystem) ||
+      LEGACY_ATTRIBUTE_SCORING_SYSTEM
+    );
+  }, [assessment, isEditMode, scoringSystems, selectedScoringSystemId]);
+
+  const scoringSystemOptions = useMemo(() => {
+    const map = new Map();
+    scoringSystems.forEach((system) => map.set(String(system.id), system));
+    if (selectedScoringSystem?.id != null) {
+      map.set(String(selectedScoringSystem.id), selectedScoringSystem);
+    }
+    return Array.from(map.values());
+  }, [scoringSystems, selectedScoringSystem]);
 
   const categories = activeConfig?.categories || EMPTY_ARRAY;
   const questions = activeConfig?.questions || EMPTY_ARRAY;
@@ -155,8 +182,24 @@ export default function AddEditDatasetAssessmentForm() {
     if (token) {
       dispatch(fetchDatasets(token));
       dispatch(fetchConfigurations(token));
+      fetchAttributeScoringSystemsApi(token, { activeOnly: true })
+        .then((data) => setScoringSystems(Array.isArray(data) ? data : []))
+        .catch((err) =>
+          setLockError(
+            err.message || "Failed to load scoring systems."
+          )
+        );
     }
   }, [dispatch, token]);
+
+  useEffect(() => {
+    if (isEditMode) return;
+    if (selectedScoringSystemId || scoringSystems.length === 0) return;
+    const defaultSystem =
+      scoringSystems.find((system) => system.defaultSystem) ||
+      scoringSystems[0];
+    setSelectedScoringSystemId(defaultSystem?.id || "");
+  }, [isEditMode, scoringSystems, selectedScoringSystemId]);
 
   // Load Existing Assessment Metadata (Runs once when assessment loads)
   useEffect(() => {
@@ -165,6 +208,7 @@ export default function AddEditDatasetAssessmentForm() {
       setDescription(assessment.description || "");
       setSelectedDatasetId(assessment.datasetId || "");
       setSelectedConfigId(assessment.configurationId || "");
+      setSelectedScoringSystemId(assessment.attributeScoringSystemId || "");
     }
   }, [isEditMode, assessment, name]);
 
@@ -218,28 +262,40 @@ export default function AddEditDatasetAssessmentForm() {
                   : normalizeAttributeScaleValue(
                       asmAttr?.sensitivity,
                       "sensitivity",
-                      { allowNull: false }
+                      {
+                        allowNull: false,
+                        scoringSystem: selectedScoringSystem,
+                      }
                     ),
                 replicability: excluded
                   ? null
                   : normalizeAttributeScaleValue(
                       asmAttr?.replicability,
                       "replicability",
-                      { allowNull: false }
+                      {
+                        allowNull: false,
+                        scoringSystem: selectedScoringSystem,
+                      }
                     ),
                 availability: excluded
                   ? null
                   : normalizeAttributeScaleValue(
                       asmAttr?.availability,
                       "availability",
-                      { allowNull: false }
+                      {
+                        allowNull: false,
+                        scoringSystem: selectedScoringSystem,
+                      }
                     ),
                 distinguishability: excluded
                   ? null
                   : normalizeAttributeScaleValue(
                       asmAttr?.distinguishability,
                       "distinguishability",
-                      { allowNull: false }
+                      {
+                        allowNull: false,
+                        scoringSystem: selectedScoringSystem,
+                      }
                     ),
                 isDirectIdentifier: excluded
                   ? null
@@ -268,14 +324,14 @@ export default function AddEditDatasetAssessmentForm() {
                   availability: null,
                   distinguishability: null,
                 }
-              : getDefaultAttributeScaleMetrics()),
+              : getDefaultAttributeScaleMetrics(selectedScoringSystem)),
             isDirectIdentifier: attr.excluded ? null : false,
             isExcluded: attr.excluded,
           })),
         }))
       );
     }
-  }, [dataset, isEditMode, assessment]);
+  }, [dataset, isEditMode, assessment, selectedScoringSystem]);
 
   // Fetch deep configuration hierarchy when a config is selected
   useEffect(() => {
@@ -408,10 +464,26 @@ export default function AddEditDatasetAssessmentForm() {
 
             return {
               ...attr,
-              sensitivity: srcAttr.sensitivity,
-              replicability: srcAttr.replicability,
-              availability: srcAttr.availability,
-              distinguishability: srcAttr.distinguishability,
+              sensitivity: normalizeAttributeScaleValue(
+                srcAttr.sensitivity,
+                "sensitivity",
+                { allowNull: false, scoringSystem: selectedScoringSystem }
+              ),
+              replicability: normalizeAttributeScaleValue(
+                srcAttr.replicability,
+                "replicability",
+                { allowNull: false, scoringSystem: selectedScoringSystem }
+              ),
+              availability: normalizeAttributeScaleValue(
+                srcAttr.availability,
+                "availability",
+                { allowNull: false, scoringSystem: selectedScoringSystem }
+              ),
+              distinguishability: normalizeAttributeScaleValue(
+                srcAttr.distinguishability,
+                "distinguishability",
+                { allowNull: false, scoringSystem: selectedScoringSystem }
+              ),
               isDirectIdentifier: Boolean(srcAttr.isDirectIdentifier),
               isExcluded: Boolean(srcAttr.isExcluded),
             };
@@ -422,13 +494,14 @@ export default function AddEditDatasetAssessmentForm() {
 
     // Reset dropdown after successful import
     setImportAssessmentId("");
-  }, [importAssessmentId, assessments]);
+  }, [importAssessmentId, assessments, selectedScoringSystem]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setShowAllErrors(true);
 
     if (!name.trim()) return;
+    if (!isEditMode && !selectedScoringSystemId) return;
     setIsSubmitting(true);
 
     const assessmentPayload = {
@@ -436,6 +509,9 @@ export default function AddEditDatasetAssessmentForm() {
       description,
       datasetId: selectedDatasetId,
       configurationId: selectedConfigId,
+      attributeScoringSystemId: selectedScoringSystemId
+        ? Number(selectedScoringSystemId)
+        : selectedScoringSystem?.id ?? null,
       answers: Object.entries(answers).map(([qId, ansData]) => ({
         id: ansData.id || null,
         questionId: Number(qId),
@@ -522,6 +598,46 @@ export default function AddEditDatasetAssessmentForm() {
               </MenuItem>
             ))}
           </RAInput>
+          <RAInput
+            select
+            label="Attribute scoring system"
+            value={selectedScoringSystemId}
+            onChange={(e) => setSelectedScoringSystemId(e.target.value)}
+            fullWidth
+            required
+            disabled={isReadOnly || isEditMode}
+          >
+            {scoringSystemOptions.map((system) => (
+              <MenuItem key={system.id} value={system.id}>
+                <RABox display="flex" flexDirection="column">
+                  <RATypography variant="button" fontWeight="medium">
+                    {system.name} v{system.versionNumber || system.currentVersion || 1}
+                  </RATypography>
+                  {system.description && (
+                    <RATypography variant="caption" color="secondary">
+                      {system.description}
+                    </RATypography>
+                  )}
+                </RABox>
+              </MenuItem>
+            ))}
+          </RAInput>
+          {selectedScoringSystem && (
+            <RABox display="flex" gap={2} flexWrap="wrap">
+              <RATypography variant="caption" color="text">
+                Identifiability threshold:{" "}
+                {formatScoreValue(
+                  selectedScoringSystem.defaultIdentifiabilityThreshold
+                )}
+              </RATypography>
+              <RATypography variant="caption" color="text">
+                Sensitivity threshold:{" "}
+                {formatScoreValue(
+                  selectedScoringSystem.defaultSensitivityThreshold
+                )}
+              </RATypography>
+            </RABox>
+          )}
           <OnBlurRAInput
             label={t("datasetAssessments.form.assessmentNameLabel")}
             value={name}
@@ -764,6 +880,7 @@ export default function AddEditDatasetAssessmentForm() {
             tables={tables}
             setTables={setTables}
             isReadOnly={isReadOnly}
+            scoringSystem={selectedScoringSystem}
           />
         </RABox>
 
@@ -777,6 +894,7 @@ export default function AddEditDatasetAssessmentForm() {
             !name.trim() ||
             !selectedDatasetId ||
             !selectedConfigId ||
+            (!isEditMode && !selectedScoringSystemId) ||
             !allAnswered
           }
         >

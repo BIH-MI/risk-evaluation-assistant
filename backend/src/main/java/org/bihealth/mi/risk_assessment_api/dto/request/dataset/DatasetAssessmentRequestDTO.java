@@ -30,6 +30,9 @@ public class DatasetAssessmentRequestDTO {
     // Risk configuration used to interpret questions, answers, and bands.
     private Long configurationId;
 
+    // Attribute scoring system selected for S/R/A/D attribute scoring.
+    private Long attributeScoringSystemId;
+
     // User-facing assessment name.
     private String name;
 

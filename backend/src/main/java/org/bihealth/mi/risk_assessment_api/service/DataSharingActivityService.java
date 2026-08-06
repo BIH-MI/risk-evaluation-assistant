@@ -10,7 +10,10 @@ import org.bihealth.mi.risk_assessment_api.model.activity.DataSharingActivity;
 import org.bihealth.mi.risk_assessment_api.model.assessment.activity.DataSharingActivityTableAssessment;
 import org.bihealth.mi.risk_assessment_api.model.assessment.activity.DataSharingActivityTableAssessmentAttribute;
 import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetAssessment;
+import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetTableAssessmentAttribute;
 import org.bihealth.mi.risk_assessment_api.model.assessment.recipient.RecipientAssessment;
+import org.bihealth.mi.risk_assessment_api.model.scoring.AttributeScoringDimension;
+import org.bihealth.mi.risk_assessment_api.model.scoring.AttributeScoringSystemVersion;
 import org.bihealth.mi.risk_assessment_api.repository.activity.DataSharingActivityRepository;
 import org.bihealth.mi.risk_assessment_api.repository.assessment.dataset.DatasetAssessmentRepository;
 import org.bihealth.mi.risk_assessment_api.repository.assessment.dataset.DatasetTableAssessmentAttributeRepository;
@@ -43,6 +46,7 @@ public class DataSharingActivityService {
     private final DatasetTableAssessmentRepository datasetTableAssessmentRepo;
     private final DatasetTableAssessmentAttributeRepository datasetTableAssessmentAttributeRepo;
     private final RecipientAssessmentRepository recipientAssessmentRepo;
+    private final AttributeScoringSystemService attributeScoringSystemService;
 
     /**
      * Returns activities visible to a user.
@@ -100,6 +104,7 @@ public class DataSharingActivityService {
         DataSharingActivity act = dto.toEntity(
                 username, da, ra, datasetTableAssessmentRepo, datasetTableAssessmentAttributeRepo
         );
+        normalizeActivityAttributeScores(act, ensureAttributeScoringVersion(da));
 
         DataSharingActivity saved = repository.save(act);
         return new DataSharingActivityResponseDTO(saved);
@@ -133,6 +138,7 @@ public class DataSharingActivityService {
                 .orElse(existing.getRecipientAssessment());
 
         if (da != null && ra != null) {
+            ensureAttributeScoringVersion(da);
             existing.setDatasetAssessment(da);
             existing.setRecipientAssessment(ra);
         }
@@ -153,7 +159,7 @@ public class DataSharingActivityService {
                 tableAssessment.setDataSharingActivity(existing);
                 tableAssessment.setTable(datasetTableAssessmentRepo.getReferenceById(taDto.getTableId()));
 
-                syncAttributes(tableAssessment, taDto.getAttributes());
+                syncAttributes(tableAssessment, taDto.getAttributes(), ensureAttributeScoringVersion(existing.getDatasetAssessment()));
                 processedTableAssessments.add(tableAssessment);
             }
         }
@@ -174,7 +180,8 @@ public class DataSharingActivityService {
      * request exactly, so omitted override rows are removed.</p>
      */
     private void syncAttributes(DataSharingActivityTableAssessment tableAssessment,
-                                List<DataSharingActivityTableAttributeAssessmentRequestDTO> attributeDtos) {
+                                List<DataSharingActivityTableAttributeAssessmentRequestDTO> attributeDtos,
+                                AttributeScoringSystemVersion scoringVersion) {
 
         Map<Long, DataSharingActivityTableAssessmentAttribute> existingAttributesMap =
                 tableAssessment.getAttributes().stream()
@@ -188,12 +195,11 @@ public class DataSharingActivityService {
                         existingAttributesMap.getOrDefault(attrDto.getAttributeId(), new DataSharingActivityTableAssessmentAttribute());
 
                 attribute.setTableAssessment(tableAssessment);
-                attribute.setTableAssessmentAttribute(datasetTableAssessmentAttributeRepo.getReferenceById(attrDto.getAttributeId()));
-                attribute.setSensitivity(attrDto.getSensitivity());
-                attribute.setReplicability(attrDto.getReplicability());
-                attribute.setAvailability(attrDto.getAvailability());
-                attribute.setDistinguishability(attrDto.getDistinguishability());
-                attribute.setDirectIdentifier(attrDto.getDirectIdentifier());
+                DatasetTableAssessmentAttribute sourceAttribute = datasetTableAssessmentAttributeRepo
+                        .findById(attrDto.getAttributeId())
+                        .orElseThrow(() -> new EntityNotFoundException("Dataset table assessment attribute not found: " + attrDto.getAttributeId()));
+                attribute.setTableAssessmentAttribute(sourceAttribute);
+                applyActivityAttributeScores(attribute, attrDto, sourceAttribute, scoringVersion);
 
                 processedAttributes.add(attribute);
             }
@@ -216,5 +222,103 @@ public class DataSharingActivityService {
         }
 
         repository.delete(act);
+    }
+
+    private void normalizeActivityAttributeScores(
+            DataSharingActivity activity,
+            AttributeScoringSystemVersion scoringVersion
+    ) {
+        if (activity.getTableAssessments() == null) {
+            return;
+        }
+
+        for (DataSharingActivityTableAssessment tableAssessment : activity.getTableAssessments()) {
+            if (tableAssessment.getAttributes() == null) {
+                continue;
+            }
+            for (DataSharingActivityTableAssessmentAttribute attribute : tableAssessment.getAttributes()) {
+                applyActivityAttributeScores(
+                        attribute,
+                        attribute.getSensitivity(),
+                        attribute.getReplicability(),
+                        attribute.getAvailability(),
+                        attribute.getDistinguishability(),
+                        attribute.isDirectIdentifier(),
+                        attribute.getTableAssessmentAttribute(),
+                        scoringVersion
+                );
+            }
+        }
+    }
+
+    private void applyActivityAttributeScores(
+            DataSharingActivityTableAssessmentAttribute attribute,
+            DataSharingActivityTableAttributeAssessmentRequestDTO dto,
+            DatasetTableAssessmentAttribute sourceAttribute,
+            AttributeScoringSystemVersion scoringVersion
+    ) {
+        applyActivityAttributeScores(
+                attribute,
+                dto.getSensitivity(),
+                dto.getReplicability(),
+                dto.getAvailability(),
+                dto.getDistinguishability(),
+                Boolean.TRUE.equals(dto.getDirectIdentifier()),
+                sourceAttribute,
+                scoringVersion
+        );
+    }
+
+    private void applyActivityAttributeScores(
+            DataSharingActivityTableAssessmentAttribute attribute,
+            Double sensitivity,
+            Double replicability,
+            Double availability,
+            Double distinguishability,
+            boolean directIdentifier,
+            DatasetTableAssessmentAttribute sourceAttribute,
+            AttributeScoringSystemVersion scoringVersion
+    ) {
+        boolean excluded = sourceAttribute != null
+                && sourceAttribute.getAttribute() != null
+                && sourceAttribute.getAttribute().isExcluded();
+        attribute.setDirectIdentifier(directIdentifier);
+
+        if (directIdentifier || excluded) {
+            attribute.setSensitivity(null);
+            attribute.setReplicability(null);
+            attribute.setAvailability(null);
+            attribute.setDistinguishability(null);
+            return;
+        }
+
+        String context = "Activity attribute " + (sourceAttribute == null ? "" : sourceAttribute.getId());
+        attributeScoringSystemService.validateScoreValue(
+                scoringVersion, AttributeScoringDimension.SENSITIVITY, sensitivity, context);
+        attributeScoringSystemService.validateScoreValue(
+                scoringVersion, AttributeScoringDimension.REPLICABILITY, replicability, context);
+        attributeScoringSystemService.validateScoreValue(
+                scoringVersion, AttributeScoringDimension.AVAILABILITY, availability, context);
+        attributeScoringSystemService.validateScoreValue(
+                scoringVersion, AttributeScoringDimension.DISTINGUISHABILITY, distinguishability, context);
+
+        attribute.setSensitivity(sensitivity);
+        attribute.setReplicability(replicability);
+        attribute.setAvailability(availability);
+        attribute.setDistinguishability(distinguishability);
+    }
+
+    private AttributeScoringSystemVersion ensureAttributeScoringVersion(DatasetAssessment assessment) {
+        if (assessment.getAttributeScoringSystemVersion() != null) {
+            return assessment.getAttributeScoringSystemVersion();
+        }
+
+        AttributeScoringSystemVersion scoringVersion = attributeScoringSystemService.getDefaultActiveVersion();
+        assessment.setAttributeScoringSystem(scoringVersion.getScoringSystem());
+        assessment.setAttributeScoringSystemVersion(scoringVersion);
+        assessment.setAttributeIdentifiabilityThreshold(scoringVersion.getDefaultIdentifiabilityThreshold());
+        assessment.setAttributeSensitivityThreshold(scoringVersion.getDefaultSensitivityThreshold());
+        datasetAssessmentRepo.save(assessment);
+        return scoringVersion;
     }
 }

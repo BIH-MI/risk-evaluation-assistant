@@ -24,6 +24,7 @@ import { fetchAttributeScoringSystemsApi } from "api/attributeScoringSystems";
 
 import {
   addDatasetAssessment,
+  fetchDatasetAssessments,
   updateDatasetAssessment,
 } from "store/datasetAssessments/datasetAssessmentsThunks";
 import { fetchDatasets } from "store/datasets/datasetsThunks";
@@ -197,9 +198,19 @@ export default function AddEditDatasetAssessmentForm() {
   const previousAssessments = useMemo(() => {
     if (!selectedDatasetId) return [];
     return assessments.filter(
-      (a) => a.datasetId === selectedDatasetId && a.id !== assessmentId
+      (a) =>
+        String(a.datasetId) === String(selectedDatasetId) &&
+        String(a.id) !== String(assessmentId)
     );
   }, [assessments, selectedDatasetId, assessmentId]);
+
+  const selectedImportAssessment = useMemo(
+    () =>
+      previousAssessments.find(
+        (assessment) => String(assessment.id) === String(importAssessmentId)
+      ),
+    [importAssessmentId, previousAssessments]
+  );
 
   // --- LOCKING ---
   const [lockError, setLockError] = useState(null);
@@ -224,6 +235,7 @@ export default function AddEditDatasetAssessmentForm() {
   useEffect(() => {
     if (token) {
       dispatch(fetchDatasets(token));
+      dispatch(fetchDatasetAssessments(token));
       dispatch(fetchConfigurations(token));
       fetchAttributeScoringSystemsApi(token, { activeOnly: true })
         .then((data) => setScoringSystems(Array.isArray(data) ? data : []))
@@ -474,7 +486,9 @@ export default function AddEditDatasetAssessmentForm() {
   const handleImportAttributes = useCallback(() => {
     if (!importAssessmentId) return;
 
-    const sourceAsmt = assessments.find((a) => a.id === importAssessmentId);
+    const sourceAsmt = assessments.find(
+      (a) => String(a.id) === String(importAssessmentId)
+    );
     if (!sourceAsmt || !sourceAsmt.tableAssessments) return;
 
     const sourceTablesMap = new Map(
@@ -873,9 +887,23 @@ export default function AddEditDatasetAssessmentForm() {
                   "Import attributes from previous assessment"
                 )}
                 value={importAssessmentId}
-                onChange={(e) => setImportAssessmentId(e.target.value)}
+                onChange={(e) => setImportAssessmentId(String(e.target.value))}
                 sx={{ minWidth: 210 }}
                 size="small"
+                SelectProps={{
+                  displayEmpty: true,
+                  renderValue: () =>
+                    selectedImportAssessment ? (
+                      selectedImportAssessment.name
+                    ) : (
+                      <em>
+                        {t(
+                          "datasetAssessments.form.selectAssessment",
+                          "Select assessment..."
+                        )}
+                      </em>
+                    ),
+                }}
               >
                 <MenuItem value="" disabled>
                   <em>
@@ -886,7 +914,7 @@ export default function AddEditDatasetAssessmentForm() {
                   </em>
                 </MenuItem>
                 {previousAssessments.map((a) => (
-                  <MenuItem key={a.id} value={a.id}>
+                  <MenuItem key={a.id} value={String(a.id)}>
                     {a.name}
                   </MenuItem>
                 ))}

@@ -109,22 +109,11 @@ export default function AttributeScoringSystems() {
         openEditDialog,
         handleDuplicate,
         handleSetDefault,
-        setArchiveTarget
+        setArchiveTarget,
+        isAdmin
       ),
-    [handleDuplicate, handleSetDefault, openEditDialog, sortedSystems]
+    [handleDuplicate, handleSetDefault, isAdmin, openEditDialog, sortedSystems]
   );
-
-  if (!isAdmin) {
-    return (
-      <RABox p={3}>
-        <RAAlert color="warning">
-          <RATypography variant="body2" color="white">
-            Only administrators can manage scoring systems.
-          </RATypography>
-        </RAAlert>
-      </RABox>
-    );
-  }
 
   return (
     <RABox>
@@ -132,10 +121,10 @@ export default function AttributeScoringSystems() {
         <DataTable
           table={{ columns, rows }}
           canSearch
-          canAdd
+          canAdd={isAdmin}
           searchColumnKey="displayName"
-          searchPlaceholder="scoring systems..."
-          onAddClick={openCreateDialog}
+          searchPlaceholder="Search scoring systems..."
+          onAddClick={isAdmin ? openCreateDialog : undefined}
         />
       </RABox>
 

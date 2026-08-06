@@ -195,7 +195,6 @@ const routes = [
     route: "/configuration/attribute-scoring-systems",
     icon: <Icon fontSize="small">tune</Icon>,
     component: <AttributeScoringSystems />,
-    adminOnly: true,
   },
   {
     key: "configuration-attribute-scoring-systems-new",

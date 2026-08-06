@@ -16,7 +16,8 @@ export default function getScoringSystemTableData(
   onEdit,
   onDuplicate,
   onSetDefault,
-  onArchive
+  onArchive,
+  isAdmin
 ) {
   const columns = [
     {
@@ -58,7 +59,10 @@ export default function getScoringSystemTableData(
         />
       ),
     },
-    {
+  ];
+
+  if (isAdmin) {
+    columns.push({
       Header: "Actions",
       accessor: "actions",
       width: "21%",
@@ -103,8 +107,8 @@ export default function getScoringSystemTableData(
           </RABox>
         );
       },
-    },
-  ];
+    });
+  }
 
   const rows = scoringSystems.map((system) => ({
     id: system.id,

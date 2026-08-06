@@ -10,7 +10,13 @@ import { useTranslation } from "react-i18next";
 import RABox from "../../../components/layout/RABox";
 import RATypography from "../RATypography";
 
-// Calculates the center point of the specific donut slice to perfectly align the icon
+const formatPercentage = (percentage) => {
+  if (!Number.isFinite(percentage)) return "0%";
+  if (percentage > 0 && percentage < 1) return "<1%";
+  return `${Math.round(percentage)}%`;
+};
+
+// Calculates the center point of the specific donut slice to align labels inside it.
 const renderCustomLabel = ({
   cx,
   cy,
@@ -19,15 +25,13 @@ const renderCustomLabel = ({
   outerRadius,
   payload,
 }) => {
-  if (payload.isTrigger) {
-    const RADIAN = Math.PI / 180;
-    // Calculate the midpoint between the inner and outer radius
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+  const RADIAN = Math.PI / 180;
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+  const label = formatPercentage(payload.percentage);
 
-    // Use trigonometry to find the X and Y coordinates on the circle
-    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-    const y = cy + radius * Math.sin(-midAngle * RADIAN);
-
+  if (!payload.isTrigger) {
     return (
       <text
         x={x}
@@ -35,15 +39,39 @@ const renderCustomLabel = ({
         fill="#fff"
         textAnchor="middle"
         dominantBaseline="central"
-        fontSize={18}
+        fontSize={13}
         fontWeight="bold"
-        style={{ pointerEvents: "none" }}
+        style={{
+          pointerEvents: "none",
+          textShadow: "0 1px 3px rgba(0,0,0,0.45)",
+        }}
       >
-        {payload.shortLabel}
+        {label}
       </text>
     );
   }
-  return null;
+
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="#fff"
+      textAnchor="middle"
+      dominantBaseline="central"
+      fontWeight="bold"
+      style={{
+        pointerEvents: "none",
+        textShadow: "0 1px 3px rgba(0,0,0,0.45)",
+      }}
+    >
+      <tspan x={x} dy="-0.25em" fontSize={16}>
+        {payload.shortLabel}
+      </tspan>
+      <tspan x={x} dy="1.25em" fontSize={12}>
+        {label}
+      </tspan>
+    </text>
+  );
 };
 
 export default function NestedRiskPieChart({ categoryData }) {
@@ -94,7 +122,13 @@ export default function NestedRiskPieChart({ categoryData }) {
       });
     }
 
-    return data.filter((d) => d.value > 0);
+    const filteredData = data.filter((d) => d.value > 0);
+    const total = filteredData.reduce((sum, item) => sum + item.value, 0);
+
+    return filteredData.map((item) => ({
+      ...item,
+      percentage: total > 0 ? (item.value / total) * 100 : 0,
+    }));
   }, [categoryData, t]);
 
   const CustomTooltip = ({ active, payload }) => {
@@ -117,6 +151,9 @@ export default function NestedRiskPieChart({ categoryData }) {
           </RATypography>
           <RATypography variant="caption" display="block" mt={0.5}>
             Count: {data.value}
+          </RATypography>
+          <RATypography variant="caption" display="block">
+            Percentage: {formatPercentage(data.percentage)}
           </RATypography>
         </RABox>
       );

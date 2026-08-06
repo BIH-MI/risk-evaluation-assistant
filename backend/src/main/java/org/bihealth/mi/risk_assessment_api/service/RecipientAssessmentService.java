@@ -6,13 +6,13 @@ import org.bihealth.mi.risk_assessment_api.dto.request.recipient.RecipientAssess
 import org.bihealth.mi.risk_assessment_api.dto.response.recipient.RecipientAssessmentResponseDTO;
 import org.bihealth.mi.risk_assessment_api.model.assessment.recipient.RecipientAssessment;
 import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
+import org.bihealth.mi.risk_assessment_api.model.configuration.ConfigurationVersion;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Answer;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Question;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.QuestionOption;
 import org.bihealth.mi.risk_assessment_api.model.recipient.Recipient;
 import org.bihealth.mi.risk_assessment_api.repository.assessment.recipient.RecipientAssessmentRepository;
 import org.bihealth.mi.risk_assessment_api.repository.configuration.RiskConfigurationRepository;
-import org.bihealth.mi.risk_assessment_api.repository.questionnaire.QuestionRepository;
 import org.bihealth.mi.risk_assessment_api.repository.recipient.RecipientRepository;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -39,7 +39,7 @@ public class RecipientAssessmentService {
     private final RecipientAssessmentRepository assessmentRepository;
     private final RecipientRepository recipientRepository;
     private final RiskConfigurationRepository riskConfigurationRepository;
-    private final QuestionRepository questionRepository;
+    private final ConfigurationService configurationService;
 
     /**
      * Creates the service with the repositories required for recipient
@@ -49,12 +49,12 @@ public class RecipientAssessmentService {
             RecipientAssessmentRepository assessmentRepository,
             RecipientRepository recipientRepository,
             RiskConfigurationRepository riskConfigurationRepository,
-            QuestionRepository questionRepository
+            ConfigurationService configurationService
     ) {
         this.assessmentRepository = assessmentRepository;
         this.recipientRepository = recipientRepository;
         this.riskConfigurationRepository = riskConfigurationRepository;
-        this.questionRepository = questionRepository;
+        this.configurationService = configurationService;
     }
 
     /**
@@ -118,17 +118,17 @@ public class RecipientAssessmentService {
 
         Configuration config = riskConfigurationRepository.findById(dto.getConfigurationId())
                 .orElseThrow(() -> new EntityNotFoundException("Configuration not found: " + dto.getConfigurationId()));
+        ConfigurationVersion configVersion = configurationService.getCurrentVersion(config.getId());
 
         if (!config.isActive()) {
-            config.setActive(true);
-            riskConfigurationRepository.save(config);
+            throw new IllegalArgumentException("Archived configurations cannot be used for new assessments.");
         }
 
         // Build a configuration-scoped question map for AnswerRequestDTO conversion.
-        Map<Long, Question> questionMap = questionRepository.findByConfiguration(config).stream()
+        Map<Long, Question> questionMap = configVersion.getQuestions().stream()
                 .collect(Collectors.toMap(Question::getId, Function.identity()));
 
-        RecipientAssessment asmt = dto.toEntity(recipient, config, questionMap, username);
+        RecipientAssessment asmt = dto.toEntity(recipient, config, configVersion, questionMap, username);
         RecipientAssessment saved = assessmentRepository.save(asmt);
 
         return new RecipientAssessmentResponseDTO(saved);
@@ -161,12 +161,18 @@ public class RecipientAssessmentService {
             // A different configuration means a different question/option set.
             Configuration config = riskConfigurationRepository.findById(dto.getConfigurationId())
                     .orElseThrow(() -> new EntityNotFoundException("Configuration not found: " + dto.getConfigurationId()));
+            if (!config.isActive()) {
+                throw new IllegalArgumentException("Archived configurations cannot be used for assessments.");
+            }
             existing.setConfiguration(config);
+            existing.setConfigurationVersion(configurationService.getCurrentVersion(config.getId()));
             existing.getAnswers().clear();
         }
 
+        ConfigurationVersion configVersion = ensureConfigurationVersion(existing);
+
         // Scope all answer updates to the assessment's current configuration.
-        Map<Long, Question> questionMap = questionRepository.findByConfiguration(existing.getConfiguration()).stream()
+        Map<Long, Question> questionMap = configVersion.getQuestions().stream()
                 .collect(Collectors.toMap(Question::getId, Function.identity()));
 
         if (dto.getAnswers() != null) {
@@ -217,5 +223,15 @@ public class RecipientAssessmentService {
         verifyRecipientAccess(existing.getRecipient(), username, isAdmin);
 
         assessmentRepository.delete(existing);
+    }
+
+    private ConfigurationVersion ensureConfigurationVersion(RecipientAssessment assessment) {
+        if (assessment.getConfigurationVersion() != null) {
+            return assessment.getConfigurationVersion();
+        }
+
+        ConfigurationVersion version = configurationService.getCurrentVersion(assessment.getConfiguration().getId());
+        assessment.setConfigurationVersion(version);
+        return version;
     }
 }

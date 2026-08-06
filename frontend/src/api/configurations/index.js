@@ -87,6 +87,26 @@ export async function updateConfigurationApi(id, payload, token) {
   return text ? JSON.parse(text) : {};
 }
 
+export async function archiveConfigurationApi(id, token) {
+  const res = await fetch(`${apiUrl}/api/configurations/${id}/archive`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) await handleApiError(res, "Failed to archive configuration");
+  return res.json();
+}
+
+export async function setDefaultConfigurationApi(id, token) {
+  const res = await fetch(`${apiUrl}/api/configurations/${id}/default`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) await handleApiError(res, "Failed to set default configuration");
+  return res.json();
+}
+
 export async function deleteConfigurationApi(id, token) {
   const res = await fetch(`${apiUrl}/api/configurations/${id}`, {
     method: "DELETE",

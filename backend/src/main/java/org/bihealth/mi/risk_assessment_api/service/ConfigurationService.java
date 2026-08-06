@@ -1,78 +1,75 @@
 package org.bihealth.mi.risk_assessment_api.service;
 
 import jakarta.persistence.EntityNotFoundException;
-import org.bihealth.mi.risk_assessment_api.dto.request.configuration.*;
-import org.bihealth.mi.risk_assessment_api.model.configuration.*;
+import org.bihealth.mi.risk_assessment_api.dto.request.configuration.QuestionOptionRequestDTO;
+import org.bihealth.mi.risk_assessment_api.dto.request.configuration.QuestionRequestDTO;
+import org.bihealth.mi.risk_assessment_api.dto.request.configuration.ReidThresholdRequestDTO;
+import org.bihealth.mi.risk_assessment_api.dto.request.configuration.RiskBandRequestDTO;
+import org.bihealth.mi.risk_assessment_api.dto.request.configuration.RiskCategoryRequestDTO;
+import org.bihealth.mi.risk_assessment_api.dto.request.configuration.RiskConfigurationUpdateRequest;
+import org.bihealth.mi.risk_assessment_api.dto.request.configuration.RiskMatrixRequestDTO;
+import org.bihealth.mi.risk_assessment_api.dto.response.configuration.ConfigurationResponseDTO;
+import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
+import org.bihealth.mi.risk_assessment_api.model.configuration.ConfigurationVersion;
+import org.bihealth.mi.risk_assessment_api.model.configuration.ReidentificationThreshold;
+import org.bihealth.mi.risk_assessment_api.model.configuration.RiskBand;
+import org.bihealth.mi.risk_assessment_api.model.configuration.RiskCategory;
+import org.bihealth.mi.risk_assessment_api.model.configuration.RiskMatrix;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Question;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.QuestionOption;
 import org.bihealth.mi.risk_assessment_api.repository.assessment.dataset.DatasetAssessmentRepository;
 import org.bihealth.mi.risk_assessment_api.repository.assessment.recipient.RecipientAssessmentRepository;
-import org.bihealth.mi.risk_assessment_api.repository.configuration.*;
-import org.bihealth.mi.risk_assessment_api.repository.questionnaire.AnswerRepository;
-import org.bihealth.mi.risk_assessment_api.repository.questionnaire.QuestionRepository;
+import org.bihealth.mi.risk_assessment_api.repository.configuration.ConfigurationVersionRepository;
+import org.bihealth.mi.risk_assessment_api.repository.configuration.RiskConfigurationRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
-import java.util.function.Function;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
  * Service that owns the lifecycle of risk framework configurations.
  *
- * <p>Configurations are larger than normal CRUD records: they contain
- * categories, bands, questions, answer options, matrix rules, and thresholds.
- * This service therefore handles access checks, duplicate-name validation,
- * deep-copy/fork behavior, and guarded structural updates.</p>
+ * <p>The root configuration is mutable metadata. The actual framework content
+ * is stored in immutable {@link ConfigurationVersion} rows so later edits do
+ * not change questions, options, matrices, bands, or thresholds used by saved
+ * assessments.</p>
  */
 @Service
 @Transactional
 public class ConfigurationService {
 
-    // Repositories for the configuration aggregate and its child structures.
     private final RiskConfigurationRepository configRepository;
-    private final RiskCategoryRepository categoryRepository;
-    private final QuestionRepository questionRepository;
-    private final RiskMatrixRepository riskMatrixRepository;
-    private final ReidentificationThresholdRepository reidThresholdRepository;
-
-    // Used to block deletion of questions/options that are already referenced by saved answers.
-    private final AnswerRepository answerRepository;
-
-    // Used to detect whether a configuration is already in use by assessments.
+    private final ConfigurationVersionRepository versionRepository;
     private final DatasetAssessmentRepository datasetAssessmentRepository;
     private final RecipientAssessmentRepository recipientAssessmentRepository;
 
-    /**
-     * Creates the service with repositories for the root configuration and every
-     * child entity that may need independent lookup or guarded replacement.
-     */
     public ConfigurationService(
             RiskConfigurationRepository configRepository,
-            RiskCategoryRepository categoryRepository,
-            QuestionRepository questionRepository,
-            RiskMatrixRepository riskMatrixRepository,
-            ReidentificationThresholdRepository reidThresholdRepository,
-            AnswerRepository answerRepository,
+            ConfigurationVersionRepository versionRepository,
             DatasetAssessmentRepository datasetAssessmentRepository,
             RecipientAssessmentRepository recipientAssessmentRepository
     ) {
         this.configRepository = configRepository;
-        this.categoryRepository = categoryRepository;
-        this.questionRepository = questionRepository;
-        this.riskMatrixRepository = riskMatrixRepository;
-        this.reidThresholdRepository = reidThresholdRepository;
-        this.answerRepository = answerRepository;
+        this.versionRepository = versionRepository;
         this.datasetAssessmentRepository = datasetAssessmentRepository;
         this.recipientAssessmentRepository = recipientAssessmentRepository;
     }
 
     /**
      * Verifies if the user is an admin, the creator, or in the shared usernames list.
-     * Used ONLY for modifying/deleting. Read/Fork access is open to all users.
+     * Read/fork access remains open to authenticated users.
      */
     public void verifyConfigurationWriteAccess(Configuration config, String username, boolean isAdmin) {
-        // Admins can modify any configuration.
         if (isAdmin) return;
 
         if (!username.equals(config.getCreatorUsername()) &&
@@ -81,22 +78,15 @@ public class ConfigurationService {
         }
     }
 
-    /**
-     * Enforces unique names via fuzzy string matching.
-     *
-     * <p>Formatting-only differences should not produce separate framework names,
-     * so punctuation and case are ignored before comparison.</p>
-     */
     public void validateUniqueName(String newName, Long excludeId) {
         if (newName == null || newName.trim().isEmpty()) return;
 
-        String normalizedNewName = newName.replaceAll("[^a-zA-Z0-9]", "").toLowerCase();
-
+        String normalizedNewName = normalizeName(newName);
         boolean nameExists = configRepository.findAll().stream()
                 .filter(existing -> excludeId == null || !existing.getId().equals(excludeId))
                 .map(Configuration::getName)
                 .filter(Objects::nonNull)
-                .map(name -> name.replaceAll("[^a-zA-Z0-9]", "").toLowerCase())
+                .map(this::normalizeName)
                 .anyMatch(normalizedNewName::equals);
 
         if (nameExists) {
@@ -104,461 +94,588 @@ public class ConfigurationService {
         }
     }
 
-    public List<Configuration> getAllConfigurations(String username, boolean isAdmin) {
-        // Configurations are universally readable. Edit/delete access is checked
-        // only on mutating operations.
-        List<Configuration> configs = configRepository.findAll();
-
-        // Assessment counts are derived data. They are attached transiently so
-        // the frontend can decide whether structural editing should be disabled.
-        for (Configuration config : configs) {
-            long dsCount = datasetAssessmentRepository.countByConfigurationId(config.getId());
-            long rcCount = recipientAssessmentRepository.countByConfigurationId(config.getId());
-            config.setAssessmentCount((int) (dsCount + rcCount));
-            config.setActive((dsCount + rcCount) > 0);
-        }
-
-        return configs;
+    @Transactional(readOnly = true)
+    public List<ConfigurationResponseDTO> getAllConfigurations(String username, boolean isAdmin) {
+        return configRepository.findAll().stream()
+                .sorted(Comparator.comparing(Configuration::isDefault, Comparator.reverseOrder())
+                        .thenComparing(config -> config.getLastModifiedDate() == null
+                                ? config.getCreationDate()
+                                : config.getLastModifiedDate(), Comparator.nullsLast(Comparator.reverseOrder())))
+                .map(this::toResponse)
+                .collect(Collectors.toList());
     }
 
-    public Configuration getConfigurationById(Long id, String username, boolean isAdmin) {
+    @Transactional(readOnly = true)
+    public ConfigurationResponseDTO getConfigurationById(Long id, String username, boolean isAdmin) {
         Configuration config = configRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Configuration ID " + id + " not found."));
-
-        // Read access is open so users can inspect or fork shared/bundled frameworks.
-        return config;
+        return toResponse(config);
     }
 
-    /**
-     * Creates a new configuration aggregate.
-     *
-     * <p>If the client does not provide explicit categories, a minimal generic
-     * IMPACT/CONTROLS/LIKELIHOOD structure is created so the framework remains
-     * compatible with the calculation model.</p>
-     */
-    public Configuration createConfiguration(Configuration config, String username) {
+    @Transactional(readOnly = true)
+    public ConfigurationVersion getCurrentVersion(Long configurationId) {
+        Configuration config = configRepository.findById(configurationId)
+                .orElseThrow(() -> new EntityNotFoundException("Configuration not found: " + configurationId));
+        return getCurrentVersion(config);
+    }
+
+    public ConfigurationResponseDTO createConfiguration(Configuration config, String username) {
         validateUniqueName(config.getName(), null);
         config.setCreatorUsername(username);
+        config.setName(requiredName(config.getName()));
+        config.setDescription(trimToNull(config.getDescription()));
+        config.setDefaultLanguage(defaultLanguage(config.getDefaultLanguage()));
 
-        // Link categories and bands. Jackson/frontend payloads do not guarantee
-        // that JPA back-references are already set.
-        if (config.getRiskCategories() == null || config.getRiskCategories().isEmpty()) {
-            RiskCategory impact = new RiskCategory();
-            impact.setCode("IMPACT");
-            impact.setName("Impact");
-            impact.setAssessmentPhase("DATASET_ASSESSMENT");
-            impact.setRiskEffect("INCREASES_RISK");
-            impact.setConfiguration(config);
+        ConfigurationVersion version = buildVersionFromEntity(
+                config,
+                username,
+                1
+        );
+        applyRootMetadataFromVersion(config, version);
+        config.addVersion(version);
 
-            RiskCategory controls = new RiskCategory();
-            controls.setCode("CONTROLS");
-            controls.setName("Controls");
-            controls.setAssessmentPhase("RECIPIENT_ASSESSMENT");
-            controls.setRiskEffect("DECREASES_RISK");
-            controls.setConfiguration(config);
-
-            RiskCategory likelihood = new RiskCategory();
-            likelihood.setCode("LIKELIHOOD");
-            likelihood.setName("Likelihood");
-            likelihood.setAssessmentPhase("RECIPIENT_ASSESSMENT");
-            likelihood.setRiskEffect("INCREASES_RISK");
-            likelihood.setConfiguration(config);
-
-            config.setRiskCategories(Arrays.asList(impact, controls, likelihood));
-        } else {
-            for (RiskCategory cat : config.getRiskCategories()) {
-                cat.setConfiguration(config);
-                if (cat.getRiskBands() != null) {
-                    for (RiskBand band : cat.getRiskBands()) {
-                        band.setCategory(cat);
-                    }
-                }
-            }
+        if (config.isDefault()) {
+            clearOtherDefaults(null);
         }
 
-        // Resolve question category codes to actual RiskCategory entities.
-        Map<String, RiskCategory> categoryMap = config.getRiskCategories().stream()
-                .collect(Collectors.toMap(RiskCategory::getCode, Function.identity()));
-
-        // Link questions and options into the same aggregate tree before saving.
-        if (config.getQuestions() != null) {
-            for (Question q : config.getQuestions()) {
-                q.setConfiguration(config);
-
-                if (q.getCategoryCode() != null && categoryMap.containsKey(q.getCategoryCode())) {
-                    q.setCategory(categoryMap.get(q.getCategoryCode()));
-                } else if (q.getCategory() != null && q.getCategory().getCode() != null && categoryMap.containsKey(q.getCategory().getCode())) {
-                    q.setCategory(categoryMap.get(q.getCategory().getCode()));
-                }
-
-                if (q.getOptions() != null) {
-                    for (QuestionOption opt : q.getOptions()) {
-                        opt.setQuestion(q);
-                    }
-                }
-            }
-        }
-
-        // Link matrix rows to the parent configuration.
-        if (config.getRiskMatrices() != null) {
-            for (RiskMatrix rm : config.getRiskMatrices()) {
-                rm.setConfiguration(config);
-            }
-        }
-
-        // Link thresholds to the parent configuration.
-        if (config.getReidThresholds() != null) {
-            for (ReidentificationThreshold rt : config.getReidThresholds()) {
-                rt.setConfiguration(config);
-            }
-        }
-
-        return configRepository.save(config);
+        Configuration saved = configRepository.save(config);
+        return toResponse(saved);
     }
 
-    public Configuration forkConfiguration(Long sourceId, String newName, String username, boolean isAdmin) {
+    public ConfigurationResponseDTO forkConfiguration(Long sourceId, String newName, String username, boolean isAdmin) {
         Configuration source = configRepository.findById(sourceId)
                 .orElseThrow(() -> new EntityNotFoundException("Source configuration not found: " + sourceId));
+        ConfigurationVersion sourceVersion = getCurrentVersion(source);
 
-        // Forking is open read-based access. The original configuration is not modified.
         validateUniqueName(newName, null);
 
         Configuration fork = new Configuration();
-        fork.setName(newName);
         fork.setCreatorUsername(username);
-        fork.setDescription(source.getDescription());
-        fork.setDefaultLanguage(source.getDefaultLanguage());
+        fork.setName(requiredName(newName));
+        fork.setDescription(sourceVersion.getDescription());
+        fork.setDefaultLanguage(sourceVersion.getDefaultLanguage());
+        fork.setActive(true);
+        fork.setDefault(false);
 
-        fork = configRepository.save(fork);
+        ConfigurationVersion version = buildVersionFromSources(
+                fork.getName(),
+                fork.getDescription(),
+                fork.getDefaultLanguage(),
+                sourceVersion.getRiskCategories(),
+                sourceVersion.getQuestions(),
+                sourceVersion.getRiskMatrices(),
+                sourceVersion.getReidThresholds(),
+                username,
+                1
+        );
+        fork.addVersion(version);
 
-        Map<String, RiskCategory> newCategoryMap = new HashMap<>();
-        List<RiskCategory> sourceCategories = categoryRepository.findByConfigurationId(sourceId);
-
-        // Copy categories first so copied questions can reference the new category entities.
-        for (RiskCategory srcCat : sourceCategories) {
-            RiskCategory newCat = new RiskCategory();
-            newCat.setConfiguration(fork);
-            newCat.setCode(srcCat.getCode());
-            newCat.setName(srcCat.getName());
-            newCat.setAssessmentPhase(srcCat.getAssessmentPhase());
-            newCat.setRiskEffect(srcCat.getRiskEffect());
-
-            if (srcCat.getRiskBands() != null) {
-                for (RiskBand srcBand : srcCat.getRiskBands()) {
-                    RiskBand newBand = new RiskBand();
-                    newBand.setLabel(srcBand.getLabel());
-                    newBand.setDescription(srcBand.getDescription());
-                    newBand.setRangeMinimum(srcBand.getRangeMinimum());
-                    newBand.setRangeMaximum(srcBand.getRangeMaximum());
-                    newBand.setColor(srcBand.getColor());
-                    newCat.addRiskBand(newBand);
-                }
-            }
-            categoryRepository.save(newCat);
-            newCategoryMap.put(newCat.getCode(), newCat);
-        }
-
-        List<Question> sourceQuestions = questionRepository.findByConfigurationId(sourceId);
-        for (Question srcQ : sourceQuestions) {
-            // Copy questions and options by value. The fork must not share child
-            // entities with the source configuration.
-            Question newQ = new Question();
-            newQ.setConfiguration(fork);
-            newQ.setText(srcQ.getText());
-            newQ.setTextTranslations(srcQ.getTextTranslations() != null ? new HashMap<>(srcQ.getTextTranslations()) : new HashMap<>());
-            newQ.setRequired(srcQ.isRequired());
-            newQ.setDependsOnOptionCode(srcQ.getDependsOnOptionCode());
-            newQ.setWeight(srcQ.getWeight());
-
-            if (srcQ.getCategory() != null) {
-                newQ.setCategory(newCategoryMap.get(srcQ.getCategory().getCode()));
-            }
-
-            if (srcQ.getOptions() != null) {
-                for (QuestionOption srcOpt : srcQ.getOptions()) {
-                    QuestionOption newOpt = new QuestionOption();
-                    newOpt.setText(srcOpt.getText());
-                    newOpt.setTextTranslations(srcOpt.getTextTranslations() != null ? new HashMap<>(srcOpt.getTextTranslations()) : new HashMap<>());
-                    newOpt.setScore(srcOpt.getScore());
-                    newOpt.setHighRiskTrigger(srcOpt.isHighRiskTrigger());
-                    newOpt.setImpact(srcOpt.getImpact());
-                    newQ.addOption(newOpt);
-                }
-            }
-            questionRepository.save(newQ);
-        }
-
-        List<RiskMatrix> sourceMatrix = riskMatrixRepository.findByConfigurationId(sourceId);
-        for (RiskMatrix srcRm : sourceMatrix) {
-            // Matrix conditions are JSON maps, so copy the map to avoid shared mutable state.
-            RiskMatrix newRm = new RiskMatrix();
-            newRm.setConfiguration(fork);
-            newRm.setConditions(new HashMap<>(srcRm.getConditions()));
-            newRm.setContextRisk(srcRm.getContextRisk());
-            riskMatrixRepository.save(newRm);
-        }
-
-        List<ReidentificationThreshold> sourceThresholds = reidThresholdRepository.findByConfigurationId(sourceId);
-        for (ReidentificationThreshold srcT : sourceThresholds) {
-            // Threshold labels/values are copied exactly; they remain tied to
-            // the copied category bands by label.
-            ReidentificationThreshold newT = new ReidentificationThreshold();
-            newT.setConfiguration(fork);
-            newT.setRiskClassification(srcT.getRiskClassification());
-            newT.setThresholdValue(srcT.getThresholdValue());
-            reidThresholdRepository.save(newT);
-        }
-
-        return fork;
+        Configuration saved = configRepository.save(fork);
+        return toResponse(saved);
     }
 
-    public void updateConfiguration(Long configId, RiskConfigurationUpdateRequest request, String username, boolean isAdmin) {
+    public ConfigurationResponseDTO updateConfiguration(
+            Long configId,
+            RiskConfigurationUpdateRequest request,
+            String username,
+            boolean isAdmin
+    ) {
         Configuration config = configRepository.findById(configId)
                 .orElseThrow(() -> new EntityNotFoundException("Configuration not found: " + configId));
 
-        // Enforce write access strictly here
         verifyConfigurationWriteAccess(config, username, isAdmin);
         validateUniqueName(request.getName(), configId);
 
-        // Once a configuration has saved assessments, structural changes could
-        // invalidate historical answers. Only sharing metadata remains editable.
-        boolean isInUse = datasetAssessmentRepository.existsByConfigurationId(configId) ||
-                recipientAssessmentRepository.existsByConfigurationId(configId);
-
-        // Always allow sharing changes, even when structural edits are blocked.
         if (request.getSharedUsernames() != null) {
             if (config.getSharedUsernames() == null) {
-                config.setSharedUsernames(new java.util.HashSet<>());
+                config.setSharedUsernames(new HashSet<>());
             }
             config.getSharedUsernames().clear();
             config.getSharedUsernames().addAll(request.getSharedUsernames());
         }
 
-        // If in use, persist only sharing changes and stop before replacing
-        // categories/questions/matrices/thresholds.
-        if (isInUse) {
-            configRepository.save(config);
-            return;
+        if (request.isDefault() && !request.isActive()) {
+            throw new IllegalArgumentException("Archived configurations cannot be set as default.");
         }
 
-        // Structural updates are allowed only while the configuration is still a draft.
-        config.setName(request.getName());
-        config.setDescription(request.getDescription());
-        config.setDefaultLanguage(request.getDefaultLanguage());
-        config.setDefault(request.isDefault());
         config.setActive(request.isActive());
+        config.setDefault(request.isDefault());
 
-        updateCategories(config, request.getCategories());
-        updateQuestions(config, request.getQuestions());
-        updateRiskMatrices(config, request.getRiskMatrix());
-        updateThresholds(config, request.getThresholds());
+        ConfigurationVersion nextVersion = buildVersionFromRequest(
+                request,
+                username,
+                config.getCurrentVersion() + 1
+        );
+        applyRootMetadataFromVersion(config, nextVersion);
+        config.addVersion(nextVersion);
 
-        configRepository.save(config);
+        if (config.isDefault()) {
+            clearOtherDefaults(config.getId());
+        }
+
+        Configuration saved = configRepository.save(config);
+        return toResponse(saved);
+    }
+
+    public ConfigurationResponseDTO archiveConfiguration(Long id, boolean isAdmin) {
+        requireAdmin(isAdmin);
+
+        Configuration config = configRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Configuration ID " + id + " not found."));
+
+        config.setActive(false);
+        config.setDefault(false);
+
+        Configuration saved = configRepository.save(config);
+        return toResponse(saved);
+    }
+
+    public ConfigurationResponseDTO setDefaultConfiguration(Long id, boolean isAdmin) {
+        requireAdmin(isAdmin);
+
+        Configuration config = configRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Configuration ID " + id + " not found."));
+
+        if (!config.isActive()) {
+            throw new IllegalArgumentException("Archived configurations cannot be set as default.");
+        }
+
+        clearOtherDefaults(config.getId());
+        config.setDefault(true);
+
+        Configuration saved = configRepository.save(config);
+        return toResponse(saved);
     }
 
     public void deleteConfiguration(Long id, String username, boolean isAdmin) {
         Configuration config = configRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Configuration ID " + id + " not found."));
 
-        // Deletion follows the same write-access rule as updates.
         verifyConfigurationWriteAccess(config, username, isAdmin);
+
+        long usageCount = getAssessmentCount(id);
+        if (usageCount > 0) {
+            throw new IllegalStateException("Cannot delete a configuration that has already been used by assessments.");
+        }
 
         configRepository.deleteById(id);
     }
 
-    // Private structural update helpers. They replace draft child structures
-    // with the incoming editor payload while preserving entities that can be
-    // safely updated in place.
-
-    private void updateCategories(Configuration config, List<RiskCategoryRequestDTO> dtos) {
-        // Categories are matched by stable code rather than by display name.
-        Map<String, RiskCategory> existingMap = config.getRiskCategories().stream()
-                .collect(Collectors.toMap(RiskCategory::getCode, Function.identity()));
-
-        if (dtos != null) {
-            for (RiskCategoryRequestDTO dto : dtos) {
-                RiskCategory category = existingMap.get(dto.getCode());
-
-                if (category != null) {
-                    // Bands are replaced as a set because their ranges/labels are
-                    // edited together in the configuration editor.
-                    category.getRiskBands().clear();
-
-                    if (dto.getRiskBands() != null) {
-                        for (RiskBandRequestDTO bandDto : dto.getRiskBands()) {
-                            RiskBand band = new RiskBand();
-                            band.setLabel(bandDto.getLabel());
-                            band.setDescription(bandDto.getDescription());
-                            band.setRangeMinimum(bandDto.getRangeMinimum());
-                            band.setRangeMaximum(bandDto.getRangeMaximum());
-                            band.setColor(bandDto.getColor());
-                            category.addRiskBand(band);
-                        }
-                    }
-                }
-            }
-        }
-        categoryRepository.saveAll(existingMap.values());
-        categoryRepository.flush();
+    public ConfigurationResponseDTO toResponse(Configuration config) {
+        return new ConfigurationResponseDTO(config, getCurrentVersion(config), getAssessmentCount(config.getId()));
     }
 
-    private void updateQuestions(Configuration config, List<QuestionRequestDTO> dtos) {
-        List<Question> existingQuestions = questionRepository.findByConfigurationId(config.getId());
-        Map<Long, Question> existingQuestionMap = existingQuestions.stream()
-                .collect(Collectors.toMap(Question::getId, Function.identity()));
-
-        // Track incoming IDs so omitted draft questions can be deleted after
-        // verifying that no saved answers depend on them.
-        List<Question> toSave = new ArrayList<>();
-        List<Long> incomingQuestionIds = new ArrayList<>();
-
-        if (dtos != null) {
-            for (QuestionRequestDTO dto : dtos) {
-                Question q;
-
-                if (dto.getId() != null && existingQuestionMap.containsKey(dto.getId())) {
-                    q = existingQuestionMap.get(dto.getId());
-                    incomingQuestionIds.add(q.getId());
-                } else {
-                    q = new Question();
-                    q.setConfiguration(config);
-                }
-
-                q.setText(dto.getText());
-                q.setTextTranslations(dto.getTextTranslations() != null ? new HashMap<>(dto.getTextTranslations()) : new HashMap<>());
-                q.setRequired(dto.isRequired());
-                q.setDependsOnOptionCode(dto.getDependsOnOptionCode());
-                q.setWeight(dto.getWeight());
-
-                RiskCategory cat = categoryRepository.findByConfigurationId(config.getId()).stream()
-                        .filter(c -> c.getCode().equals(dto.getCategoryCode()))
-                        .findFirst()
-                        .orElseThrow(() -> new IllegalArgumentException("Invalid category code"));
-                q.setCategory(cat);
-
-                if (dto.getOptions() != null) {
-                    // Options are matched by text because the editor payload does
-                    // not carry stable option IDs.
-                    Map<String, QuestionOption> existingOptionMap = q.getOptions().stream()
-                            .collect(Collectors.toMap(QuestionOption::getText, Function.identity()));
-
-                    List<QuestionOption> updatedOptionsList = new ArrayList<>();
-
-                    for (QuestionOptionRequestDTO optDto : dto.getOptions()) {
-                        QuestionOption opt;
-                        if (existingOptionMap.containsKey(optDto.getText())) {
-                            opt = existingOptionMap.get(optDto.getText());
-                        } else {
-                            opt = new QuestionOption();
-                            opt.setQuestion(q);
-                        }
-                        opt.setText(optDto.getText());
-                        opt.setTextTranslations(optDto.getTextTranslations() != null ? new HashMap<>(optDto.getTextTranslations()) : new HashMap<>());
-                        opt.setScore(optDto.getRiskLevel());
-                        opt.setHighRiskTrigger(optDto.isHighRiskTrigger());
-                        opt.setImpact(optDto.getImpact());
-                        updatedOptionsList.add(opt);
-                    }
-
-                    List<QuestionOption> optionsToRemove = new ArrayList<>(q.getOptions());
-                    optionsToRemove.removeAll(updatedOptionsList);
-
-                    for(QuestionOption deletedOpt : optionsToRemove) {
-                        if(answerRepository.existsBySelectedOptionId(deletedOpt.getId())) {
-                            // Do not break historical assessments by deleting an
-                            // option that a saved answer still references.
-                            throw new IllegalStateException("Cannot delete option '" + deletedOpt.getText() + "' because it has already been selected in a saved assessment. Please fork the configuration to make changes.");
-                        }
-                    }
-
-                    q.getOptions().clear();
-                    q.getOptions().addAll(updatedOptionsList);
-                }
-
-                toSave.add(q);
-            }
-        }
-
-        List<Question> questionsToDelete = existingQuestions.stream()
-                .filter(q -> !incomingQuestionIds.contains(q.getId()))
-                .collect(Collectors.toList());
-
-        for(Question deletedQuestion : questionsToDelete) {
-            if(answerRepository.existsByQuestionId(deletedQuestion.getId())) {
-                // Do not break historical assessments by deleting answered questions.
-                throw new IllegalStateException("Cannot delete question '" + deletedQuestion.getText() + "' because it has been answered in a saved assessment. Please fork the configuration to make changes.");
-            }
-        }
-
-        questionRepository.deleteAll(questionsToDelete);
-        questionRepository.saveAll(toSave);
+    public ConfigurationResponseDTO toSnapshotResponse(ConfigurationVersion version) {
+        return new ConfigurationResponseDTO(
+                version.getConfiguration(),
+                version,
+                getAssessmentCount(version.getConfiguration().getId())
+        );
     }
 
-    private void updateRiskMatrices(Configuration config, List<RiskMatrixRequestDTO> dtos) {
-        List<RiskMatrix> existing = riskMatrixRepository.findByConfigurationId(config.getId());
-        Map<Long, RiskMatrix> existingMap = existing.stream()
-                .collect(Collectors.toMap(RiskMatrix::getId, Function.identity()));
-
-        // Matrix rows are matched by ID; omitted rows are deleted for draft configurations.
-        List<RiskMatrix> toSave = new ArrayList<>();
-        List<Long> incomingIds = new ArrayList<>();
-
-        if (dtos != null) {
-            for (RiskMatrixRequestDTO dto : dtos) {
-                RiskMatrix rm;
-                if (dto.getId() != null && existingMap.containsKey(dto.getId())) {
-                    rm = existingMap.get(dto.getId());
-                    incomingIds.add(rm.getId());
-                } else {
-                    rm = new RiskMatrix();
-                    rm.setConfiguration(config);
-                }
-
-                rm.setConditions(dto.getConditions());
-                rm.setContextRisk(dto.getContextRisk());
-                toSave.add(rm);
-            }
-        }
-
-        List<RiskMatrix> toDelete = existing.stream()
-                .filter(rm -> !incomingIds.contains(rm.getId()))
-                .collect(Collectors.toList());
-        riskMatrixRepository.deleteAll(toDelete);
-        riskMatrixRepository.saveAll(toSave);
+    private ConfigurationVersion getCurrentVersion(Configuration config) {
+        return config.getCurrentVersionEntity()
+                .or(() -> versionRepository.findTopByConfigurationIdOrderByVersionNumberDesc(config.getId()))
+                .orElseThrow(() -> new IllegalStateException("Configuration has no versions: " + config.getId()));
     }
 
-    private void updateThresholds(Configuration config, List<ReidThresholdRequestDTO> dtos) {
-        List<ReidentificationThreshold> existing = reidThresholdRepository.findByConfigurationId(config.getId());
-        Map<Long, ReidentificationThreshold> existingMap = existing.stream()
-                .collect(Collectors.toMap(ReidentificationThreshold::getId, Function.identity()));
+    private long getAssessmentCount(Long configurationId) {
+        return datasetAssessmentRepository.countByConfigurationId(configurationId)
+                + recipientAssessmentRepository.countByConfigurationId(configurationId);
+    }
 
-        // Threshold rows are matched by ID and replaced as part of draft editing.
-        List<ReidentificationThreshold> toSave = new ArrayList<>();
-        List<Long> incomingIds = new ArrayList<>();
+    private ConfigurationVersion buildVersionFromEntity(Configuration config, String username, int versionNumber) {
+        return buildVersionFromSources(
+                config.getName(),
+                config.getDescription(),
+                config.getDefaultLanguage(),
+                config.getRiskCategories(),
+                config.getQuestions(),
+                config.getRiskMatrices(),
+                config.getReidThresholds(),
+                username,
+                versionNumber
+        );
+    }
 
-        if (dtos != null) {
-            for (ReidThresholdRequestDTO dto : dtos) {
-                ReidentificationThreshold t;
-                if (dto.getId() != null && existingMap.containsKey(dto.getId())) {
-                    t = existingMap.get(dto.getId());
-                    incomingIds.add(t.getId());
-                } else {
-                    t = new ReidentificationThreshold();
-                    t.setConfiguration(config);
+    private ConfigurationVersion buildVersionFromRequest(
+            RiskConfigurationUpdateRequest request,
+            String username,
+            int versionNumber
+    ) {
+        return buildVersionFromSources(
+                request.getName(),
+                request.getDescription(),
+                request.getDefaultLanguage(),
+                categoriesFromDtos(request.getCategories()),
+                questionsFromDtos(request.getQuestions()),
+                matricesFromDtos(request.getRiskMatrix()),
+                thresholdsFromDtos(request.getThresholds()),
+                username,
+                versionNumber
+        );
+    }
+
+    private List<RiskCategory> categoriesFromDtos(List<RiskCategoryRequestDTO> dtos) {
+        if (dtos == null) return List.of();
+        List<RiskCategory> categories = new ArrayList<>();
+        for (RiskCategoryRequestDTO dto : dtos) {
+            RiskCategory category = new RiskCategory();
+            category.setCode(dto.getCode());
+            category.setName(dto.getName());
+            category.setAssessmentPhase(dto.getAssessmentPhase());
+            category.setRiskEffect(dto.getRiskEffect());
+            if (dto.getRiskBands() != null) {
+                for (RiskBandRequestDTO bandDto : dto.getRiskBands()) {
+                    RiskBand band = new RiskBand();
+                    band.setLabel(bandDto.getLabel());
+                    band.setDescription(bandDto.getDescription());
+                    band.setRangeMinimum(bandDto.getRangeMinimum());
+                    band.setRangeMaximum(bandDto.getRangeMaximum());
+                    band.setColor(bandDto.getColor());
+                    category.addRiskBand(band);
                 }
-
-                if (dto.getRiskClassification() != null) {
-                    t.setRiskClassification(dto.getRiskClassification());
-                }
-                t.setThresholdValue(dto.getThresholdValue());
-                toSave.add(t);
             }
+            categories.add(category);
+        }
+        return categories;
+    }
+
+    private List<Question> questionsFromDtos(List<QuestionRequestDTO> dtos) {
+        if (dtos == null) return List.of();
+        List<Question> questions = new ArrayList<>();
+        for (QuestionRequestDTO dto : dtos) {
+            Question question = new Question();
+            question.setCategoryCode(dto.getCategoryCode());
+            question.setText(dto.getText());
+            question.setTextTranslations(dto.getTextTranslations() == null
+                    ? new HashMap<>()
+                    : new HashMap<>(dto.getTextTranslations()));
+            question.setRequired(dto.isRequired());
+            question.setDependsOnOptionCode(dto.getDependsOnOptionCode());
+            question.setWeight(dto.getWeight());
+            if (dto.getOptions() != null) {
+                for (QuestionOptionRequestDTO optionDto : dto.getOptions()) {
+                    QuestionOption option = new QuestionOption();
+                    option.setText(optionDto.getText());
+                    option.setTextTranslations(optionDto.getTextTranslations() == null
+                            ? new HashMap<>()
+                            : new HashMap<>(optionDto.getTextTranslations()));
+                    option.setScore(optionDto.getRiskLevel());
+                    option.setHighRiskTrigger(optionDto.isHighRiskTrigger());
+                    option.setImpact(optionDto.getImpact());
+                    question.addOption(option);
+                }
+            }
+            questions.add(question);
+        }
+        return questions;
+    }
+
+    private List<RiskMatrix> matricesFromDtos(List<RiskMatrixRequestDTO> dtos) {
+        if (dtos == null) return List.of();
+        List<RiskMatrix> matrices = new ArrayList<>();
+        for (RiskMatrixRequestDTO dto : dtos) {
+            RiskMatrix matrix = new RiskMatrix();
+            matrix.setConditions(dto.getConditions() == null
+                    ? Map.of()
+                    : new HashMap<>(dto.getConditions()));
+            matrix.setContextRisk(dto.getContextRisk());
+            matrices.add(matrix);
+        }
+        return matrices;
+    }
+
+    private List<ReidentificationThreshold> thresholdsFromDtos(List<ReidThresholdRequestDTO> dtos) {
+        if (dtos == null) return List.of();
+        List<ReidentificationThreshold> thresholds = new ArrayList<>();
+        for (ReidThresholdRequestDTO dto : dtos) {
+            ReidentificationThreshold threshold = new ReidentificationThreshold();
+            threshold.setRiskClassification(dto.getRiskClassification());
+            threshold.setThresholdValue(dto.getThresholdValue() == null ? 0.0 : dto.getThresholdValue());
+            thresholds.add(threshold);
+        }
+        return thresholds;
+    }
+
+    private ConfigurationVersion buildVersionFromSources(
+            String name,
+            String description,
+            String defaultLanguage,
+            List<?> rawCategories,
+            List<?> rawQuestions,
+            List<?> rawMatrices,
+            List<?> rawThresholds,
+            String username,
+            int versionNumber
+    ) {
+        ConfigurationVersion version = new ConfigurationVersion();
+        version.setCreatorUsername(username);
+        version.setName(requiredName(name));
+        version.setDescription(trimToNull(description));
+        version.setDefaultLanguage(defaultLanguage(defaultLanguage));
+        version.setVersionNumber(versionNumber);
+
+        List<RiskCategory> sourceCategories = normalizeCategories(rawCategories);
+        if (sourceCategories.isEmpty()) {
+            sourceCategories = defaultCategories();
         }
 
-        List<ReidentificationThreshold> toDelete = existing.stream()
-                .filter(t -> !incomingIds.contains(t.getId()))
+        Map<String, RiskCategory> categoryMap = new LinkedHashMap<>();
+        for (RiskCategory source : sourceCategories) {
+            RiskCategory category = copyCategory(source);
+            version.addRiskCategory(category);
+            String key = normalizeReference(category.getCode());
+            if (categoryMap.containsKey(key)) {
+                throw new IllegalArgumentException("Duplicate risk category code: " + category.getCode());
+            }
+            categoryMap.put(key, category);
+        }
+
+        for (Question source : normalizeQuestions(rawQuestions)) {
+            Question question = copyQuestion(source);
+            RiskCategory category = categoryMap.get(normalizeReference(source.getCategoryCode()));
+            if (category == null) {
+                throw new IllegalArgumentException("Question '" + source.getText()
+                        + "' references unknown category code: " + source.getCategoryCode());
+            }
+            question.setCategory(category);
+            version.addQuestion(question);
+        }
+
+        for (RiskMatrix source : normalizeMatrices(rawMatrices)) {
+            RiskMatrix matrix = copyMatrix(source);
+            version.addRiskMatrix(matrix);
+        }
+
+        for (ReidentificationThreshold source : normalizeThresholds(rawThresholds)) {
+            ReidentificationThreshold threshold = copyThreshold(source);
+            version.addReidThreshold(threshold);
+        }
+
+        validateVersion(version, categoryMap);
+        return version;
+    }
+
+    private void applyRootMetadataFromVersion(Configuration config, ConfigurationVersion version) {
+        config.setName(version.getName());
+        config.setDescription(version.getDescription());
+        config.setDefaultLanguage(version.getDefaultLanguage());
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<RiskCategory> normalizeCategories(List<?> rawCategories) {
+        if (rawCategories == null) return List.of();
+        return rawCategories.stream()
+                .filter(RiskCategory.class::isInstance)
+                .map(RiskCategory.class::cast)
                 .collect(Collectors.toList());
-        reidThresholdRepository.deleteAll(toDelete);
-        reidThresholdRepository.saveAll(toSave);
+    }
+
+    private List<Question> normalizeQuestions(List<?> rawQuestions) {
+        if (rawQuestions == null) return List.of();
+        return rawQuestions.stream()
+                .filter(Question.class::isInstance)
+                .map(Question.class::cast)
+                .collect(Collectors.toList());
+    }
+
+    private List<RiskMatrix> normalizeMatrices(List<?> rawMatrices) {
+        if (rawMatrices == null) return List.of();
+        return rawMatrices.stream()
+                .filter(RiskMatrix.class::isInstance)
+                .map(RiskMatrix.class::cast)
+                .collect(Collectors.toList());
+    }
+
+    private List<ReidentificationThreshold> normalizeThresholds(List<?> rawThresholds) {
+        if (rawThresholds == null) return List.of();
+        return rawThresholds.stream()
+                .filter(ReidentificationThreshold.class::isInstance)
+                .map(ReidentificationThreshold.class::cast)
+                .collect(Collectors.toList());
+    }
+
+    private RiskCategory copyCategory(RiskCategory source) {
+        RiskCategory category = new RiskCategory();
+        category.setCode(requiredText(source.getCode(), "Risk category code is required."));
+        category.setName(requiredText(source.getName(), "Risk category name is required."));
+        category.setAssessmentPhase(requiredText(source.getAssessmentPhase(), "Risk category assessment phase is required."));
+        category.setRiskEffect(requiredText(source.getRiskEffect(), "Risk category risk effect is required."));
+
+        if (source.getRiskBands() != null) {
+            for (RiskBand sourceBand : source.getRiskBands()) {
+                RiskBand band = new RiskBand();
+                band.setLabel(requiredText(sourceBand.getLabel(), "Risk band label is required."));
+                band.setDescription(trimToNull(sourceBand.getDescription()));
+                band.setValue(sourceBand.getValue());
+                band.setRangeMinimum(sourceBand.getRangeMinimum());
+                band.setRangeMaximum(sourceBand.getRangeMaximum());
+                band.setColor(trimToNull(sourceBand.getColor()));
+                category.addRiskBand(band);
+            }
+        }
+        return category;
+    }
+
+    private Question copyQuestion(Question source) {
+        Question question = new Question();
+        question.setCategoryCode(requiredText(source.getCategoryCode(), "Question category code is required."));
+        question.setText(requiredText(source.getText(), "Question text is required."));
+        question.setTextTranslations(source.getTextTranslations() == null
+                ? new HashMap<>()
+                : new HashMap<>(source.getTextTranslations()));
+        question.setRequired(source.isRequired());
+        question.setDependsOnOptionCode(trimToNull(source.getDependsOnOptionCode()));
+        question.setWeight(source.getWeight());
+
+        if (source.getOptions() != null) {
+            for (QuestionOption sourceOption : source.getOptions()) {
+                QuestionOption option = new QuestionOption();
+                option.setText(requiredText(sourceOption.getText(), "Question option text is required."));
+                option.setTextTranslations(sourceOption.getTextTranslations() == null
+                        ? new HashMap<>()
+                        : new HashMap<>(sourceOption.getTextTranslations()));
+                option.setScore(sourceOption.getScore());
+                option.setHighRiskTrigger(sourceOption.isHighRiskTrigger());
+                option.setImpact(trimToNull(sourceOption.getImpact()));
+                question.addOption(option);
+            }
+        }
+        return question;
+    }
+
+    private RiskMatrix copyMatrix(RiskMatrix source) {
+        RiskMatrix matrix = new RiskMatrix();
+        matrix.setConditions(source.getConditions() == null
+                ? Map.of()
+                : new HashMap<>(source.getConditions()));
+        matrix.setContextRisk(source.getContextRisk());
+        return matrix;
+    }
+
+    private ReidentificationThreshold copyThreshold(ReidentificationThreshold source) {
+        ReidentificationThreshold threshold = new ReidentificationThreshold();
+        threshold.setRiskClassification(requiredText(
+                source.getRiskClassification(),
+                "Re-identification threshold risk classification is required."
+        ));
+        threshold.setThresholdValue(source.getThresholdValue());
+        return threshold;
+    }
+
+    private List<RiskCategory> defaultCategories() {
+        RiskCategory impact = new RiskCategory();
+        impact.setCode("IMPACT");
+        impact.setName("Impact");
+        impact.setAssessmentPhase("DATASET_ASSESSMENT");
+        impact.setRiskEffect("INCREASES_RISK");
+
+        RiskCategory controls = new RiskCategory();
+        controls.setCode("CONTROLS");
+        controls.setName("Controls");
+        controls.setAssessmentPhase("RECIPIENT_ASSESSMENT");
+        controls.setRiskEffect("DECREASES_RISK");
+
+        RiskCategory likelihood = new RiskCategory();
+        likelihood.setCode("LIKELIHOOD");
+        likelihood.setName("Likelihood");
+        likelihood.setAssessmentPhase("RECIPIENT_ASSESSMENT");
+        likelihood.setRiskEffect("INCREASES_RISK");
+
+        return List.of(impact, controls, likelihood);
+    }
+
+    private void validateVersion(ConfigurationVersion version, Map<String, RiskCategory> categoryMap) {
+        validateMatrices(version, categoryMap);
+        validateThresholds(version, categoryMap);
+    }
+
+    private void validateMatrices(ConfigurationVersion version, Map<String, RiskCategory> categoryMap) {
+        for (RiskMatrix matrix : version.getRiskMatrices()) {
+            if (matrix.getConditions() == null || matrix.getConditions().isEmpty()) {
+                throw new IllegalArgumentException("Risk matrix rows require at least one condition.");
+            }
+
+            for (Map.Entry<String, String> condition : matrix.getConditions().entrySet()) {
+                RiskCategory category = categoryMap.get(normalizeReference(condition.getKey()));
+                if (category == null) {
+                    throw new IllegalArgumentException("Risk matrix references unknown category: " + condition.getKey());
+                }
+
+                boolean bandExists = category.getRiskBands() != null && category.getRiskBands().stream()
+                        .anyMatch(band -> normalizeReference(band.getLabel()).equals(normalizeReference(condition.getValue())));
+                if (!bandExists) {
+                    throw new IllegalArgumentException("Risk matrix references unknown band '"
+                            + condition.getValue() + "' for category '" + category.getCode() + "'.");
+                }
+            }
+        }
+    }
+
+    private void validateThresholds(ConfigurationVersion version, Map<String, RiskCategory> categoryMap) {
+        if (version.getReidThresholds().isEmpty()) return;
+
+        RiskCategory impactCategory = categoryMap.get("IMPACT");
+        if (impactCategory == null || impactCategory.getRiskBands() == null) {
+            throw new IllegalArgumentException("Configuration must define an IMPACT category with bands.");
+        }
+
+        Set<String> impactBands = impactCategory.getRiskBands().stream()
+                .map(RiskBand::getLabel)
+                .map(this::normalizeReference)
+                .collect(Collectors.toSet());
+
+        for (ReidentificationThreshold threshold : version.getReidThresholds()) {
+            if (!impactBands.contains(normalizeReference(threshold.getRiskClassification()))) {
+                throw new IllegalArgumentException("Threshold '" + threshold.getRiskClassification()
+                        + "' does not match an IMPACT band.");
+            }
+        }
+    }
+
+    private void clearOtherDefaults(Long keepId) {
+        configRepository.findAll().forEach(existing -> {
+            if ((keepId == null || !existing.getId().equals(keepId)) && existing.isDefault()) {
+                existing.setDefault(false);
+                configRepository.save(existing);
+            }
+        });
+    }
+
+    private void requireAdmin(boolean isAdmin) {
+        if (!isAdmin) {
+            throw new SecurityException("Only administrators can modify configurations.");
+        }
+    }
+
+    private String requiredName(String name) {
+        return requiredText(name, "Configuration name is required.");
+    }
+
+    private String requiredText(String value, String message) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException(message);
+        }
+        return value.trim();
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String defaultLanguage(String value) {
+        String language = trimToNull(value);
+        return language == null ? "en" : language;
+    }
+
+    private String normalizeName(String value) {
+        return value.replaceAll("[^a-zA-Z0-9]", "").toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeReference(String value) {
+        return value == null ? "" : value.trim().toUpperCase(Locale.ROOT);
     }
 }

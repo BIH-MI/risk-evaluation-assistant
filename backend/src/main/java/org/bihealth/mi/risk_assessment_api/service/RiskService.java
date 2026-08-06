@@ -4,7 +4,7 @@ import jakarta.persistence.EntityNotFoundException;
 import org.bihealth.mi.risk_assessment_api.dto.request.risk.RiskRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.report.GenericRiskResponseDTO;
 import org.bihealth.mi.risk_assessment_api.model.activity.DataSharingActivity;
-import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
+import org.bihealth.mi.risk_assessment_api.model.configuration.ConfigurationVersion;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Answer;
 import org.bihealth.mi.risk_assessment_api.repository.activity.DataSharingActivityRepository;
 import org.bihealth.mi.risk_assessment_api.utils.RiskComputationService;
@@ -73,26 +73,34 @@ public class RiskService {
         // The dataset and recipient assessments each carry their own
         // configuration reference. For a valid activity these should normally be
         // the same framework, but the engine receives both explicitly.
-        Configuration daConfig = null;
-        if (activity.getDatasetAssessment() != null && activity.getDatasetAssessment().getConfiguration() != null) {
-            daConfig = activity.getDatasetAssessment().getConfiguration();
+        ConfigurationVersion daConfigVersion = null;
+        if (activity.getDatasetAssessment() != null && activity.getDatasetAssessment().getConfigurationVersion() != null) {
+            daConfigVersion = activity.getDatasetAssessment().getConfigurationVersion();
+        } else if (activity.getDatasetAssessment() != null && activity.getDatasetAssessment().getConfiguration() != null) {
+            daConfigVersion = activity.getDatasetAssessment().getConfiguration().getCurrentVersionEntity().orElse(null);
         } else {
             throw new IllegalStateException("No Dataset Assessment Configuration found for this activity.");
         }
 
-        Configuration raConfig = null;
-        if (activity.getRecipientAssessment() != null && activity.getRecipientAssessment().getConfiguration() != null) {
-            raConfig = activity.getRecipientAssessment().getConfiguration();
+        ConfigurationVersion raConfigVersion = null;
+        if (activity.getRecipientAssessment() != null && activity.getRecipientAssessment().getConfigurationVersion() != null) {
+            raConfigVersion = activity.getRecipientAssessment().getConfigurationVersion();
+        } else if (activity.getRecipientAssessment() != null && activity.getRecipientAssessment().getConfiguration() != null) {
+            raConfigVersion = activity.getRecipientAssessment().getConfiguration().getCurrentVersionEntity().orElse(null);
         } else {
             throw new IllegalStateException("No Recipient Assessment Configuration found for this activity.");
+        }
+
+        if (daConfigVersion == null || raConfigVersion == null) {
+            throw new IllegalStateException("No Configuration Version found for this activity.");
         }
 
         // Delegate the actual formula and category/matrix logic. A manual
         // threshold overrides the configured threshold only for this request.
         GenericCalculationResult result = riskComputationService.calculateTotalRisk(
                 combinedAnswers,
-                daConfig,
-                raConfig,
+                daConfigVersion,
+                raConfigVersion,
                 dto.getManualRiskThreshold()
         );
 

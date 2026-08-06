@@ -9,6 +9,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.bihealth.mi.risk_assessment_api.model.configuration.RiskCategory;
 import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
+import org.bihealth.mi.risk_assessment_api.model.configuration.ConfigurationVersion;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -34,11 +35,16 @@ public class Question {
     @Column(name = "id", nullable = false)
     private Long id;
 
-    // Owning framework configuration.
+    // Owning immutable framework version.
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "configuration_id", nullable = false)
+    @JoinColumn(name = "configuration_version_id")
     @JsonBackReference
-    private Configuration configuration;
+    private ConfigurationVersion configurationVersion;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "configuration_id", insertable = false, updatable = false)
+    @JsonIgnore
+    private Configuration legacyConfiguration;
 
     // Category that receives this question's weighted score.
     @ManyToOne(fetch = FetchType.LAZY)
@@ -97,5 +103,15 @@ public class Question {
             return this.category.getCode();
         }
         return this.categoryCode;
+    }
+
+    @JsonIgnore
+    public Configuration getConfiguration() {
+        return configurationVersion == null ? null : configurationVersion.getConfiguration();
+    }
+
+    @JsonIgnore
+    public void setConfiguration(Configuration configuration) {
+        // Compatibility no-op. Persisted ownership is version-based.
     }
 }

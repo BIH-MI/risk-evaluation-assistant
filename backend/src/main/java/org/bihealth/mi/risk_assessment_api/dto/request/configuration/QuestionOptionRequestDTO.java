@@ -1,5 +1,6 @@
 package org.bihealth.mi.risk_assessment_api.dto.request.configuration;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import lombok.Data;
 import java.util.Map;
 
@@ -21,6 +22,7 @@ public class QuestionOptionRequestDTO {
     private Map<String, String> textTranslations;
 
     // Raw option score before question/category normalization.
+    @JsonAlias("score")
     private double riskLevel;
 
     // True when selecting this option should flag the category as high risk.

@@ -17,8 +17,9 @@ import getConfigurationsTableData from "./getConfigurationsTableData";
 
 import {
   fetchConfigurations,
-  deleteConfiguration,
   forkConfiguration,
+  archiveConfiguration,
+  setDefaultConfiguration,
 } from "../../store/configurations/configurationThunks";
 
 export default function Configurations() {
@@ -33,13 +34,11 @@ export default function Configurations() {
   const status = useSelector((state) => state.configurations.status);
   const rawItems = useSelector((state) => state.configurations.items);
 
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [toDeleteId, setToDeleteId] = useState(null);
-
   const [forkDialogOpen, setForkDialogOpen] = useState(false);
   const [toForkId, setToForkId] = useState(null);
   const [toForkBaseName, setToForkBaseName] = useState("");
   const [newConfigName, setNewConfigName] = useState("");
+  const [archiveTarget, setArchiveTarget] = useState(null);
 
   const [errorMsg, setErrorMsg] = useState(null);
 
@@ -68,42 +67,11 @@ export default function Configurations() {
     navigate(`/configuration/${id}/edit`);
   };
 
-  const handleView = (id) => {
-    navigate(`/configuration/${id}/view`);
-  };
-
-  // --- DELETE LOGIC ---
-  const handleDeleteClick = (id) => {
-    setToDeleteId(id);
-    setDialogOpen(true);
-  };
-
-  const handleDialogClose = () => {
-    setDialogOpen(false);
-    setToDeleteId(null);
-  };
-
-  const handleDeleteConfirm = () => {
-    if (toDeleteId && token) {
-      dispatch(deleteConfiguration({ id: toDeleteId, token }))
-        .unwrap()
-        .then(() => handleDialogClose())
-        .catch((err) => {
-          const errorMessage =
-            typeof err === "string"
-              ? err
-              : err?.message || t("configurations.alerts.deleteError");
-          setErrorMsg(errorMessage);
-          handleDialogClose();
-        });
-    }
-  };
-
   // --- FORK LOGIC ---
-  const handleForkClick = (id, baseName) => {
-    setToForkId(id);
-    setToForkBaseName(baseName);
-    setNewConfigName(`${baseName} Fork`);
+  const handleForkClick = (config) => {
+    setToForkId(config.id);
+    setToForkBaseName(config.name);
+    setNewConfigName(`${config.name} Fork`);
     setForkDialogOpen(true);
   };
 
@@ -118,7 +86,7 @@ export default function Configurations() {
     if (toForkId && newConfigName.trim() && token) {
       dispatch(forkConfiguration({ id: toForkId, newConfigName, token }))
         .unwrap()
-        .then((newConfig) => {
+        .then(() => {
           handleForkClose();
           dispatch(fetchConfigurations(token));
         })
@@ -133,13 +101,44 @@ export default function Configurations() {
     }
   };
 
+  const handleSetDefault = (config) => {
+    if (!config?.id || !token) return;
+    dispatch(setDefaultConfiguration({ id: config.id, token }))
+      .unwrap()
+      .then(() => dispatch(fetchConfigurations(token)))
+      .catch((err) => {
+        const errorMessage =
+          typeof err === "string"
+            ? err
+            : err?.message || "Failed to set default configuration.";
+        setErrorMsg(errorMessage);
+      });
+  };
+
+  const handleArchiveConfirm = () => {
+    if (!archiveTarget?.id || !token) return;
+    dispatch(archiveConfiguration({ id: archiveTarget.id, token }))
+      .unwrap()
+      .then(() => {
+        setArchiveTarget(null);
+        dispatch(fetchConfigurations(token));
+      })
+      .catch((err) => {
+        const errorMessage =
+          typeof err === "string"
+            ? err
+            : err?.message || "Failed to archive configuration.";
+        setErrorMsg(errorMessage);
+        setArchiveTarget(null);
+      });
+  };
+
   const { columns, rows } = getConfigurationsTableData(
     sortedConfigurations,
-    handleEdit,
-    handleView,
+    (config) => handleEdit(config.id),
     handleForkClick,
-    handleDeleteClick,
-    t,
+    handleSetDefault,
+    setArchiveTarget,
     isAdmin
   );
 
@@ -150,7 +149,7 @@ export default function Configurations() {
           table={{ columns, rows }}
           canSearch
           canAdd={isAdmin}
-          searchColumnKey="name"
+          searchColumnKey="displayName"
           searchPlaceholder={t(
             "configurations.searchPlaceholder",
             "Search configurations..."
@@ -158,23 +157,6 @@ export default function Configurations() {
           onAddClick={isAdmin ? handleAdd : undefined}
         />
       </RABox>
-
-      {/* Delete Confirmation */}
-      <RADialog
-        open={dialogOpen}
-        title={t("configurations.dialogs.deleteConfigTitle")}
-        onClose={handleDialogClose}
-        onConfirm={handleDeleteConfirm}
-        cancelText={t("common.cancel", "Cancel")}
-        confirmText={t("configurations.dialogs.delete", "Delete")}
-      >
-        <RATypography variant="body2" mt={1}>
-          {t(
-            "configurations.dialogs.deleteConfigWarning",
-            "Are you sure you want to delete this configuration? This action cannot be undone."
-          )}
-        </RATypography>
-      </RADialog>
 
       {/* Fork Dialog */}
       <RADialog
@@ -204,6 +186,21 @@ export default function Configurations() {
             onChange={(e) => setNewConfigName(e.target.value)}
           />
         </RABox>
+      </RADialog>
+
+      <RADialog
+        open={Boolean(archiveTarget)}
+        title="Archive Configuration"
+        onClose={() => setArchiveTarget(null)}
+        onConfirm={handleArchiveConfirm}
+        cancelText={t("common.cancel", "Cancel")}
+        confirmText="Archive"
+      >
+        <RATypography variant="body2">
+          Archive {archiveTarget?.name}? Existing assessments will keep using
+          their saved configuration version, but this configuration will no
+          longer be selectable for new assessments.
+        </RATypography>
       </RADialog>
 
       {/* Alerts */}

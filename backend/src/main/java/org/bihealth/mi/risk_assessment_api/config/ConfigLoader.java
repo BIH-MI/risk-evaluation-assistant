@@ -2,10 +2,20 @@ package org.bihealth.mi.risk_assessment_api.config;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetAssessment;
+import org.bihealth.mi.risk_assessment_api.model.assessment.recipient.RecipientAssessment;
 import org.bihealth.mi.risk_assessment_api.model.configuration.*;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Question;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.QuestionOption;
+import org.bihealth.mi.risk_assessment_api.repository.assessment.dataset.DatasetAssessmentRepository;
+import org.bihealth.mi.risk_assessment_api.repository.assessment.recipient.RecipientAssessmentRepository;
+import org.bihealth.mi.risk_assessment_api.repository.configuration.ConfigurationVersionRepository;
+import org.bihealth.mi.risk_assessment_api.repository.configuration.ReidentificationThresholdRepository;
 import org.bihealth.mi.risk_assessment_api.repository.configuration.RiskConfigurationRepository;
+import org.bihealth.mi.risk_assessment_api.repository.configuration.RiskCategoryRepository;
+import org.bihealth.mi.risk_assessment_api.repository.configuration.RiskMatrixRepository;
+import org.bihealth.mi.risk_assessment_api.repository.questionnaire.QuestionRepository;
+import org.bihealth.mi.risk_assessment_api.service.ConfigurationService;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.io.Resource;
@@ -18,6 +28,7 @@ import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -39,6 +50,14 @@ import java.util.stream.Collectors;
 public class ConfigLoader implements CommandLineRunner {
 
     private final RiskConfigurationRepository configRepo;
+    private final RiskCategoryRepository riskCategoryRepository;
+    private final QuestionRepository questionRepository;
+    private final RiskMatrixRepository riskMatrixRepository;
+    private final ReidentificationThresholdRepository reidentificationThresholdRepository;
+    private final ConfigurationVersionRepository configurationVersionRepository;
+    private final DatasetAssessmentRepository datasetAssessmentRepository;
+    private final RecipientAssessmentRepository recipientAssessmentRepository;
+    private final ConfigurationService configurationService;
     private final ObjectMapper objectMapper;
 
     // Matches every bundled framework JSON file on the application classpath.
@@ -48,8 +67,27 @@ public class ConfigLoader implements CommandLineRunner {
      * Uses a private ObjectMapper copy so lenient seed-file parsing is limited
      * to this loader and does not weaken JSON handling in the rest of the app.
      */
-    public ConfigLoader(RiskConfigurationRepository configRepo, ObjectMapper objectMapper) {
+    public ConfigLoader(
+            RiskConfigurationRepository configRepo,
+            RiskCategoryRepository riskCategoryRepository,
+            QuestionRepository questionRepository,
+            RiskMatrixRepository riskMatrixRepository,
+            ReidentificationThresholdRepository reidentificationThresholdRepository,
+            ConfigurationVersionRepository configurationVersionRepository,
+            DatasetAssessmentRepository datasetAssessmentRepository,
+            RecipientAssessmentRepository recipientAssessmentRepository,
+            ConfigurationService configurationService,
+            ObjectMapper objectMapper
+    ) {
         this.configRepo = configRepo;
+        this.riskCategoryRepository = riskCategoryRepository;
+        this.questionRepository = questionRepository;
+        this.riskMatrixRepository = riskMatrixRepository;
+        this.reidentificationThresholdRepository = reidentificationThresholdRepository;
+        this.configurationVersionRepository = configurationVersionRepository;
+        this.datasetAssessmentRepository = datasetAssessmentRepository;
+        this.recipientAssessmentRepository = recipientAssessmentRepository;
+        this.configurationService = configurationService;
         this.objectMapper = objectMapper.copy();
         this.objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
@@ -76,7 +114,11 @@ public class ConfigLoader implements CommandLineRunner {
         // The seed loader is idempotent by configuration name. Existing records
         // are left untouched so local edits made through the application are not
         // overwritten on each restart.
-        Set<String> existingConfigNames = configRepo.findAll().stream()
+        List<Configuration> existingConfigs = configRepo.findAll();
+        backfillLegacyVersions(existingConfigs);
+        backfillAssessmentConfigurationVersions();
+
+        Set<String> existingConfigNames = existingConfigs.stream()
                 .map(Configuration::getName)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
@@ -86,6 +128,104 @@ public class ConfigLoader implements CommandLineRunner {
         }
 
         System.out.println("Configuration loading complete.");
+    }
+
+    private void backfillLegacyVersions(List<Configuration> existingConfigs) {
+        for (Configuration config : existingConfigs) {
+            if (config.getCurrentVersionEntity().isPresent()) {
+                continue;
+            }
+
+            List<RiskCategory> legacyCategories =
+                    riskCategoryRepository.findByConfigurationVersionIsNullAndLegacyConfigurationId(config.getId());
+            List<Question> legacyQuestions =
+                    questionRepository.findByConfigurationVersionIsNullAndLegacyConfigurationId(config.getId());
+            List<RiskMatrix> legacyMatrices =
+                    riskMatrixRepository.findByConfigurationVersionIsNullAndLegacyConfigurationId(config.getId());
+            List<ReidentificationThreshold> legacyThresholds =
+                    reidentificationThresholdRepository.findByConfigurationVersionIsNullAndLegacyConfigurationId(config.getId());
+
+            if (legacyCategories.isEmpty()
+                    && legacyQuestions.isEmpty()
+                    && legacyMatrices.isEmpty()
+                    && legacyThresholds.isEmpty()) {
+                continue;
+            }
+
+            ConfigurationVersion version = new ConfigurationVersion();
+            version.setCreatorUsername(config.getCreatorUsername());
+            version.setName(config.getName());
+            version.setDescription(config.getDescription());
+            version.setDefaultLanguage(config.getDefaultLanguage());
+            version.setVersionNumber(1);
+
+            for (RiskCategory category : legacyCategories) {
+                version.addRiskCategory(category);
+            }
+            for (Question question : legacyQuestions) {
+                version.addQuestion(question);
+            }
+            for (RiskMatrix matrix : legacyMatrices) {
+                version.addRiskMatrix(matrix);
+            }
+            for (ReidentificationThreshold threshold : legacyThresholds) {
+                version.addReidThreshold(threshold);
+            }
+
+            config.addVersion(version);
+            configRepo.save(config);
+            System.out.println("   -> Backfilled version 1 for existing configuration '" + config.getName() + "'");
+        }
+    }
+
+    private void backfillAssessmentConfigurationVersions() {
+        int datasetCount = 0;
+        List<DatasetAssessment> datasetAssessments = datasetAssessmentRepository.findAll();
+        for (DatasetAssessment assessment : datasetAssessments) {
+            if (assessment.getConfigurationVersion() != null || assessment.getConfiguration() == null) {
+                continue;
+            }
+
+            ConfigurationVersion version = resolveCurrentVersion(assessment.getConfiguration());
+            if (version == null) {
+                continue;
+            }
+
+            assessment.setConfigurationVersion(version);
+            datasetCount++;
+        }
+
+        if (datasetCount > 0) {
+            datasetAssessmentRepository.saveAll(datasetAssessments);
+            System.out.println("   -> Backfilled configuration versions for " + datasetCount + " dataset assessments");
+        }
+
+        int recipientCount = 0;
+        List<RecipientAssessment> recipientAssessments = recipientAssessmentRepository.findAll();
+        for (RecipientAssessment assessment : recipientAssessments) {
+            if (assessment.getConfigurationVersion() != null || assessment.getConfiguration() == null) {
+                continue;
+            }
+
+            ConfigurationVersion version = resolveCurrentVersion(assessment.getConfiguration());
+            if (version == null) {
+                continue;
+            }
+
+            assessment.setConfigurationVersion(version);
+            recipientCount++;
+        }
+
+        if (recipientCount > 0) {
+            recipientAssessmentRepository.saveAll(recipientAssessments);
+            System.out.println("   -> Backfilled configuration versions for " + recipientCount + " recipient assessments");
+        }
+    }
+
+    private ConfigurationVersion resolveCurrentVersion(Configuration config) {
+        return config.getCurrentVersionEntity()
+                .or(() -> configurationVersionRepository.findTopByConfigurationIdOrderByVersionNumberDesc(config.getId()))
+                .orElse(null);
     }
 
     private void loadConfig(Resource resource, Set<String> existingConfigNames) {
@@ -120,10 +260,8 @@ public class ConfigLoader implements CommandLineRunner {
                 return;
             }
 
-            // Persist the whole configuration aggregate. Cascade mappings on the
-            // entity model save categories, bands, matrices, questions/options,
-            // and thresholds with the parent configuration.
-            configRepo.save(config);
+            // Persist the root configuration plus immutable version 1 content.
+            configurationService.createConfiguration(config, "admin");
             existingConfigNames.add(config.getName());
             System.out.println("   ✅ Successfully saved: '" + config.getName() + "'");
 

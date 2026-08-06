@@ -1,6 +1,7 @@
 package org.bihealth.mi.risk_assessment_api.controller;
 
 import org.bihealth.mi.risk_assessment_api.dto.request.configuration.RiskConfigurationUpdateRequest;
+import org.bihealth.mi.risk_assessment_api.dto.response.configuration.ConfigurationResponseDTO;
 import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
 import org.bihealth.mi.risk_assessment_api.security.SecurityUtils;
 import org.bihealth.mi.risk_assessment_api.service.ConfigurationService;
@@ -38,7 +39,7 @@ public class ConfigurationController {
      * Returns all configurations visible to the authenticated user.
      */
     @GetMapping
-    public ResponseEntity<List<Configuration>> getAllConfigurations(JwtAuthenticationToken token) {
+    public ResponseEntity<List<ConfigurationResponseDTO>> getAllConfigurations(JwtAuthenticationToken token) {
         String username = SecurityUtils.getUsername(token);
         boolean isAdmin = SecurityUtils.isAdminRole(token);
 
@@ -50,7 +51,7 @@ public class ConfigurationController {
      * structure.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<Configuration> getConfiguration(@PathVariable Long id, JwtAuthenticationToken token) {
+    public ResponseEntity<ConfigurationResponseDTO> getConfiguration(@PathVariable Long id, JwtAuthenticationToken token) {
         String username = SecurityUtils.getUsername(token);
         boolean isAdmin = SecurityUtils.isAdminRole(token);
 
@@ -64,12 +65,12 @@ public class ConfigurationController {
      * DTO because configuration editing works on the framework structure itself.</p>
      */
     @PostMapping
-    public ResponseEntity<Configuration> createConfiguration(
+    public ResponseEntity<ConfigurationResponseDTO> createConfiguration(
             @RequestBody Configuration config,
             JwtAuthenticationToken token
     ) {
         String username = SecurityUtils.getUsername(token);
-        Configuration created = configService.createConfiguration(config, username);
+        ConfigurationResponseDTO created = configService.createConfiguration(config, username);
         return new ResponseEntity<>(created, HttpStatus.CREATED);
     }
 
@@ -80,7 +81,7 @@ public class ConfigurationController {
      * modifying the original version used by other assessments.</p>
      */
     @PostMapping("/{id}/fork")
-    public ResponseEntity<Configuration> forkConfiguration(
+    public ResponseEntity<ConfigurationResponseDTO> forkConfiguration(
             @PathVariable Long id,
             @RequestParam String newConfigName,
             JwtAuthenticationToken token
@@ -88,7 +89,7 @@ public class ConfigurationController {
         String username = SecurityUtils.getUsername(token);
         boolean isAdmin = SecurityUtils.isAdminRole(token);
 
-        Configuration newConfig = configService.forkConfiguration(id, newConfigName, username, isAdmin);
+        ConfigurationResponseDTO newConfig = configService.forkConfiguration(id, newConfigName, username, isAdmin);
         return ResponseEntity.ok(newConfig);
     }
 
@@ -99,7 +100,7 @@ public class ConfigurationController {
      * configuration and whether the updated framework remains consistent.</p>
      */
     @PutMapping("/{id}")
-    public ResponseEntity<Void> updateConfiguration(
+    public ResponseEntity<ConfigurationResponseDTO> updateConfiguration(
             @PathVariable Long id,
             @RequestBody RiskConfigurationUpdateRequest request,
             JwtAuthenticationToken token
@@ -107,8 +108,25 @@ public class ConfigurationController {
         String username = SecurityUtils.getUsername(token);
         boolean isAdmin = SecurityUtils.isAdminRole(token);
 
-        configService.updateConfiguration(id, request, username, isAdmin);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(configService.updateConfiguration(id, request, username, isAdmin));
+    }
+
+    @PostMapping("/{id}/archive")
+    public ResponseEntity<ConfigurationResponseDTO> archiveConfiguration(
+            @PathVariable Long id,
+            JwtAuthenticationToken token
+    ) {
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
+        return ResponseEntity.ok(configService.archiveConfiguration(id, isAdmin));
+    }
+
+    @PostMapping("/{id}/default")
+    public ResponseEntity<ConfigurationResponseDTO> setDefaultConfiguration(
+            @PathVariable Long id,
+            JwtAuthenticationToken token
+    ) {
+        boolean isAdmin = SecurityUtils.isAdminRole(token);
+        return ResponseEntity.ok(configService.setDefaultConfiguration(id, isAdmin));
     }
 
     /**

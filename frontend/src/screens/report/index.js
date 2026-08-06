@@ -142,21 +142,25 @@ export default function DataSharingReportPage() {
     [recipientAssessments, activity]
   );
 
-  const dsConfig = useMemo(
-    () =>
-      dsAssessment?.configurationId
-        ? configItems.find((c) => c.id === dsAssessment.configurationId)
-        : null,
-    [configItems, dsAssessment]
-  );
+  const dsConfig = useMemo(() => {
+    if (dsAssessment?.configuration) return dsAssessment.configuration;
+    if (dsAssessment?.configurationId) {
+      return configItems.find(
+        (c) => String(c.id) === String(dsAssessment.configurationId)
+      );
+    }
+    return null;
+  }, [configItems, dsAssessment]);
 
-  const rcConfig = useMemo(
-    () =>
-      rcAssessment?.configurationId
-        ? configItems.find((c) => c.id === rcAssessment.configurationId)
-        : null,
-    [configItems, rcAssessment]
-  );
+  const rcConfig = useMemo(() => {
+    if (rcAssessment?.configuration) return rcAssessment.configuration;
+    if (rcAssessment?.configurationId) {
+      return configItems.find(
+        (c) => String(c.id) === String(rcAssessment.configurationId)
+      );
+    }
+    return null;
+  }, [configItems, rcAssessment]);
 
   const attributeScoringSystem =
     dsAssessment?.attributeScoringSystem || LEGACY_ATTRIBUTE_SCORING_SYSTEM;
@@ -166,21 +170,31 @@ export default function DataSharingReportPage() {
   // Fetch configs if they aren't loaded in the store
   useEffect(() => {
     if (token) {
-      if (dsAssessment?.configurationId) {
+      const hasConfigInStore = (configurationId) =>
+        configItems.some(
+          (config) => String(config.id) === String(configurationId)
+        );
+
+      if (
+        dsAssessment?.configurationId &&
+        !dsAssessment?.configuration &&
+        !hasConfigInStore(dsAssessment.configurationId)
+      ) {
         dispatch(
           fetchConfiguration({ id: dsAssessment.configurationId, token })
         );
       }
       if (
         rcAssessment?.configurationId &&
-        rcAssessment.configurationId !== dsAssessment?.configurationId
+        !rcAssessment?.configuration &&
+        !hasConfigInStore(rcAssessment.configurationId)
       ) {
         dispatch(
           fetchConfiguration({ id: rcAssessment.configurationId, token })
         );
       }
     }
-  }, [dsAssessment, rcAssessment, token, dispatch]);
+  }, [configItems, dsAssessment, rcAssessment, token, dispatch]);
 
   const effectiveTables = useMemo(() => {
     if (activity?.tableAssessments && activity.tableAssessments.length > 0) {

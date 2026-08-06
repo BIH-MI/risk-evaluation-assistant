@@ -3,6 +3,7 @@ package org.bihealth.mi.risk_assessment_api.dto.response.dataset;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import org.bihealth.mi.risk_assessment_api.dto.response.configuration.ConfigurationResponseDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.questionnaire.AnswerResponseDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.scoring.AttributeScoringSystemResponseDTO;
 import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetAssessment;
@@ -27,7 +28,9 @@ public class DatasetAssessmentResponseDTO {
     // Configuration used to interpret the answers.
     private Long configurationId;
     private String configurationName;
-    private Long configurationVersion;
+    private Long configurationVersionId;
+    private Integer configurationVersion;
+    private ConfigurationResponseDTO configuration;
 
     // Attribute scoring snapshot selected for this assessment.
     private Long attributeScoringSystemId;
@@ -59,7 +62,24 @@ public class DatasetAssessmentResponseDTO {
         this.datasetName      = entity.getDataset().getName();
 
         this.configurationId      = entity.getConfiguration().getId();
-        this.configurationName    = entity.getConfiguration().getName();
+        if (entity.getConfigurationVersion() != null) {
+            this.configurationVersionId = entity.getConfigurationVersion().getId();
+            this.configurationVersion = entity.getConfigurationVersion().getVersionNumber();
+            this.configurationName = entity.getConfigurationVersion().getName();
+            this.configuration = new ConfigurationResponseDTO(
+                    entity.getConfiguration(),
+                    entity.getConfigurationVersion(),
+                    0
+            );
+        } else {
+            this.configurationName = entity.getConfiguration().getName();
+            entity.getConfiguration().getCurrentVersionEntity().ifPresent(version -> {
+                this.configurationVersionId = version.getId();
+                this.configurationVersion = version.getVersionNumber();
+                this.configurationName = version.getName();
+                this.configuration = new ConfigurationResponseDTO(entity.getConfiguration(), version, 0);
+            });
+        }
 
         if (entity.getAttributeScoringSystem() != null) {
             this.attributeScoringSystemId = entity.getAttributeScoringSystem().getId();

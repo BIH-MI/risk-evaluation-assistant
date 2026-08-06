@@ -8,6 +8,7 @@ import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetTable
 import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetTableAssessmentAttribute;
 import org.bihealth.mi.risk_assessment_api.model.assessment.recipient.RecipientAssessment;
 import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
+import org.bihealth.mi.risk_assessment_api.model.configuration.ConfigurationVersion;
 import org.bihealth.mi.risk_assessment_api.model.dataset.*;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Answer;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Question;
@@ -347,7 +348,7 @@ public class DataLoader implements CommandLineRunner {
     private DatasetAssessment createElEmamDatasetAssessment(Dataset dataset, Configuration config) {
         DatasetAssessment da = new DatasetAssessment();
         da.setDataset(dataset);
-        da.setConfiguration(config);
+        applyConfiguration(da, config);
         applyDefaultAttributeScoringSystem(da);
         da.setName("LEOSS Assessment (El Emam)");
         da.setDescription("Invasion-of-Privacy answers for the LEOSS Public Use File (No critical triggers applied).");
@@ -393,7 +394,7 @@ public class DataLoader implements CommandLineRunner {
     private DatasetAssessment createSphnDatasetAssessment(Dataset dataset, Configuration config) {
         DatasetAssessment da = new DatasetAssessment();
         da.setDataset(dataset);
-        da.setConfiguration(config);
+        applyConfiguration(da, config);
         applyDefaultAttributeScoringSystem(da);
         da.setName("LEOSS Assessment (SPHN)");
         da.setDescription("SPHN Data Risk evaluation mapped for the LEOSS Public Use File (No critical triggers applied).");
@@ -450,6 +451,13 @@ public class DataLoader implements CommandLineRunner {
         assessment.setAttributeScoringSystemVersion(scoringVersion);
         assessment.setAttributeIdentifiabilityThreshold(scoringVersion.getDefaultIdentifiabilityThreshold());
         assessment.setAttributeSensitivityThreshold(scoringVersion.getDefaultSensitivityThreshold());
+    }
+
+    private void applyConfiguration(BaseAssessment assessment, Configuration config) {
+        ConfigurationVersion version = config.getCurrentVersionEntity()
+                .orElseThrow(() -> new IllegalStateException("Configuration has no versions: " + config.getName()));
+        assessment.setConfiguration(config);
+        assessment.setConfigurationVersion(version);
     }
 
     /**
@@ -509,7 +517,7 @@ public class DataLoader implements CommandLineRunner {
         for (Recipient recipient : recipients) {
             RecipientAssessment ra = new RecipientAssessment();
             ra.setRecipient(recipient);
-            ra.setConfiguration(config);
+            applyConfiguration(ra, config);
             ra.setCreatorUsername("user");
             ra.setName(recipient.getName() + " Assessment (El Emam)");
             ra.setAnswers(new ArrayList<>());
@@ -629,7 +637,7 @@ public class DataLoader implements CommandLineRunner {
         for (Recipient recipient : recipients) {
             RecipientAssessment ra = new RecipientAssessment();
             ra.setRecipient(recipient);
-            ra.setConfiguration(config);
+            applyConfiguration(ra, config);
             ra.setCreatorUsername("user");
             ra.setName(recipient.getName() + " (SPHN)");
             ra.setAnswers(new ArrayList<>());

@@ -96,11 +96,10 @@ export default function AddEditConfigurationForm() {
     key: Date.now(),
   });
 
-  // Dialog States (Fork & In-Use protection)
+  // Dialog States
   const [forkDialogOpen, setForkDialogOpen] = useState(false);
   const [newConfigName, setNewConfigName] = useState("");
   const [forkLoading, setForkLoading] = useState(false);
-  const [inUseSaveDialogOpen, setInUseSaveDialogOpen] = useState(false);
 
   // 1. Fetch configurations on mount
   useEffect(() => {
@@ -194,18 +193,15 @@ export default function AddEditConfigurationForm() {
   // --- SAVE & SUBMIT LOGIC ---
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (isViewMode) return;
     if (!configDetails?.name?.trim()) return;
 
-    if (isEditMode || isViewMode) {
-      if (configDetails.isActive && !isViewMode) {
-        setInUseSaveDialogOpen(true);
-      } else {
-        dispatch(updateConfiguration({ id: configId, token }));
-      }
+    if (isEditMode) {
+      dispatch(updateConfiguration({ id: configId, token }));
     } else {
       const newConfigData = {
         ...configDetails,
-        isActive: false,
+        isActive: true,
         isDefault: false,
         riskCategories: configDetails.categories || [],
         questions: configDetails.questions || [],
@@ -251,17 +247,6 @@ export default function AddEditConfigurationForm() {
           });
         });
     }
-  };
-
-  const handleDiscardChanges = () => {
-    setInUseSaveDialogOpen(false);
-    dispatch(fetchConfiguration({ id: configId, token })); // Revert local edits
-  };
-
-  const handleInUseFork = () => {
-    setInUseSaveDialogOpen(false);
-    setNewConfigName(`${configDetails.name} Fork`);
-    setForkDialogOpen(true);
   };
 
   const handleForkConfirm = () => {
@@ -620,7 +605,7 @@ export default function AddEditConfigurationForm() {
           variant="contained"
           color="primary"
           sx={{ minWidth: 200 }}
-          disabled={loading || !displayConfig.name?.trim()}
+          disabled={isViewMode || loading || !displayConfig.name?.trim()}
         >
           {isEditMode || isViewMode
             ? t("configurations.editor.updateButton", "Update Configuration")
@@ -656,29 +641,6 @@ export default function AddEditConfigurationForm() {
             onChange={(e) => setNewConfigName(e.target.value)}
           />
         </RABox>
-      </RADialog>
-
-      <RADialog
-        open={inUseSaveDialogOpen}
-        title={t(
-          "configurations.dialogs.inUseWarningTitle",
-          "Configuration In Use"
-        )}
-        onClose={() => setInUseSaveDialogOpen(false)}
-        onConfirm={handleInUseFork}
-        confirmText={t("configurations.dialogs.forkConfig", "Fork")}
-        cancelText={t(
-          "configurations.dialogs.discardChanges",
-          "Discard Changes"
-        )}
-        onCancel={handleDiscardChanges}
-      >
-        <RATypography variant="body2" mt={1}>
-          {t(
-            "configurations.dialogs.inUseWarningMessage",
-            "This configuration is currently active and in use. Direct edits are blocked to protect existing assessments. Please Fork this configuration to save your changes to a new version, or Discard Changes."
-          )}
-        </RATypography>
       </RADialog>
 
       {/* Alerts */}

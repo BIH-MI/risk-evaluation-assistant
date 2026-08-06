@@ -41,15 +41,15 @@ public class RiskComputationService {
      * the context-risk matrix value P_attack.</p>
      *
      * @param answers all answers from the dataset assessment and recipient assessment
-     * @param datasetConfig configuration that owns the dataset IMPACT thresholds
-     * @param recipientConfig configuration that owns the recipient risk matrix
+     * @param datasetConfigVersion configuration version that owns the dataset IMPACT thresholds
+     * @param recipientConfigVersion configuration version that owns the recipient risk matrix
      * @param manualThreshold optional override for T; if null, T is derived from IMPACT
      * @return complete result object containing final threshold, context risk, bands, and diagnostics
      */
     public GenericCalculationResult calculateTotalRisk(
             List<Answer> answers,
-            Configuration datasetConfig,
-            Configuration recipientConfig,
+            ConfigurationVersion datasetConfigVersion,
+            ConfigurationVersion recipientConfigVersion,
             Double manualThreshold
     ) {
 
@@ -161,7 +161,7 @@ public class RiskComputationService {
 
         Double thresholdVar = manualThreshold != null
                 ? manualThreshold
-                : resolveThreshold(datasetConfig, impactBandLabel);
+                : resolveThreshold(datasetConfigVersion, impactBandLabel);
 
         /*
          * STEP 2: Resolve P_attack, called contextRisk in the code.
@@ -174,8 +174,8 @@ public class RiskComputationService {
         Double contextRisk = 1.0;
         Map<String, String> appliedConditions = null;
 
-        if (recipientConfig != null && recipientConfig.getRiskMatrices() != null) {
-            for (RiskMatrix matrix : recipientConfig.getRiskMatrices()) {
+        if (recipientConfigVersion != null && recipientConfigVersion.getRiskMatrices() != null) {
+            for (RiskMatrix matrix : recipientConfigVersion.getRiskMatrices()) {
                 if (matchesMatrix(matrix, categoryBreakdown)) {
                     contextRisk = matrix.getContextRisk();
                     appliedConditions = matrix.getConditions();
@@ -263,14 +263,14 @@ public class RiskComputationService {
      * is missing, the method uses the smallest configured threshold as a conservative
      * fallback rather than silently allowing a permissive 100% threshold.</p>
      */
-    private Double resolveThreshold(Configuration datasetConfig, String impactBandLabel) {
-        if (datasetConfig == null || datasetConfig.getReidThresholds() == null || datasetConfig.getReidThresholds().isEmpty()) {
+    private Double resolveThreshold(ConfigurationVersion datasetConfigVersion, String impactBandLabel) {
+        if (datasetConfigVersion == null || datasetConfigVersion.getReidThresholds() == null || datasetConfigVersion.getReidThresholds().isEmpty()) {
             log.warn("No re-identification thresholds configured; using conservative threshold 0.0");
             return 0.0;
         }
 
         String normalizedImpactBand = normalizeKey(impactBandLabel);
-        Optional<Double> configuredThreshold = datasetConfig.getReidThresholds().stream()
+        Optional<Double> configuredThreshold = datasetConfigVersion.getReidThresholds().stream()
                 .filter(t -> normalizeKey(t.getRiskClassification()).equals(normalizedImpactBand))
                 .map(ReidentificationThreshold::getThresholdValue)
                 .findFirst();
@@ -279,7 +279,7 @@ public class RiskComputationService {
             return configuredThreshold.get();
         }
 
-        double fallbackThreshold = datasetConfig.getReidThresholds().stream()
+        double fallbackThreshold = datasetConfigVersion.getReidThresholds().stream()
                 .mapToDouble(ReidentificationThreshold::getThresholdValue)
                 .min()
                 .orElse(0.0);

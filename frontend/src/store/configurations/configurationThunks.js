@@ -5,6 +5,8 @@ import {
   forkConfigurationApi,
   fetchConfigurationApi,
   updateConfigurationApi,
+  archiveConfigurationApi,
+  setDefaultConfigurationApi,
   deleteConfigurationApi,
 } from "../../api/configurations";
 
@@ -21,30 +23,48 @@ const normalizeQuestions = (questions) => {
   }));
 };
 
+const normalizeConfiguration = (configData, fallbacks = {}) => ({
+  id: configData?.id,
+  versionId: configData?.versionId,
+  version: configData?.version || configData?.currentVersion || 0,
+  currentVersion: configData?.currentVersion || configData?.version || 0,
+  name: configData?.name || "",
+  description: configData?.description || "",
+  defaultLanguage: configData?.defaultLanguage || "en",
+  isDefault: configData?.default ?? configData?.isDefault ?? false,
+  isActive: configData?.active ?? configData?.isActive ?? true,
+  creatorUsername: configData?.creatorUsername || "—",
+  sharedUsernames: configData?.sharedUsernames || [],
+  assessmentCount: configData?.assessmentCount || 0,
+  creationDate: configData?.creationDate,
+  lastModifiedDate: configData?.lastModifiedDate,
+  categories:
+    configData?.riskCategories ??
+    configData?.categories ??
+    fallbacks?.categories ??
+    [],
+  questions: normalizeQuestions(configData?.questions ?? fallbacks?.questions),
+  riskMatrix:
+    configData?.riskMatrices ??
+    configData?.riskMatrix ??
+    fallbacks?.matrix ??
+    [],
+  thresholds:
+    configData?.reidThresholds ??
+    configData?.thresholds ??
+    fallbacks?.thresholds ??
+    [],
+});
+
 export const fetchConfigurations = createAsyncThunk(
   "configuration/fetchAll",
   async (token, { rejectWithValue }) => {
     try {
       const data = await fetchConfigurationsApi(token);
 
-      return (Array.isArray(data) ? data : []).map((configData) => ({
-        id: configData?.id,
-        name: configData?.name || "",
-        version: configData?.version || 0,
-        description: configData?.description || "",
-        defaultLanguage: configData?.defaultLanguage || "en",
-        isDefault: configData?.default ?? configData?.isDefault ?? false,
-        isActive: configData?.active ?? configData?.isActive ?? true,
-        creatorUsername: configData?.creatorUsername || "—",
-        sharedUsernames: configData?.sharedUsernames || [],
-        assessmentCount: configData?.assessmentCount || 0,
-        creationDate: configData?.creationDate,
-        lastModifiedDate: configData?.lastModifiedDate,
-        categories: configData?.riskCategories ?? configData?.categories ?? [],
-        questions: normalizeQuestions(configData?.questions),
-        riskMatrix: configData?.riskMatrices ?? configData?.riskMatrix ?? [],
-        thresholds: configData?.reidThresholds ?? configData?.thresholds ?? [],
-      }));
+      return (Array.isArray(data) ? data : []).map((configData) =>
+        normalizeConfiguration(configData)
+      );
     } catch (err) {
       return rejectWithValue(err.message || "Failed to fetch configurations");
     }
@@ -55,7 +75,11 @@ export const createConfiguration = createAsyncThunk(
   "configuration/create",
   async ({ configData, token }, { rejectWithValue }) => {
     try {
-      return await createConfigurationApi(configData, token);
+      const createdConfiguration = await createConfigurationApi(
+        configData,
+        token
+      );
+      return normalizeConfiguration(createdConfiguration);
     } catch (err) {
       return rejectWithValue(err.message || "Failed to process configuration");
     }
@@ -66,7 +90,12 @@ export const forkConfiguration = createAsyncThunk(
   "configuration/fork",
   async ({ id, newConfigName, token }, { rejectWithValue }) => {
     try {
-      return await forkConfigurationApi(id, newConfigName, token);
+      const forkedConfiguration = await forkConfigurationApi(
+        id,
+        newConfigName,
+        token
+      );
+      return normalizeConfiguration(forkedConfiguration);
     } catch (err) {
       return rejectWithValue(err.message || "Failed to process configuration");
     }
@@ -85,31 +114,7 @@ export const fetchConfiguration = createAsyncThunk(
       else if (data?.data) configData = data.data;
 
       // Package everything into a single configuration object
-      return {
-        id: configData?.id,
-        name: configData?.name || "",
-        version: configData?.version || 0,
-        description: configData?.description || "",
-        defaultLanguage: configData?.defaultLanguage || "en",
-        isDefault: configData?.default ?? configData?.isDefault ?? false,
-        isActive: configData?.active ?? configData?.isActive ?? true,
-        categories:
-          configData?.riskCategories ??
-          configData?.categories ??
-          data?.categories ??
-          [],
-        questions: normalizeQuestions(configData?.questions ?? data?.questions),
-        riskMatrix:
-          configData?.riskMatrices ??
-          configData?.riskMatrix ??
-          data?.matrix ??
-          [],
-        thresholds:
-          configData?.reidThresholds ??
-          configData?.thresholds ??
-          data?.thresholds ??
-          [],
-      };
+      return normalizeConfiguration(configData, data);
     } catch (error) {
       return rejectWithValue(error.message || "Failed to fetch configuration");
     }
@@ -146,6 +151,7 @@ export const updateConfiguration = createAsyncThunk(
                 }) => ({
                   ...optRest,
                   textTranslations: optTrans || {},
+                  riskLevel: Number(optRest.score ?? optRest.riskLevel ?? 0),
                   isHighRiskTrigger: Boolean(optRest.isHighRiskTrigger),
                   highRiskTrigger: Boolean(optRest.isHighRiskTrigger),
                 })
@@ -166,8 +172,12 @@ export const updateConfiguration = createAsyncThunk(
         thresholds: cleanTempIds(configDetails.thresholds),
       };
 
-      await updateConfigurationApi(id, payload, token);
-      return true;
+      const updatedConfiguration = await updateConfigurationApi(
+        id,
+        payload,
+        token
+      );
+      return normalizeConfiguration(updatedConfiguration);
     } catch (err) {
       return rejectWithValue(err.message || "Failed to process configuration");
     }
@@ -182,6 +192,32 @@ export const deleteConfiguration = createAsyncThunk(
       return id;
     } catch (err) {
       return rejectWithValue(err.message || "Failed to process configuration");
+    }
+  }
+);
+
+export const archiveConfiguration = createAsyncThunk(
+  "configuration/archive",
+  async ({ id, token }, { rejectWithValue }) => {
+    try {
+      const archivedConfiguration = await archiveConfigurationApi(id, token);
+      return normalizeConfiguration(archivedConfiguration);
+    } catch (err) {
+      return rejectWithValue(err.message || "Failed to archive configuration");
+    }
+  }
+);
+
+export const setDefaultConfiguration = createAsyncThunk(
+  "configuration/setDefault",
+  async ({ id, token }, { rejectWithValue }) => {
+    try {
+      const defaultConfiguration = await setDefaultConfigurationApi(id, token);
+      return normalizeConfiguration(defaultConfiguration);
+    } catch (err) {
+      return rejectWithValue(
+        err.message || "Failed to set default configuration"
+      );
     }
   }
 );

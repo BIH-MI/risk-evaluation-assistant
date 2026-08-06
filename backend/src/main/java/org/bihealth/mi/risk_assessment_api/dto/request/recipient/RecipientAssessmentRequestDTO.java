@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import org.bihealth.mi.risk_assessment_api.dto.request.questionnaire.AnswerRequestDTO;
 import org.bihealth.mi.risk_assessment_api.model.assessment.recipient.RecipientAssessment;
 import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
+import org.bihealth.mi.risk_assessment_api.model.configuration.ConfigurationVersion;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Question;
 import org.bihealth.mi.risk_assessment_api.model.recipient.Recipient;
 
@@ -54,10 +55,12 @@ public class RecipientAssessmentRequestDTO {
      */
     public RecipientAssessment toEntity(Recipient recipient,
                                         Configuration config,
+                                        ConfigurationVersion configVersion,
                                         Map<Long, Question> questionMap,
                                         String username) {
         RecipientAssessment asmt = new RecipientAssessment();
         asmt.setConfiguration(config);
+        asmt.setConfigurationVersion(configVersion);
         asmt.setCreatorUsername(username);
         asmt.setRecipient(recipient);
         asmt.setName(this.name);

@@ -1,159 +1,106 @@
 import React from "react";
-import RABox from "components/layout/RABox";
-import {
-  EditIconButton,
-  CancelIconButton,
-  ForkIconButton,
-  ViewIconButton,
-} from "components/input/RAButton/FixStyledButtons";
+import { Chip, Tooltip } from "@mui/material";
+
 import DateTimeDisplay from "components/display/Tables/DataTable/CustomDataTableComponents/DateTimeDisplay";
 import LabeledAvatar from "components/display/Tables/DataTable/CustomDataTableComponents/LabeledAvatar";
-import SharedUsersList from "components/display/Tables/DataTable/CustomDataTableComponents/SharedUsersList";
-import Tooltip from "@mui/material/Tooltip";
-import RATypography from "../../components/display/RATypography";
+import RABox from "components/layout/RABox";
+import {
+  ArchiveIconButton,
+  DefaultIconButton,
+  EditIconButton,
+  ForkIconButton,
+} from "components/input/RAButton/FixStyledButtons";
 
 export default function getConfigurationsTableData(
   configurations,
   onEdit,
-  onView,
   onFork,
-  onDelete,
-  t,
+  onSetDefault,
+  onArchive,
   isAdmin
 ) {
-  // Base columns that everyone sees
   const columns = [
     {
-      Header: t("configurations.table.name", "Configuration Name"),
-      accessor: "name",
-      width: "25%",
+      Header: "Display Name",
+      accessor: "displayName",
+      width: "35%",
       align: "left",
       Cell: ({ value }) => (
         <LabeledAvatar value={value} variant="configuration" shape="square" />
       ),
     },
     {
-      Header: t("configurations.table.lastChange", "Last Change"),
-      accessor: "lastModifiedDate",
-      width: "15%",
+      Header: "Status",
+      accessor: "active",
+      width: "22%",
       align: "center",
-      Cell: ({ row }) => {
-        const dateValue =
-          row.original.lastModifiedDate || row.original.creationDate;
-        return <DateTimeDisplay value={dateValue} />;
-      },
-    },
-    {
-      Header: t("configurations.table.createdBy", "Created By"),
-      accessor: "creatorUsername",
-      width: "15%",
-      align: "center",
-      Cell: ({ value }) => <LabeledAvatar value={value} variant="user" />,
-    },
-    {
-      Header: t("configurations.table.sharedWith", "Shared With"),
-      accessor: "sharedUsernames",
-      width: "15%",
-      align: "left",
-      Cell: ({ value }) => (
-        <SharedUsersList
-          usernames={value}
-          avatarVariant="shared"
-          avatarShape="circular"
-          avatarSize="xs"
-        />
+      Cell: ({ row }) => (
+        <RABox display="flex" justifyContent="center" gap={0.75}>
+          <Chip
+            size="small"
+            label={row.original.active ? "Active" : "Archived"}
+            color={row.original.active ? "success" : "default"}
+            variant={row.original.active ? "filled" : "outlined"}
+          />
+          {row.original.defaultConfiguration && (
+            <Chip size="small" label="Default" color="primary" />
+          )}
+        </RABox>
       ),
     },
     {
-      Header: t("configurations.table.assessments", "#Assessments"),
-      accessor: "assessmentCount",
-      width: "10%",
+      Header: "Last Updated",
+      accessor: "lastModifiedDate",
+      width: "22%",
       align: "center",
-      Cell: ({ value }) => (
-        <RATypography
-          variant="button"
-          fontWeight="medium"
-          sx={(theme) => ({
-            color: theme.palette.mode === "dark" ? "#ffffff" : "#7b809a",
-          })}
-        >
-          {value || 0}
-        </RATypography>
+      Cell: ({ row }) => (
+        <DateTimeDisplay
+          value={row.original.lastModifiedDate || row.original.creationDate}
+        />
       ),
     },
   ];
 
-  // 2. Conditionally append the Actions column ONLY if the user is an Admin
   if (isAdmin) {
     columns.push({
-      Header: t("configurations.table.actions", "Actions"),
+      Header: "Actions",
       accessor: "actions",
-      width: "10%",
+      width: "21%",
       align: "center",
       disableSortBy: true,
       Cell: ({ row }) => {
-        const id = row.original.id;
-        const isActive = row.original.isActive;
+        const config = row.original.config;
 
         return (
           <RABox display="flex" justifyContent="center" gap={1}>
-            {/* 1. View OR Edit (Depending on Active state) */}
-            {isActive ? (
-              <Tooltip
-                title={t(
-                  "configurations.table.viewTooltip",
-                  "View Configuration"
-                )}
-                arrow
-              >
-                <span>
-                  <ViewIconButton size="small" onClick={() => onView(id)} />
-                </span>
-              </Tooltip>
-            ) : (
-              <Tooltip
-                title={t(
-                  "configurations.table.editTooltip",
-                  "Edit Configuration"
-                )}
-                arrow
-              >
-                <span>
-                  <EditIconButton size="small" onClick={() => onEdit(id)} />
-                </span>
-              </Tooltip>
-            )}
-
-            {/* 2. ALWAYS Show Fork */}
-            <Tooltip
-              title={t(
-                "configurations.table.forkTooltip",
-                "Fork Configuration"
-              )}
-              arrow
-            >
+            <Tooltip title="Edit Configuration" arrow>
               <span>
-                <ForkIconButton
+                <EditIconButton size="small" onClick={() => onEdit(config)} />
+              </span>
+            </Tooltip>
+            <Tooltip title="Fork Configuration" arrow>
+              <span>
+                <ForkIconButton size="small" onClick={() => onFork(config)} />
+              </span>
+            </Tooltip>
+            <Tooltip title="Set as Default" arrow>
+              <span>
+                <DefaultIconButton
                   size="small"
-                  onClick={() => onFork(id, row.original.name)}
+                  disabled={!config.isActive || config.isDefault}
+                  onClick={() => onSetDefault(config)}
                 />
               </span>
             </Tooltip>
-
-            {/* 3. ONLY Show Delete if Inactive */}
-            {!isActive && (
-              <Tooltip
-                title={t(
-                  "configurations.table.deleteTooltip",
-                  "Delete Configuration"
-                )}
-                arrow
-              >
-                <span>
-                  <CancelIconButton size="small" onClick={() => onDelete(id)} />
-                </span>
-              </Tooltip>
-            )}
+            <Tooltip title="Archive Configuration" arrow>
+              <span>
+                <ArchiveIconButton
+                  size="small"
+                  disabled={!config.isActive}
+                  onClick={() => onArchive(config)}
+                />
+              </span>
+            </Tooltip>
           </RABox>
         );
       },
@@ -162,13 +109,16 @@ export default function getConfigurationsTableData(
 
   const rows = configurations.map((config) => ({
     id: config.id,
-    name: config.name,
-    isActive: config.isActive,
+    displayName: config.name,
+    active: Boolean(config.isActive),
+    defaultConfiguration: Boolean(config.isDefault),
     creationDate: config.creationDate,
     lastModifiedDate: config.lastModifiedDate,
-    creatorUsername: config.creatorUsername,
-    sharedUsernames: config.sharedUsernames || [],
-    assessmentCount: config.assessmentCount || 0,
+    config: {
+      ...config,
+      isActive: Boolean(config.isActive),
+      isDefault: Boolean(config.isDefault),
+    },
   }));
 
   return { columns, rows };

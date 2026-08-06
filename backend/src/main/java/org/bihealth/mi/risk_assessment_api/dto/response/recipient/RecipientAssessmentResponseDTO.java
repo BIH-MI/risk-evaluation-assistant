@@ -3,6 +3,7 @@ package org.bihealth.mi.risk_assessment_api.dto.response.recipient;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import org.bihealth.mi.risk_assessment_api.dto.response.configuration.ConfigurationResponseDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.questionnaire.AnswerResponseDTO;
 import org.bihealth.mi.risk_assessment_api.model.assessment.recipient.RecipientAssessment;
 
@@ -25,7 +26,9 @@ public class RecipientAssessmentResponseDTO {
     private Long recipientId;
     private Long configurationId;
     private String configurationName;
-    private Long configurationVersion;
+    private Long configurationVersionId;
+    private Integer configurationVersion;
+    private ConfigurationResponseDTO configuration;
 
     // Recipient/assessment metadata shown in the UI.
     private String organization;
@@ -50,7 +53,24 @@ public class RecipientAssessmentResponseDTO {
         this.id = entity.getId();
         this.recipientId = entity.getRecipient().getId();
         this.configurationId = entity.getConfiguration().getId();
-        this.configurationName = entity.getConfiguration().getName();
+        if (entity.getConfigurationVersion() != null) {
+            this.configurationVersionId = entity.getConfigurationVersion().getId();
+            this.configurationVersion = entity.getConfigurationVersion().getVersionNumber();
+            this.configurationName = entity.getConfigurationVersion().getName();
+            this.configuration = new ConfigurationResponseDTO(
+                    entity.getConfiguration(),
+                    entity.getConfigurationVersion(),
+                    0
+            );
+        } else {
+            this.configurationName = entity.getConfiguration().getName();
+            entity.getConfiguration().getCurrentVersionEntity().ifPresent(version -> {
+                this.configurationVersionId = version.getId();
+                this.configurationVersion = version.getVersionNumber();
+                this.configurationName = version.getName();
+                this.configuration = new ConfigurationResponseDTO(entity.getConfiguration(), version, 0);
+            });
+        }
         this.organization = entity.getRecipient().getOrganization();
         this.name = entity.getName();
         this.description = entity.getDescription();

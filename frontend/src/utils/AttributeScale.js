@@ -1,5 +1,4 @@
 import lowIcon from "assets/images/icons/measurements/low.png";
-import mediumIcon from "assets/images/icons/measurements/medium.png";
 import moderateIcon from "assets/images/icons/measurements/moderate.png";
 import highIcon from "assets/images/icons/measurements/high.png";
 import veryHighIcon from "assets/images/icons/measurements/veryHigh.png";
@@ -72,7 +71,6 @@ export const LEGACY_ATTRIBUTE_SCORING_SYSTEM = Object.freeze({
 
 const OPTION_ICON_BY_LABEL = {
   low: lowIcon,
-  medium: mediumIcon,
   moderate: moderateIcon,
   high: highIcon,
   "very high": veryHighIcon,

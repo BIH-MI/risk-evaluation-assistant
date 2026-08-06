@@ -53,6 +53,11 @@ export default function AddEditRecipientAssessmentForm() {
     (state) => state.configurations
   );
 
+  const assessment = useMemo(
+    () => assessments.find((a) => a.id === assessmentId),
+    [assessments, assessmentId]
+  );
+
   // Form State
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -66,11 +71,37 @@ export default function AddEditRecipientAssessmentForm() {
   const [selectedConfigId, setSelectedConfigId] = useState("");
   const [answers, setAnswers] = useState({});
 
-  // Safely extract categories and questions directly from the fetched active configuration
-  const activeConfig = useMemo(
-    () => configurations.find((c) => c.id === selectedConfigId),
-    [configurations, selectedConfigId]
-  );
+  const activeConfig = useMemo(() => {
+    if (isEditMode && assessment?.configuration) {
+      return assessment.configuration;
+    }
+
+    return configurations.find(
+      (c) => String(c.id) === String(selectedConfigId)
+    );
+  }, [assessment, configurations, isEditMode, selectedConfigId]);
+
+  const configurationOptions = useMemo(() => {
+    const map = new Map();
+    configurations
+      .filter((config) => isEditMode || config.isActive)
+      .forEach((config) => map.set(String(config.id), config));
+    if (activeConfig?.id != null) {
+      map.set(String(activeConfig.id), activeConfig);
+    }
+    return Array.from(map.values());
+  }, [activeConfig, configurations, isEditMode]);
+
+  useEffect(() => {
+    if (isEditMode || selectedConfigId || configurationOptions.length === 0) {
+      return;
+    }
+
+    const defaultConfig =
+      configurationOptions.find((config) => config.isDefault) ||
+      configurationOptions[0];
+    setSelectedConfigId(defaultConfig?.id || "");
+  }, [configurationOptions, isEditMode, selectedConfigId]);
 
   const categories = activeConfig?.categories || EMPTY_ARRAY;
   const questions = activeConfig?.questions || EMPTY_ARRAY;
@@ -122,29 +153,25 @@ export default function AddEditRecipientAssessmentForm() {
 
   // Basic metadata prefill
   useEffect(() => {
-    if (isEditMode && assessments.length > 0 && !name) {
-      const assessment = assessments.find((a) => a.id === assessmentId);
-      if (assessment) {
-        setName(assessment.name || "");
-        setDescription(assessment.description || "");
-        setContactName(assessment.contactName || "");
-        setEmail(assessment.email || "");
-        setTelephone(assessment.telephone || "");
-        setDepartment(assessment.department || "");
-        setSelectedRecipientId(assessment.recipientId || "");
-        setSelectedConfigId(assessment.configurationId || "");
-
-      }
+    if (isEditMode && assessment && !name) {
+      setName(assessment.name || "");
+      setDescription(assessment.description || "");
+      setContactName(assessment.contactName || "");
+      setEmail(assessment.email || "");
+      setTelephone(assessment.telephone || "");
+      setDepartment(assessment.department || "");
+      setSelectedRecipientId(assessment.recipientId || "");
+      setSelectedConfigId(assessment.configurationId || "");
     }
-  }, [isEditMode, assessmentId, assessments, name]);
+  }, [assessment, isEditMode, name]);
 
   // Fetch deep configuration hierarchy when a config is selected
   useEffect(() => {
-    if (selectedConfigId && token) {
+    if (selectedConfigId && token && !(isEditMode && assessment?.configuration)) {
       dispatch(fetchConfiguration({ id: selectedConfigId, token }));
       setActiveQuestTab(0);
     }
-  }, [dispatch, selectedConfigId, token]);
+  }, [assessment, dispatch, isEditMode, selectedConfigId, token]);
 
   const recipientCategories = useMemo(() => {
     if (!categories) return [];
@@ -175,7 +202,6 @@ export default function AddEditRecipientAssessmentForm() {
         let isModified = false;
 
         // 1. If in Edit Mode and we haven't loaded the assessment answers yet
-        const assessment = assessments.find((a) => a.id === assessmentId);
         if (isEditMode && assessment && Object.keys(prevAnswers).length === 0) {
           (assessment.answers || []).forEach((ans) => {
             const q = questions.find((quest) => quest.id === ans.questionId);
@@ -249,8 +275,7 @@ export default function AddEditRecipientAssessmentForm() {
     isEditMode,
     selectedConfigId,
     questions,
-    assessments,
-    assessmentId,
+    assessment,
     recipientCategories,
   ]);
 
@@ -390,9 +415,18 @@ export default function AddEditRecipientAssessmentForm() {
             required
             disabled={isReadOnly || isEditMode}
           >
-            {configurations.map((cfg) => (
+            {configurationOptions.map((cfg) => (
               <MenuItem key={cfg.id} value={cfg.id}>
-                {cfg.name}
+                <RABox display="flex" flexDirection="column">
+                  <RATypography variant="button" fontWeight="medium">
+                    {cfg.name} v{cfg.version || cfg.currentVersion || 1}
+                  </RATypography>
+                  {cfg.description && (
+                    <RATypography variant="caption" color="secondary">
+                      {cfg.description}
+                    </RATypography>
+                  )}
+                </RABox>
               </MenuItem>
             ))}
           </RAInput>

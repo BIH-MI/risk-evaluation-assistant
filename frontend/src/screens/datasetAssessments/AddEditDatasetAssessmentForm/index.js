@@ -17,7 +17,6 @@ import DatasetTablesAssessment from "components/display/Tables/DataTable/CustomD
 import RAAlert from "components/feedback/RAAlert";
 import {
   LEGACY_ATTRIBUTE_SCORING_SYSTEM,
-  formatScoreValue,
   getDefaultAttributeScaleMetrics,
   normalizeAttributeScaleValue,
 } from "utils/AttributeScale";
@@ -89,11 +88,26 @@ export default function AddEditDatasetAssessmentForm() {
     [assessments, assessmentId]
   );
 
-  // Safely extract categories and questions directly from the fetched active configuration in the items array
-  const activeConfig = useMemo(
-    () => configurations.find((c) => c.id === selectedConfigId),
-    [configurations, selectedConfigId]
-  );
+  const activeConfig = useMemo(() => {
+    if (isEditMode && assessment?.configuration) {
+      return assessment.configuration;
+    }
+
+    return configurations.find(
+      (c) => String(c.id) === String(selectedConfigId)
+    );
+  }, [assessment, configurations, isEditMode, selectedConfigId]);
+
+  const configurationOptions = useMemo(() => {
+    const map = new Map();
+    configurations
+      .filter((config) => isEditMode || config.isActive)
+      .forEach((config) => map.set(String(config.id), config));
+    if (activeConfig?.id != null) {
+      map.set(String(activeConfig.id), activeConfig);
+    }
+    return Array.from(map.values());
+  }, [activeConfig, configurations, isEditMode]);
 
   const selectedScoringSystem = useMemo(() => {
     if (isEditMode && assessment?.attributeScoringSystem) {
@@ -116,6 +130,35 @@ export default function AddEditDatasetAssessmentForm() {
     }
     return Array.from(map.values());
   }, [scoringSystems, selectedScoringSystem]);
+
+  useEffect(() => {
+    if (isEditMode || selectedConfigId || configurationOptions.length === 0) {
+      return;
+    }
+
+    const defaultConfig =
+      configurationOptions.find((config) => config.isDefault) ||
+      configurationOptions[0];
+    setSelectedConfigId(defaultConfig?.id || "");
+  }, [configurationOptions, isEditMode, selectedConfigId]);
+
+  useEffect(() => {
+    if (
+      isEditMode ||
+      selectedScoringSystemId ||
+      scoringSystemOptions.length === 0
+    ) {
+      return;
+    }
+
+    const defaultSystem =
+      scoringSystemOptions.find(
+        (system) =>
+          system.active !== false &&
+          (system.defaultSystem || system.isDefault)
+      ) || scoringSystemOptions[0];
+    setSelectedScoringSystemId(defaultSystem?.id || "");
+  }, [isEditMode, scoringSystemOptions, selectedScoringSystemId]);
 
   const categories = activeConfig?.categories || EMPTY_ARRAY;
   const questions = activeConfig?.questions || EMPTY_ARRAY;
@@ -191,15 +234,6 @@ export default function AddEditDatasetAssessmentForm() {
         );
     }
   }, [dispatch, token]);
-
-  useEffect(() => {
-    if (isEditMode) return;
-    if (selectedScoringSystemId || scoringSystems.length === 0) return;
-    const defaultSystem =
-      scoringSystems.find((system) => system.defaultSystem) ||
-      scoringSystems[0];
-    setSelectedScoringSystemId(defaultSystem?.id || "");
-  }, [isEditMode, scoringSystems, selectedScoringSystemId]);
 
   // Load Existing Assessment Metadata (Runs once when assessment loads)
   useEffect(() => {
@@ -335,11 +369,11 @@ export default function AddEditDatasetAssessmentForm() {
 
   // Fetch deep configuration hierarchy when a config is selected
   useEffect(() => {
-    if (selectedConfigId && token) {
+    if (selectedConfigId && token && !(isEditMode && assessment?.configuration)) {
       dispatch(fetchConfiguration({ id: selectedConfigId, token }));
       setActiveQuestTab(0); // Reset tab when config changes
     }
-  }, [dispatch, selectedConfigId, token]);
+  }, [assessment, dispatch, isEditMode, selectedConfigId, token]);
 
   // Pre-fill answers ONCE the questions have been fully fetched from the configuration
   // AND auto-select the first option for any question that is left unanswered.
@@ -592,9 +626,18 @@ export default function AddEditDatasetAssessmentForm() {
             required
             disabled={isReadOnly || isEditMode}
           >
-            {configurations.map((cfg) => (
+            {configurationOptions.map((cfg) => (
               <MenuItem key={cfg.id} value={cfg.id}>
-                {cfg.name}
+                <RABox display="flex" flexDirection="column">
+                  <RATypography variant="button" fontWeight="medium">
+                    {cfg.name} v{cfg.version || cfg.currentVersion || 1}
+                  </RATypography>
+                  {cfg.description && (
+                    <RATypography variant="caption" color="secondary">
+                      {cfg.description}
+                    </RATypography>
+                  )}
+                </RABox>
               </MenuItem>
             ))}
           </RAInput>
@@ -622,22 +665,6 @@ export default function AddEditDatasetAssessmentForm() {
               </MenuItem>
             ))}
           </RAInput>
-          {selectedScoringSystem && (
-            <RABox display="flex" gap={2} flexWrap="wrap">
-              <RATypography variant="caption" color="text">
-                Identifiability threshold:{" "}
-                {formatScoreValue(
-                  selectedScoringSystem.defaultIdentifiabilityThreshold
-                )}
-              </RATypography>
-              <RATypography variant="caption" color="text">
-                Sensitivity threshold:{" "}
-                {formatScoreValue(
-                  selectedScoringSystem.defaultSensitivityThreshold
-                )}
-              </RATypography>
-            </RABox>
-          )}
           <OnBlurRAInput
             label={t("datasetAssessments.form.assessmentNameLabel")}
             value={name}

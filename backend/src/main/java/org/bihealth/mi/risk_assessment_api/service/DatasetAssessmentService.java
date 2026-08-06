@@ -11,6 +11,7 @@ import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetTable
 import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetTableAssessmentAttribute;
 import org.bihealth.mi.risk_assessment_api.model.dataset.*;
 import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
+import org.bihealth.mi.risk_assessment_api.model.configuration.ConfigurationVersion;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Answer;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Question;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.QuestionOption;
@@ -21,7 +22,6 @@ import org.bihealth.mi.risk_assessment_api.repository.configuration.RiskConfigur
 import org.bihealth.mi.risk_assessment_api.repository.dataset.DatasetRepository;
 import org.bihealth.mi.risk_assessment_api.repository.dataset.DatasetTableAttributeRepository;
 import org.bihealth.mi.risk_assessment_api.repository.dataset.DatasetTableRepository;
-import org.bihealth.mi.risk_assessment_api.repository.questionnaire.QuestionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,10 +49,10 @@ public class DatasetAssessmentService {
     private final DatasetAssessmentRepository assessmentRepo;
     private final DatasetRepository datasetRepo;
     private final RiskConfigurationRepository configRepo;
-    private final QuestionRepository questionRepo;
     private final DatasetTableRepository tableRepo;
     private final DatasetTableAttributeRepository attributeRepo;
     private final AttributeScoringSystemService attributeScoringSystemService;
+    private final ConfigurationService configurationService;
 
     /**
      * Creates the service with the repositories required for assessment creation
@@ -63,18 +63,18 @@ public class DatasetAssessmentService {
             DatasetAssessmentRepository assessmentRepo,
             DatasetRepository datasetRepo,
             RiskConfigurationRepository configRepo,
-            QuestionRepository questionRepo,
             DatasetTableRepository tableRepo,
             DatasetTableAttributeRepository attributeRepo,
-            AttributeScoringSystemService attributeScoringSystemService
+            AttributeScoringSystemService attributeScoringSystemService,
+            ConfigurationService configurationService
     ) {
         this.assessmentRepo = assessmentRepo;
         this.datasetRepo = datasetRepo;
         this.configRepo = configRepo;
-        this.questionRepo = questionRepo;
         this.tableRepo = tableRepo;
         this.attributeRepo = attributeRepo;
         this.attributeScoringSystemService = attributeScoringSystemService;
+        this.configurationService = configurationService;
     }
 
     /**
@@ -158,10 +158,10 @@ public class DatasetAssessmentService {
 
         Configuration config = configRepo.findById(dto.getConfigurationId())
                 .orElseThrow(() -> new EntityNotFoundException("Configuration not found: " + dto.getConfigurationId()));
+        ConfigurationVersion configVersion = configurationService.getCurrentVersion(config.getId());
 
         if (!config.isActive()) {
-            config.setActive(true);
-            configRepo.save(config);
+            throw new IllegalArgumentException("Archived configurations cannot be used for new assessments.");
         }
 
         AttributeScoringSystemVersion scoringVersion =
@@ -172,6 +172,7 @@ public class DatasetAssessmentService {
         DatasetAssessment assessment = new DatasetAssessment();
         assessment.setDataset(dataset);
         assessment.setConfiguration(config);
+        assessment.setConfigurationVersion(configVersion);
         assessment.setAttributeScoringSystem(scoringVersion.getScoringSystem());
         assessment.setAttributeScoringSystemVersion(scoringVersion);
         assessment.setAttributeIdentifiabilityThreshold(scoringVersion.getDefaultIdentifiabilityThreshold());
@@ -182,9 +183,13 @@ public class DatasetAssessmentService {
 
         // Create answers and ensure the selected option belongs to the loaded question.
         if (dto.getAnswers() != null) {
+            Map<Long, Question> questionMap = configVersion.getQuestions().stream()
+                    .collect(Collectors.toMap(Question::getId, Function.identity()));
             for (AnswerRequestDTO ansDto : dto.getAnswers()) {
-                Question q = questionRepo.findById(ansDto.getQuestionId())
-                        .orElseThrow(() -> new EntityNotFoundException("Question not found: " + ansDto.getQuestionId()));
+                Question q = questionMap.get(ansDto.getQuestionId());
+                if (q == null) {
+                    throw new IllegalArgumentException("Question does not belong to the selected configuration version: " + ansDto.getQuestionId());
+                }
 
                 QuestionOption selectedOption = q.getOptions().stream()
                         .filter(opt -> opt.getId().equals(ansDto.getSelectedOptionId()))
@@ -242,6 +247,7 @@ public class DatasetAssessmentService {
         existing.setName(dto.getName());
         existing.setDescription(dto.getDescription());
 
+        ConfigurationVersion configVersion = ensureConfigurationVersion(existing);
         AttributeScoringSystemVersion scoringVersion = ensureAttributeScoringVersion(existing);
         if (dto.getAttributeScoringSystemId() != null
                 && existing.getAttributeScoringSystem() != null
@@ -253,12 +259,16 @@ public class DatasetAssessmentService {
         if (dto.getAnswers() != null) {
             Map<Long, Answer> answerMap = existing.getAnswers().stream()
                     .collect(Collectors.toMap(a -> a.getQuestion().getId(), Function.identity()));
+            Map<Long, Question> questionMap = configVersion.getQuestions().stream()
+                    .collect(Collectors.toMap(Question::getId, Function.identity()));
 
             for (AnswerRequestDTO aDto : dto.getAnswers()) {
                 Answer ans = answerMap.get(aDto.getQuestionId());
 
-                Question q = questionRepo.findById(aDto.getQuestionId())
-                        .orElseThrow(() -> new EntityNotFoundException("Question not found: " + aDto.getQuestionId()));
+                Question q = questionMap.get(aDto.getQuestionId());
+                if (q == null) {
+                    throw new IllegalArgumentException("Question does not belong to this assessment's configuration version: " + aDto.getQuestionId());
+                }
 
                 QuestionOption selectedOption = q.getOptions().stream()
                         .filter(opt -> opt.getId().equals(aDto.getSelectedOptionId()))
@@ -389,5 +399,15 @@ public class DatasetAssessmentService {
         assessment.setAttributeIdentifiabilityThreshold(scoringVersion.getDefaultIdentifiabilityThreshold());
         assessment.setAttributeSensitivityThreshold(scoringVersion.getDefaultSensitivityThreshold());
         return scoringVersion;
+    }
+
+    private ConfigurationVersion ensureConfigurationVersion(DatasetAssessment assessment) {
+        if (assessment.getConfigurationVersion() != null) {
+            return assessment.getConfigurationVersion();
+        }
+
+        ConfigurationVersion version = configurationService.getCurrentVersion(assessment.getConfiguration().getId());
+        assessment.setConfigurationVersion(version);
+        return version;
     }
 }

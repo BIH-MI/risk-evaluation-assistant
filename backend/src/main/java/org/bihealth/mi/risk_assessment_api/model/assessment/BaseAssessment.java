@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.bihealth.mi.risk_assessment_api.model.AuditableEntity;
 import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
+import org.bihealth.mi.risk_assessment_api.model.configuration.ConfigurationVersion;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Answer;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
@@ -32,6 +33,11 @@ public abstract class BaseAssessment extends AuditableEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "configuration_id", nullable = false)
     private Configuration configuration;
+
+    // Immutable configuration version used to interpret this assessment.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "configuration_version_id")
+    private ConfigurationVersion configurationVersion;
 
     // Selected answers for the configuration questions relevant to this assessment.
     @OneToMany(mappedBy = "assessment", cascade = CascadeType.ALL, orphanRemoval = true)

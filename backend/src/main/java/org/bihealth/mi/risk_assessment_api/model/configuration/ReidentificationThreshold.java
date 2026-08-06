@@ -1,6 +1,7 @@
 package org.bihealth.mi.risk_assessment_api.model.configuration;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -24,11 +25,16 @@ public class ReidentificationThreshold {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Owning framework configuration.
+    // Owning immutable framework version.
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "configuration_id", nullable = false)
+    @JoinColumn(name = "configuration_version_id")
     @JsonBackReference
-    private Configuration configuration;
+    private ConfigurationVersion configurationVersion;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "configuration_id", insertable = false, updatable = false)
+    @JsonIgnore
+    private Configuration legacyConfiguration;
 
     // Risk/IMPACT band label that selects this threshold.
     @Column(name = "risk_classification", nullable = false)
@@ -38,4 +44,13 @@ public class ReidentificationThreshold {
     @Column(nullable = false)
     private double thresholdValue;
 
+    @JsonIgnore
+    public Configuration getConfiguration() {
+        return configurationVersion == null ? null : configurationVersion.getConfiguration();
+    }
+
+    @JsonIgnore
+    public void setConfiguration(Configuration configuration) {
+        // Compatibility no-op. Persisted ownership is version-based.
+    }
 }

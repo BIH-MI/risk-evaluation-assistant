@@ -5,6 +5,8 @@ import {
   forkConfiguration,
   fetchConfiguration,
   updateConfiguration,
+  archiveConfiguration,
+  setDefaultConfiguration,
   deleteConfiguration,
 } from "./configurationThunks";
 
@@ -270,12 +272,83 @@ const configurationSlice = createSlice({
         state.saveSuccess = false;
         state.error = null;
       })
-      .addCase(updateConfiguration.fulfilled, (state) => {
+      .addCase(updateConfiguration.fulfilled, (state, action) => {
         state.status = "succeeded";
         state.loading = false;
         state.saveSuccess = true;
+        if (action.payload?.id) {
+          const index = state.items.findIndex((c) => c.id === action.payload.id);
+          if (index !== -1) {
+            state.items[index] = action.payload;
+          } else {
+            state.items.push(action.payload);
+          }
+          state.configDetails = action.payload;
+        }
       })
       .addCase(updateConfiguration.rejected, (state, action) => {
+        state.status = "failed";
+        state.loading = false;
+        state.error =
+          typeof action.payload === "string"
+            ? action.payload
+            : action.error?.message || "An error occurred";
+      })
+
+      .addCase(archiveConfiguration.pending, (state) => {
+        state.status = "loading";
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(archiveConfiguration.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        state.loading = false;
+        if (action.payload?.id) {
+          const index = state.items.findIndex((c) => c.id === action.payload.id);
+          if (index !== -1) {
+            state.items[index] = action.payload;
+          } else {
+            state.items.push(action.payload);
+          }
+          if (state.configDetails?.id === action.payload.id) {
+            state.configDetails = action.payload;
+          }
+        }
+      })
+      .addCase(archiveConfiguration.rejected, (state, action) => {
+        state.status = "failed";
+        state.loading = false;
+        state.error =
+          typeof action.payload === "string"
+            ? action.payload
+            : action.error?.message || "An error occurred";
+      })
+
+      .addCase(setDefaultConfiguration.pending, (state) => {
+        state.status = "loading";
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(setDefaultConfiguration.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        state.loading = false;
+        if (action.payload?.id) {
+          state.items = state.items.map((item) => ({
+            ...item,
+            isDefault: item.id === action.payload.id,
+          }));
+          const index = state.items.findIndex((c) => c.id === action.payload.id);
+          if (index !== -1) {
+            state.items[index] = action.payload;
+          } else {
+            state.items.push(action.payload);
+          }
+          if (state.configDetails?.id === action.payload.id) {
+            state.configDetails = action.payload;
+          }
+        }
+      })
+      .addCase(setDefaultConfiguration.rejected, (state, action) => {
         state.status = "failed";
         state.loading = false;
         state.error =

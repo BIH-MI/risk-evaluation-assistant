@@ -31,9 +31,17 @@ const renderStaticClassification = (classification, isProtection) => {
 /**
  * Renders a percentage value.
  */
+const formatPercentageValue = (val) => {
+  if (val === null || val === undefined || val === "") return "—";
+
+  const numericValue = Number(val);
+  if (!Number.isFinite(numericValue)) return "—";
+
+  return `${(numericValue * 100).toFixed(2).replace(/\.?0+$/, "")}%`;
+};
+
 const renderRiskPercentage = (val) => {
-  const str =
-    val !== null && val !== undefined ? (val * 100).toFixed(2) + "%" : "—";
+  const str = formatPercentageValue(val);
 
   return (
     <RATypography
@@ -100,7 +108,7 @@ export default function RiskAnalysisSummary({
   const getDisplayThreshold = () => {
     let val = isThresholdOverwritten ? manualRiskThreshold : backendThreshold;
     if (val === null || val === undefined || val === "") return "";
-    return (val * 100).toFixed(2).replace(/\.00$/, "");
+    return formatPercentageValue(val).replace("%", "");
   };
 
   return (

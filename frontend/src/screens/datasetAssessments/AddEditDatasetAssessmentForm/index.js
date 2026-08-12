@@ -36,6 +36,26 @@ import { useActiveLock } from "hooks/locks/useActiveLock";
 
 const EMPTY_ARRAY = [];
 
+const sameId = (left, right) =>
+  left !== null &&
+  left !== undefined &&
+  right !== null &&
+  right !== undefined &&
+  String(left) === String(right);
+
+const matchesSelectedVersionOrRoot = (
+  candidateVersionId,
+  selectedVersionId,
+  candidateRootId,
+  selectedRootId
+) => {
+  if (candidateVersionId && selectedVersionId) {
+    return sameId(candidateVersionId, selectedVersionId);
+  }
+
+  return sameId(candidateRootId, selectedRootId);
+};
+
 export default function AddEditDatasetAssessmentForm() {
   const theme = useTheme();
   const dispatch = useDispatch();
@@ -194,15 +214,48 @@ export default function AddEditDatasetAssessmentForm() {
     return requiredQuestionIds.every((id) => answers[id]?.answer);
   }, [answers, questions, datasetCategories]);
 
+  const selectedConfigurationVersionId = activeConfig?.versionId;
+  const selectedAttributeScoringSystemVersionId =
+    selectedScoringSystem?.versionId;
+  const selectedAttributeScoringSystemId =
+    selectedScoringSystem?.id || selectedScoringSystemId;
+
   // Find previous assessments for the currently selected dataset to allow importing attributes
   const previousAssessments = useMemo(() => {
-    if (!selectedDatasetId) return [];
+    if (
+      !selectedDatasetId ||
+      !selectedConfigId ||
+      !selectedAttributeScoringSystemId
+    ) {
+      return [];
+    }
+
     return assessments.filter(
       (a) =>
         String(a.datasetId) === String(selectedDatasetId) &&
-        String(a.id) !== String(assessmentId)
+        String(a.id) !== String(assessmentId) &&
+        matchesSelectedVersionOrRoot(
+          a.configurationVersionId,
+          selectedConfigurationVersionId,
+          a.configurationId,
+          selectedConfigId
+        ) &&
+        matchesSelectedVersionOrRoot(
+          a.attributeScoringSystemVersionId,
+          selectedAttributeScoringSystemVersionId,
+          a.attributeScoringSystemId,
+          selectedAttributeScoringSystemId
+        )
     );
-  }, [assessments, selectedDatasetId, assessmentId]);
+  }, [
+    assessments,
+    selectedDatasetId,
+    assessmentId,
+    selectedConfigId,
+    selectedConfigurationVersionId,
+    selectedAttributeScoringSystemId,
+    selectedAttributeScoringSystemVersionId,
+  ]);
 
   const selectedImportAssessment = useMemo(
     () =>
@@ -269,7 +322,13 @@ export default function AddEditDatasetAssessmentForm() {
   // Reset the import dropdown if the dataset changes
   useEffect(() => {
     setImportAssessmentId("");
-  }, [selectedDatasetId]);
+  }, [
+    selectedDatasetId,
+    selectedConfigId,
+    selectedConfigurationVersionId,
+    selectedAttributeScoringSystemId,
+    selectedAttributeScoringSystemVersionId,
+  ]);
 
   // Initialize Attribute Tables based on the selected dataset schema
   useEffect(() => {
@@ -486,9 +545,7 @@ export default function AddEditDatasetAssessmentForm() {
   const handleImportAttributes = useCallback(() => {
     if (!importAssessmentId) return;
 
-    const sourceAsmt = assessments.find(
-      (a) => String(a.id) === String(importAssessmentId)
-    );
+    const sourceAsmt = selectedImportAssessment;
     if (!sourceAsmt || !sourceAsmt.tableAssessments) return;
 
     const sourceTablesMap = new Map(
@@ -542,7 +599,7 @@ export default function AddEditDatasetAssessmentForm() {
 
     // Reset dropdown after successful import
     setImportAssessmentId("");
-  }, [importAssessmentId, assessments, selectedScoringSystem]);
+  }, [importAssessmentId, selectedImportAssessment, selectedScoringSystem]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -890,6 +947,7 @@ export default function AddEditDatasetAssessmentForm() {
                 onChange={(e) => setImportAssessmentId(String(e.target.value))}
                 sx={{ minWidth: 210 }}
                 size="small"
+                InputLabelProps={{ shrink: true }}
                 SelectProps={{
                   displayEmpty: true,
                   renderValue: () =>

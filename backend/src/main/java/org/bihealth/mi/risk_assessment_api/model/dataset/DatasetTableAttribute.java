@@ -44,6 +44,51 @@ public class DatasetTableAttribute {
     @Column(name = "is_excluded", nullable = false)
     private boolean excluded = false;
 
+    // REVIEW(METHOD): These fields contain descriptive statistics calculated
+    // locally during dataset definition. They provide quantitative evidence for
+    // later risk assessment but are not final QID classifications.
+    @Column(name = "record_count")
+    private Long recordCount;
+
+    @Column(name = "analysed_record_count")
+    private Long analysedRecordCount;
+
+    @Column(name = "missing_count")
+    private Long missingCount;
+
+    @Column(name = "missing_fraction")
+    private Double missingFraction;
+
+    @Column(name = "distinct_value_count")
+    private Long distinctValueCount;
+
+    @Column(name = "distinct_value_ratio")
+    private Double distinctValueRatio;
+
+    @Column(name = "singleton_value_count")
+    private Long singletonValueCount;
+
+    @Column(name = "singleton_record_count")
+    private Long singletonRecordCount;
+
+    @Column(name = "singleton_fraction")
+    private Double singletonFraction;
+
+    @Column(name = "minimum_equivalence_class_size")
+    private Long minimumEquivalenceClassSize;
+
+    @Column(name = "median_equivalence_class_size")
+    private Double medianEquivalenceClassSize;
+
+    @Column(name = "maximum_equivalence_class_size")
+    private Long maximumEquivalenceClassSize;
+
+    @Column(name = "distinction")
+    private Double distinction;
+
+    @Column(name = "separation")
+    private Double separation;
+
     /**
      * Required by JPA.
      */

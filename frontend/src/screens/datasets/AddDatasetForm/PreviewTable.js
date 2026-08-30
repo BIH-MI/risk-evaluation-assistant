@@ -37,10 +37,10 @@ export const PreviewTable = React.memo(function PreviewTable({
     const map = {};
     const sampleData = data.slice(0, 500);
 
-    for (const { field } of columnMeta) {
+    for (const { field, sourceField } of columnMeta) {
       const freq = {};
       for (const row of sampleData) {
-        const v = row[field];
+        const v = row[sourceField || field];
         if (v != null) freq[v] = (freq[v] || 0) + 1;
       }
       const top3 = Object.entries(freq)

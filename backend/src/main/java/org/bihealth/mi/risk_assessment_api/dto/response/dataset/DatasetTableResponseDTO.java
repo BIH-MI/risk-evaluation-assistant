@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import org.bihealth.mi.risk_assessment_api.dto.response.activity.DataSharingActivityTableAttributeAssessmentResponseDTO;
 import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTable;
 import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTableAttribute;
+import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTableQidCombination;
 
 import java.util.Comparator;
 import java.util.List;
@@ -31,6 +32,9 @@ public class DatasetTableResponseDTO {
     // Column schema for this table.
     private List<DatasetTableAttributeResponseDTO> attributes;
 
+    // Selected aggregate QID-combination profiles for this table.
+    private List<DatasetTableQidCombinationResponseDTO> qidCombinations;
+
     /**
      * Constructor to map a DatasetTable entity to this DTO.
      *
@@ -44,6 +48,12 @@ public class DatasetTableResponseDTO {
         this.attributes       = entity.getAttributes().stream()
                 .sorted(Comparator.comparing(DatasetTableAttribute::getId))
                 .map(DatasetTableAttributeResponseDTO::new)
+                .collect(toList());
+        this.qidCombinations = entity.getQidCombinations().stream()
+                .sorted(Comparator
+                        .comparing(DatasetTableQidCombination::getAttributeCount)
+                        .thenComparing(DatasetTableQidCombination::getId))
+                .map(DatasetTableQidCombinationResponseDTO::new)
                 .collect(toList());
     }
 }

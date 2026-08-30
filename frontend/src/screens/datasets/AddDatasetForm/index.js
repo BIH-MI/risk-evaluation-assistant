@@ -1,5 +1,5 @@
 // src/screens/datasets/AddDatasetForm/index.js
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { useAuth } from "react-oidc-context";
@@ -15,6 +15,22 @@ import RAAlert from "components/feedback/RAAlert";
 import { CSVDropzone } from "utils/CSVDropzone";
 import { PreviewTable } from "./PreviewTable";
 import { addDataset } from "store/datasets/datasetsThunks";
+import {
+  disposeUploadedTableProfile,
+  profileUploadedTable,
+  refreshUploadedTableProfile,
+} from "qidDiscovery";
+import {
+  toDatasetAttributePayload,
+  toDatasetQidCombinationPayload,
+} from "qidDiscovery/payload";
+
+let nextLocalTableId = 0;
+
+const createLocalTableId = () => {
+  nextLocalTableId += 1;
+  return `add-dataset-table-${nextLocalTableId}`;
+};
 
 const getUniqueName = (existingNames, baseName, getFallbackName) => {
   const usedNames = new Set(existingNames);
@@ -41,11 +57,33 @@ export default function AddDatasetForm() {
   const [sharedUsers, setSharedUsers] = useState([]);
   const [tables, setTables] = useState([]);
   const [errors, setErrors] = useState({ tables: "", tableName: "" });
+  const tablesRef = useRef(tables);
+  const profileRefreshCounterRef = useRef(0);
+
+  useEffect(() => {
+    tablesRef.current = tables;
+  }, [tables]);
+
+  useEffect(() => {
+    return () => {
+      tablesRef.current.forEach((table) => {
+        disposeUploadedTableProfile(table._qidProfilingSession);
+      });
+    };
+  }, []);
 
   // --- CSV handlers ---
 
   const handleAddTable = useCallback(
     (file) => {
+      if (tables.some((table) => table.name === file.name)) {
+        setErrors((e) => ({
+          ...e,
+          tables: t("datasets.alerts.duplicateCsv", { name: file.name }),
+        }));
+        return false;
+      }
+
       setTables((prev) => {
         if (prev.some((t) => t.name === file.name)) {
           setErrors((e) => ({
@@ -55,21 +93,128 @@ export default function AddDatasetForm() {
           return prev;
         }
         setErrors((e) => ({ ...e, tables: "" }));
-        return [...prev, { name: file.name, isParsing: true, isManual: false }];
+        return [
+          ...prev,
+          {
+            _localTableId: createLocalTableId(),
+            name: file.name,
+            isParsing: true,
+            isManual: false,
+          },
+        ];
       });
+      return true;
+    },
+    [tables, t]
+  );
+
+  const handleTableParse = useCallback(
+    async (file) => {
+      try {
+        const { profilingSession, ...profiledTable } =
+          await profileUploadedTable(file);
+
+        setTables((prev) =>
+          prev.map((table) =>
+            table.name === file.name && table.isParsing
+              ? {
+                  ...profiledTable,
+                  _localTableId: table._localTableId,
+                  _qidProfilingSession: profilingSession,
+                  isParsing: false,
+                  isProfiling: false,
+                  isManual: false,
+                }
+              : table
+          )
+        );
+      } catch (err) {
+        setErrors((e) => ({
+          ...e,
+          tables:
+            err.message ||
+            t("datasets.alerts.profilingFailed", "CSV profiling failed."),
+        }));
+        setTables((prev) =>
+          prev.filter((table) => !(table.name === file.name && table.isParsing))
+        );
+      }
     },
     [t]
   );
 
-  const handleTableParse = useCallback((meta) => {
-    setTables((prev) => {
-      return prev.map((t) =>
-        t.name === meta.name
-          ? { ...meta, isParsing: false, isManual: false }
-          : t
+  const refreshTableAfterSchemaChange = useCallback(
+    (table, nextColumnMeta) => {
+      if (!table._qidProfilingSession) {
+        setTables((prev) =>
+          prev.map((currentTable) =>
+            currentTable._localTableId === table._localTableId
+              ? {
+                  ...currentTable,
+                  columnMeta: nextColumnMeta,
+                  qidCombinations: [],
+                  qidSearchMode: "none",
+                }
+              : currentTable
+          )
+        );
+        return;
+      }
+
+      const requestId = profileRefreshCounterRef.current + 1;
+      profileRefreshCounterRef.current = requestId;
+
+      setTables((prev) =>
+        prev.map((currentTable) =>
+          currentTable._localTableId === table._localTableId
+            ? {
+                ...currentTable,
+                columnMeta: nextColumnMeta,
+                isProfiling: true,
+                _qidRefreshRequestId: requestId,
+              }
+            : currentTable
+        )
       );
-    });
-  }, []);
+
+      refreshUploadedTableProfile(table._qidProfilingSession, nextColumnMeta)
+        .then(({ columnMeta, qidCombinations, qidSearchMode }) => {
+          setTables((prev) =>
+            prev.map((currentTable) =>
+              currentTable._localTableId === table._localTableId &&
+              currentTable._qidRefreshRequestId === requestId
+                ? {
+                    ...currentTable,
+                    columnMeta,
+                    qidCombinations,
+                    qidSearchMode,
+                    isProfiling: false,
+                  }
+                : currentTable
+            )
+          );
+        })
+        .catch((err) => {
+          setErrors((e) => ({
+            ...e,
+            tables:
+              err.message ||
+              t("datasets.alerts.profilingFailed", "CSV profiling failed."),
+          }));
+          setTables((prev) =>
+            prev.map((currentTable) =>
+              currentTable._localTableId === table._localTableId
+                ? {
+                    ...currentTable,
+                    isProfiling: false,
+                  }
+                : currentTable
+            )
+          );
+        });
+    },
+    [t]
+  );
 
   // --- Manual Table Handlers ---
 
@@ -84,9 +229,12 @@ export default function AddDatasetForm() {
       return [
         ...prev,
         {
+          _localTableId: createLocalTableId(),
           name: newName,
           columnMeta: [],
           data: [],
+          qidCombinations: [],
+          qidSearchMode: "none",
           isParsing: false,
           isManual: true,
         },
@@ -110,7 +258,14 @@ export default function AddDatasetForm() {
             ...table,
             columnMeta: [
               ...(table.columnMeta || []),
-              { field: fieldName, level: "STRING", excluded: false },
+              {
+                field: fieldName,
+                sourceField: null,
+                hasObservedData: false,
+                level: "STRING",
+                excluded: false,
+                statistics: null,
+              },
             ],
           };
         })
@@ -119,25 +274,34 @@ export default function AddDatasetForm() {
     [t]
   );
 
-  const handleDeleteColumn = useCallback((tableName, fieldName) => {
-    setTables((prev) =>
-      prev.map((t) =>
-        t.name === tableName
-          ? {
-              ...t,
-              columnMeta: t.columnMeta.filter((c) => c.field !== fieldName),
-            }
-          : t
-      )
-    );
-  }, []);
+  const handleDeleteColumn = useCallback(
+    (tableName, fieldName) => {
+      const table = tables.find(
+        (currentTable) => currentTable.name === tableName
+      );
+      if (!table) return;
+
+      refreshTableAfterSchemaChange(
+        table,
+        table.columnMeta.filter((column) => column.field !== fieldName)
+      );
+    },
+    [refreshTableAfterSchemaChange, tables]
+  );
 
   // --- Common Handlers ---
 
-  const handleRemoveTable = useCallback((tableName) => {
-    setTables((prev) => prev.filter((t) => t.name !== tableName));
-    setErrors((e) => ({ ...e, tableName: "" }));
-  }, []);
+  const handleRemoveTable = useCallback(
+    (tableName) => {
+      const table = tables.find(
+        (currentTable) => currentTable.name === tableName
+      );
+      disposeUploadedTableProfile(table?._qidProfilingSession);
+      setTables((prev) => prev.filter((t) => t.name !== tableName));
+      setErrors((e) => ({ ...e, tableName: "" }));
+    },
+    [tables]
+  );
 
   const handleTableNameChange = useCallback(
     (oldName, newName) => {
@@ -161,20 +325,24 @@ export default function AddDatasetForm() {
 
   const handleColumnNameChange = useCallback(
     (tableName, oldField, newField) => {
-      setTables((prev) =>
-        prev.map((t) =>
-          t.name === tableName
+      const table = tables.find(
+        (currentTable) => currentTable.name === tableName
+      );
+      if (!table) return;
+
+      refreshTableAfterSchemaChange(
+        table,
+        table.columnMeta.map((column) =>
+          column.field === oldField
             ? {
-                ...t,
-                columnMeta: t.columnMeta.map((c) =>
-                  c.field === oldField ? { ...c, field: newField } : c
-                ),
+                ...column,
+                field: newField,
               }
-            : t
+            : column
         )
       );
     },
-    []
+    [refreshTableAfterSchemaChange, tables]
   );
 
   const handleDataTypeChange = useCallback((tableName, field, newType) => {
@@ -192,20 +360,27 @@ export default function AddDatasetForm() {
     );
   }, []);
 
-  const handleExcludedChange = useCallback((tableName, field, excluded) => {
-    setTables((prev) =>
-      prev.map((t) =>
-        t.name === tableName
-          ? {
-              ...t,
-              columnMeta: t.columnMeta.map((c) =>
-                c.field === field ? { ...c, excluded } : c
-              ),
-            }
-          : t
-      )
-    );
-  }, []);
+  const handleExcludedChange = useCallback(
+    (tableName, field, excluded) => {
+      const table = tables.find(
+        (currentTable) => currentTable.name === tableName
+      );
+      if (!table) return;
+
+      refreshTableAfterSchemaChange(
+        table,
+        table.columnMeta.map((column) =>
+          column.field === field
+            ? {
+                ...column,
+                excluded,
+              }
+            : column
+        )
+      );
+    },
+    [refreshTableAfterSchemaChange, tables]
+  );
 
   const handleSubmit = useCallback(
     (e) => {
@@ -215,22 +390,28 @@ export default function AddDatasetForm() {
         setErrors((e) => ({ ...e, tables: t("datasets.alerts.noTables") }));
         return;
       }
-      if (tables.some((table) => table.isParsing)) {
+      if (tables.some((table) => table.isParsing || table.isProfiling)) {
         setErrors((e) => ({
           ...e,
-          tables: t("datasets.alerts.parsingInProgress", "Please wait until all CSV files finish parsing."),
+          tables: t(
+            "datasets.alerts.parsingInProgress",
+            "Please wait until all CSV files finish parsing."
+          ),
         }));
         return;
       }
 
-      const payloadTables = tables.map(({ name: fileName, columnMeta = [] }) => ({
-        name: fileName.replace(/\.csv$/i, ""),
-        attributes: columnMeta.map(({ field, level, excluded }) => ({
-          name: field,
-          dataType: level,
-          excluded,
-        })),
-      }));
+      // REVIEW(PRIVACY): Participant-level rows are transient browser-local input.
+      // Raw rows and observed values must never be included in Redux, persistence,
+      // API payloads, logs or external requests. Only aggregate statistics are
+      // persisted when the Dataset is created.
+      const payloadTables = tables.map(
+        ({ name: fileName, columnMeta = [], qidCombinations = [] }) => ({
+          name: fileName.replace(/\.csv$/i, ""),
+          attributes: columnMeta.map(toDatasetAttributePayload),
+          qidCombinations: qidCombinations.map(toDatasetQidCombinationPayload),
+        })
+      );
 
       dispatch(
         addDataset({
@@ -258,7 +439,9 @@ export default function AddDatasetForm() {
   );
 
   const disableSubmit =
-    !name.trim() || !tables.length || tables.some((table) => table.isParsing);
+    !name.trim() ||
+    !tables.length ||
+    tables.some((table) => table.isParsing || table.isProfiling);
 
   return (
     <RABox py={8}>

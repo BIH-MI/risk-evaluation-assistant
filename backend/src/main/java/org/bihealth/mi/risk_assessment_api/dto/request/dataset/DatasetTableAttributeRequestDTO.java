@@ -27,6 +27,21 @@ public class DatasetTableAttributeRequestDTO {
     // Excluded columns remain in the schema but are ignored by relevant workflows.
     private Boolean excluded;
 
+    private Long recordCount;
+    private Long analysedRecordCount;
+    private Long missingCount;
+    private Double missingFraction;
+    private Long distinctValueCount;
+    private Double distinctValueRatio;
+    private Long singletonValueCount;
+    private Long singletonRecordCount;
+    private Double singletonFraction;
+    private Long minimumEquivalenceClassSize;
+    private Double medianEquivalenceClassSize;
+    private Long maximumEquivalenceClassSize;
+    private Double distinction;
+    private Double separation;
+
     /**
      * Converts this DTO into a new, non-persisted DatasetTableAttribute entity.
      *
@@ -38,7 +53,42 @@ public class DatasetTableAttributeRequestDTO {
         attr.setTable(table);
         attr.setName(name);
         attr.setDataType(DataType.valueOf(dataType));
-        attr.setExcluded(excluded);
+        attr.setExcluded(Boolean.TRUE.equals(excluded));
+        applyStatisticsTo(attr);
         return attr;
+    }
+
+    public boolean hasAnyStatistics() {
+        return recordCount != null
+                || analysedRecordCount != null
+                || missingCount != null
+                || missingFraction != null
+                || distinctValueCount != null
+                || distinctValueRatio != null
+                || singletonValueCount != null
+                || singletonRecordCount != null
+                || singletonFraction != null
+                || minimumEquivalenceClassSize != null
+                || medianEquivalenceClassSize != null
+                || maximumEquivalenceClassSize != null
+                || distinction != null
+                || separation != null;
+    }
+
+    public void applyStatisticsTo(DatasetTableAttribute attr) {
+        attr.setRecordCount(recordCount);
+        attr.setAnalysedRecordCount(analysedRecordCount);
+        attr.setMissingCount(missingCount);
+        attr.setMissingFraction(missingFraction);
+        attr.setDistinctValueCount(distinctValueCount);
+        attr.setDistinctValueRatio(distinctValueRatio);
+        attr.setSingletonValueCount(singletonValueCount);
+        attr.setSingletonRecordCount(singletonRecordCount);
+        attr.setSingletonFraction(singletonFraction);
+        attr.setMinimumEquivalenceClassSize(minimumEquivalenceClassSize);
+        attr.setMedianEquivalenceClassSize(medianEquivalenceClassSize);
+        attr.setMaximumEquivalenceClassSize(maximumEquivalenceClassSize);
+        attr.setDistinction(distinction);
+        attr.setSeparation(separation);
     }
 }

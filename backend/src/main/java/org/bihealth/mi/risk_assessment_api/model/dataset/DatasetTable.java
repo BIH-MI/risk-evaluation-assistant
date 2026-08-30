@@ -38,6 +38,13 @@ public class DatasetTable extends AuditableEntity {
     @OnDelete(action = OnDeleteAction.CASCADE)
     private List<DatasetTableAttribute> attributes = new ArrayList<>();
 
+    // Selected aggregate QID-combination profiles calculated during dataset creation.
+    @OneToMany(mappedBy = "table", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("attributeCount ASC, id ASC")
+    @JsonManagedReference("dataset-table-qid-combinations")
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    private List<DatasetTableQidCombination> qidCombinations = new ArrayList<>();
+
     // Table-level assessment records that evaluate this table under dataset assessments.
     @OneToMany(
             mappedBy = "table",

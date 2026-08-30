@@ -2,8 +2,6 @@
 import React, { useCallback } from "react";
 import { Box, FormControl, FormHelperText, Typography } from "@mui/material";
 import { useDropzone } from "react-dropzone";
-import Papa from "papaparse";
-import { detectMeasurement } from "./detectMeasurement";
 import { useTranslation } from "react-i18next";
 import RAButton from "components/input/RAButton";
 
@@ -16,40 +14,6 @@ export function CSVDropzone({
 }) {
   const { t } = useTranslation();
 
-  const parseCsv = useCallback(
-    (file) => {
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        dynamicTyping: false,
-        worker: true,
-        preview: 10000,
-        complete: ({ data: rows, meta: { fields = [] } }) => {
-          const columnMeta = fields.map((field) => {
-            const vals = rows.map((r) => r[field]);
-            const { dataType } = detectMeasurement(vals, field);
-            return {
-              field,
-              level: dataType,
-              excluded: false,
-            };
-          });
-
-          onParse({
-            name: file.name,
-            rows: rows.length,
-            headers: fields,
-            columnMeta,
-            data: rows,
-          });
-        },
-        error: (err) =>
-          setError(t("datasets.alerts.parseError", { message: err.message })),
-      });
-    },
-    [onParse, setError, t]
-  );
-
   const onDrop = useCallback(
     (acceptedFiles) => {
       setError("");
@@ -61,11 +25,12 @@ export function CSVDropzone({
         return;
       }
       acceptedFiles.forEach((file) => {
-        onAddTable(file);
-        parseCsv(file);
+        if (onAddTable(file) !== false) {
+          onParse(file);
+        }
       });
     },
-    [parseCsv, setError, onAddTable, t]
+    [onParse, setError, onAddTable, t]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({

@@ -104,9 +104,25 @@ public class DatasetService {
                 DatasetTable tbl = tableMap.get(td.getId());
                 tbl.setName(td.getName());
 
+                boolean replaceQidCombinations = td.getQidCombinations() != null;
+                if (replaceQidCombinations) {
+                    tbl.getQidCombinations().clear();
+                }
+
                 Map<Long, DatasetTableAttribute> attrMap = tbl.getAttributes().stream()
                         .collect(Collectors.toMap(DatasetTableAttribute::getId, a -> a));
                 List<DatasetTableAttributeRequestDTO> attrDTOs = td.getAttributes() != null ? td.getAttributes() : Collections.emptyList();
+
+                if (!replaceQidCombinations) {
+                    Set<Long> retainedAttributeIds = attrDTOs.stream()
+                            .map(DatasetTableAttributeRequestDTO::getId)
+                            .filter(Objects::nonNull)
+                            .collect(Collectors.toSet());
+                    tbl.getQidCombinations().removeIf(combination ->
+                            combination.getAttributes().stream()
+                                    .anyMatch(attr -> attr.getId() != null && !retainedAttributeIds.contains(attr.getId()))
+                    );
+                }
 
                 // Remove attributes omitted from the request.
                 tbl.getAttributes().removeIf(attr -> attrDTOs.stream().noneMatch(ad -> ad.getId() != null && ad.getId().equals(attr.getId())));
@@ -117,11 +133,18 @@ public class DatasetService {
                         DatasetTableAttribute existingAttr = attrMap.get(ad.getId());
                         existingAttr.setName(ad.getName());
                         existingAttr.setDataType(DataType.valueOf(ad.getDataType()));
-                        existingAttr.setExcluded(ad.getExcluded());
+                        existingAttr.setExcluded(Boolean.TRUE.equals(ad.getExcluded()));
+                        if (ad.hasAnyStatistics()) {
+                            ad.applyStatisticsTo(existingAttr);
+                        }
                     } else {
                         // Add a new column under the existing table.
                         tbl.getAttributes().add(ad.toEntity(tbl));
                     }
+                }
+
+                if (replaceQidCombinations) {
+                    td.applyQidCombinationsTo(tbl);
                 }
             } else {
                 // Add a new table with its nested attributes.

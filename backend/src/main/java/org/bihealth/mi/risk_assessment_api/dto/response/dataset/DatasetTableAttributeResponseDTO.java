@@ -24,6 +24,21 @@ public class DatasetTableAttributeResponseDTO {
     // Whether this column is excluded from relevant processing.
     private boolean excluded;
 
+    private Long recordCount;
+    private Long analysedRecordCount;
+    private Long missingCount;
+    private Double missingFraction;
+    private Long distinctValueCount;
+    private Double distinctValueRatio;
+    private Long singletonValueCount;
+    private Long singletonRecordCount;
+    private Double singletonFraction;
+    private Long minimumEquivalenceClassSize;
+    private Double medianEquivalenceClassSize;
+    private Long maximumEquivalenceClassSize;
+    private Double distinction;
+    private Double separation;
+
     /**
      * Constructor to map a DatasetTableAttribute entity to this DTO.
      *
@@ -34,5 +49,19 @@ public class DatasetTableAttributeResponseDTO {
         this.name         = entity.getName();
         this.dataType     = entity.getDataType().name();
         this.excluded     = entity.isExcluded();
+        this.recordCount  = entity.getRecordCount();
+        this.analysedRecordCount = entity.getAnalysedRecordCount();
+        this.missingCount = entity.getMissingCount();
+        this.missingFraction = entity.getMissingFraction();
+        this.distinctValueCount = entity.getDistinctValueCount();
+        this.distinctValueRatio = entity.getDistinctValueRatio();
+        this.singletonValueCount = entity.getSingletonValueCount();
+        this.singletonRecordCount = entity.getSingletonRecordCount();
+        this.singletonFraction = entity.getSingletonFraction();
+        this.minimumEquivalenceClassSize = entity.getMinimumEquivalenceClassSize();
+        this.medianEquivalenceClassSize = entity.getMedianEquivalenceClassSize();
+        this.maximumEquivalenceClassSize = entity.getMaximumEquivalenceClassSize();
+        this.distinction = entity.getDistinction();
+        this.separation = entity.getSeparation();
     }
 }

@@ -70,7 +70,7 @@ export function useDatasetFormTableConfig(
                     id: `new-${Date.now()}`,
                     name: "",
                     dataType: "STRING",
-                    isExcluded: false,
+                    excluded: false,
                   },
                 ],
               }

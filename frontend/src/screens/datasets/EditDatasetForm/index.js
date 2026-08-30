@@ -28,6 +28,10 @@ import {
   updateDataset,
 } from "../../../store/datasets/datasetsThunks";
 import { useActiveLock } from "../../../hooks/locks/useActiveLock";
+import {
+  toDatasetAttributePayload,
+  toDatasetQidCombinationPayload,
+} from "qidDiscovery/payload";
 
 export default function EditDatasetForm() {
   const theme = useTheme();
@@ -154,16 +158,43 @@ export default function EditDatasetForm() {
         name: name.trim(),
         description: description.trim(),
         sharedUsernames,
-        tables: tables.map((tbl) => ({
-          id: tbl.id,
-          name: tbl.name,
-          attributes: tbl.attributes.map((a) => ({
-            id: typeof a.id === "string" ? null : a.id,
-            name: a.name,
-            dataType: a.dataType,
-            excluded: a.excluded,
-          })),
-        })),
+        tables: tables.map((tbl) => {
+          const includedAttributeIds = new Set(
+            tbl.attributes
+              .filter((attribute) => !Boolean(attribute.excluded))
+              .map((attribute) => attribute.id)
+              .filter(
+                (id) =>
+                  id !== null && id !== undefined && typeof id !== "string"
+              )
+              .map(String)
+          );
+          const includedAttributeNames = new Set(
+            tbl.attributes
+              .filter((attribute) => !Boolean(attribute.excluded))
+              .map((attribute) => attribute.name)
+          );
+
+          return {
+            id: tbl.id,
+            name: tbl.name,
+            attributes: tbl.attributes.map(toDatasetAttributePayload),
+            qidCombinations: (tbl.qidCombinations || [])
+              .filter((combination) => {
+                if (combination.attributeIds?.length) {
+                  return combination.attributeIds.every((attributeId) =>
+                    includedAttributeIds.has(String(attributeId))
+                  );
+                }
+
+                const attributeNames = combination.attributeNames || [];
+                return attributeNames.length > 0 && attributeNames.every(
+                  (attributeName) => includedAttributeNames.has(attributeName)
+                );
+              })
+              .map(toDatasetQidCombinationPayload),
+          };
+        }),
       };
 
       try {

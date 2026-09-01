@@ -39,6 +39,12 @@ public class DatasetTableAttributeResponseDTO {
     private Double distinction;
     private Double separation;
 
+    private Boolean replicabilityAvailable;
+    private Double replicabilityScore;
+    private Long replicabilityComparisonCount;
+    private String replicabilityMethod;
+    private String replicabilityUnavailableReason;
+
     /**
      * Constructor to map a DatasetTableAttribute entity to this DTO.
      *
@@ -63,5 +69,10 @@ public class DatasetTableAttributeResponseDTO {
         this.maximumEquivalenceClassSize = entity.getMaximumEquivalenceClassSize();
         this.distinction = entity.getDistinction();
         this.separation = entity.getSeparation();
+        this.replicabilityAvailable = entity.getReplicabilityAvailable();
+        this.replicabilityScore = entity.getReplicabilityScore();
+        this.replicabilityComparisonCount = entity.getReplicabilityComparisonCount();
+        this.replicabilityMethod = entity.getReplicabilityMethod();
+        this.replicabilityUnavailableReason = entity.getReplicabilityUnavailableReason();
     }
 }

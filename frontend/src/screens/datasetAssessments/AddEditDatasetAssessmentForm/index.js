@@ -3,24 +3,20 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { useAuth } from "react-oidc-context";
 import { useTheme } from "@mui/material/styles";
-import { MenuItem, CircularProgress, Box, Card } from "@mui/material";
 import { useTranslation } from "react-i18next";
-import DownloadIcon from "@mui/icons-material/Download";
 
 import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
-import RAInput from "components/input/RAInput";
 import RAButton from "components/input/RAButton";
-import PaginatedQuestionnaire from "components/input/RAQuestionnaire/PaginatedQuestionnaire";
-import OnBlurRAInput from "components/input/RAInput/OnBlurRAInput";
-import DatasetTablesAssessment from "components/display/Tables/DataTable/CustomDataTableComponents/DatasetTablesAssessment";
 import RAAlert from "components/feedback/RAAlert";
-import {
-  LEGACY_ATTRIBUTE_SCORING_SYSTEM,
-  getDefaultAttributeScaleMetrics,
-  normalizeAttributeScaleValue,
-} from "utils/AttributeScale";
+import { LEGACY_ATTRIBUTE_SCORING_SYSTEM } from "utils/AttributeScale";
 import { fetchAttributeScoringSystemsApi } from "api/attributeScoringSystems";
+import AssessmentSetupSection from "./components/AssessmentSetupSection";
+import QuestionnaireSection from "./components/QuestionnaireSection";
+import AttributeRiskAssessmentSection from "./components/AttributeRiskAssessmentSection";
+import { findPreviousAssessmentsForDataset } from "./evidence/previousAssessmentEvidence";
+import { buildAssessmentTables } from "./utils/buildAssessmentTables";
+import { buildAssessmentPayload } from "./utils/buildAssessmentPayload";
 
 import {
   addDatasetAssessment,
@@ -35,26 +31,6 @@ import {
 import { useActiveLock } from "hooks/locks/useActiveLock";
 
 const EMPTY_ARRAY = [];
-
-const sameId = (left, right) =>
-  left !== null &&
-  left !== undefined &&
-  right !== null &&
-  right !== undefined &&
-  String(left) === String(right);
-
-const matchesSelectedVersionOrRoot = (
-  candidateVersionId,
-  selectedVersionId,
-  candidateRootId,
-  selectedRootId
-) => {
-  if (candidateVersionId && selectedVersionId) {
-    return sameId(candidateVersionId, selectedVersionId);
-  }
-
-  return sameId(candidateRootId, selectedRootId);
-};
 
 export default function AddEditDatasetAssessmentForm() {
   const theme = useTheme();
@@ -91,9 +67,6 @@ export default function AddEditDatasetAssessmentForm() {
   const [scoringSystems, setScoringSystems] = useState([]);
   const [answers, setAnswers] = useState({});
   const [tables, setTables] = useState([]);
-
-  // Import specific states
-  const [importAssessmentId, setImportAssessmentId] = useState("");
 
   const [activeQuestTab, setActiveQuestTab] = useState(0);
   const [showAllErrors, setShowAllErrors] = useState(false);
@@ -175,8 +148,7 @@ export default function AddEditDatasetAssessmentForm() {
     const defaultSystem =
       scoringSystemOptions.find(
         (system) =>
-          system.active !== false &&
-          (system.defaultSystem || system.isDefault)
+          system.active !== false && (system.defaultSystem || system.isDefault)
       ) || scoringSystemOptions[0];
     setSelectedScoringSystemId(defaultSystem?.id || "");
   }, [isEditMode, scoringSystemOptions, selectedScoringSystemId]);
@@ -214,56 +186,13 @@ export default function AddEditDatasetAssessmentForm() {
     return requiredQuestionIds.every((id) => answers[id]?.answer);
   }, [answers, questions, datasetCategories]);
 
-  const selectedConfigurationVersionId = activeConfig?.versionId;
-  const selectedAttributeScoringSystemVersionId =
-    selectedScoringSystem?.versionId;
-  const selectedAttributeScoringSystemId =
-    selectedScoringSystem?.id || selectedScoringSystemId;
-
-  // Find previous assessments for the currently selected dataset to allow importing attributes
   const previousAssessments = useMemo(() => {
-    if (
-      !selectedDatasetId ||
-      !selectedConfigId ||
-      !selectedAttributeScoringSystemId
-    ) {
-      return [];
-    }
-
-    return assessments.filter(
-      (a) =>
-        String(a.datasetId) === String(selectedDatasetId) &&
-        String(a.id) !== String(assessmentId) &&
-        matchesSelectedVersionOrRoot(
-          a.configurationVersionId,
-          selectedConfigurationVersionId,
-          a.configurationId,
-          selectedConfigId
-        ) &&
-        matchesSelectedVersionOrRoot(
-          a.attributeScoringSystemVersionId,
-          selectedAttributeScoringSystemVersionId,
-          a.attributeScoringSystemId,
-          selectedAttributeScoringSystemId
-        )
-    );
-  }, [
-    assessments,
-    selectedDatasetId,
-    assessmentId,
-    selectedConfigId,
-    selectedConfigurationVersionId,
-    selectedAttributeScoringSystemId,
-    selectedAttributeScoringSystemVersionId,
-  ]);
-
-  const selectedImportAssessment = useMemo(
-    () =>
-      previousAssessments.find(
-        (assessment) => String(assessment.id) === String(importAssessmentId)
-      ),
-    [importAssessmentId, previousAssessments]
-  );
+    return findPreviousAssessmentsForDataset({
+      assessments,
+      selectedDatasetId,
+      assessmentId,
+    });
+  }, [assessments, selectedDatasetId, assessmentId]);
 
   // --- LOCKING ---
   const [lockError, setLockError] = useState(null);
@@ -293,9 +222,7 @@ export default function AddEditDatasetAssessmentForm() {
       fetchAttributeScoringSystemsApi(token, { activeOnly: true })
         .then((data) => setScoringSystems(Array.isArray(data) ? data : []))
         .catch((err) =>
-          setLockError(
-            err.message || "Failed to load scoring systems."
-          )
+          setLockError(err.message || "Failed to load scoring systems.")
         );
     }
   }, [dispatch, token]);
@@ -319,128 +246,31 @@ export default function AddEditDatasetAssessmentForm() {
     }
   }, [isEditMode, dataset, name]);
 
-  // Reset the import dropdown if the dataset changes
-  useEffect(() => {
-    setImportAssessmentId("");
-  }, [
-    selectedDatasetId,
-    selectedConfigId,
-    selectedConfigurationVersionId,
-    selectedAttributeScoringSystemId,
-    selectedAttributeScoringSystemVersionId,
-  ]);
-
-  // Initialize Attribute Tables based on the selected dataset schema
   useEffect(() => {
     if (!dataset) {
       setTables([]);
       return;
     }
 
-    if (isEditMode) {
-      if (!assessment) return; // Wait for assessment details
+    if (isEditMode && !assessment) return;
 
-      // EDIT MODE: Merge the dataset schema with the saved assessment scores
-      const taMap = new Map(
-        (assessment.tableAssessments || []).map((ta) => [ta.tableId, ta])
-      );
-      setTables(
-        (dataset.tables || []).map((tbl) => {
-          const ta = taMap.get(tbl.id);
-          const answered = new Map(
-            (ta?.attributes || []).map((a) => [a.attributeId, a])
-          );
-          return {
-            id: ta?.id ?? null,
-            tableId: tbl.id,
-            tableName: tbl.name,
-            attributes: tbl.attributes.map((attr) => {
-              const asmAttr = answered.get(attr.id);
-              const excluded = attr.excluded;
-              return {
-                id: asmAttr?.id ?? null,
-                name: attr.name,
-                dataType: attr.dataType,
-                attributeId: attr.id,
-                sensitivity: excluded
-                  ? null
-                  : normalizeAttributeScaleValue(
-                      asmAttr?.sensitivity,
-                      "sensitivity",
-                      {
-                        allowNull: false,
-                        scoringSystem: selectedScoringSystem,
-                      }
-                    ),
-                replicability: excluded
-                  ? null
-                  : normalizeAttributeScaleValue(
-                      asmAttr?.replicability,
-                      "replicability",
-                      {
-                        allowNull: false,
-                        scoringSystem: selectedScoringSystem,
-                      }
-                    ),
-                availability: excluded
-                  ? null
-                  : normalizeAttributeScaleValue(
-                      asmAttr?.availability,
-                      "availability",
-                      {
-                        allowNull: false,
-                        scoringSystem: selectedScoringSystem,
-                      }
-                    ),
-                distinguishability: excluded
-                  ? null
-                  : normalizeAttributeScaleValue(
-                      asmAttr?.distinguishability,
-                      "distinguishability",
-                      {
-                        allowNull: false,
-                        scoringSystem: selectedScoringSystem,
-                      }
-                    ),
-                isDirectIdentifier: excluded
-                  ? null
-                  : Boolean(asmAttr?.isDirectIdentifier),
-                isExcluded: excluded,
-              };
-            }),
-          };
-        })
-      );
-    } else {
-      // CREATE MODE: Generate blank assessments for all dataset attributes
-      setTables(
-        (dataset.tables || []).map((tbl) => ({
-          tableId: tbl.id,
-          tableName: tbl.name,
-          attributes: tbl.attributes.map((attr) => ({
-            id: null,
-            name: attr.name,
-            dataType: attr.dataType,
-            attributeId: attr.id,
-            ...(attr.excluded
-              ? {
-                  sensitivity: null,
-                  replicability: null,
-                  availability: null,
-                  distinguishability: null,
-                }
-              : getDefaultAttributeScaleMetrics(selectedScoringSystem)),
-            isDirectIdentifier: attr.excluded ? null : false,
-            isExcluded: attr.excluded,
-          })),
-        }))
-      );
-    }
+    setTables(
+      buildAssessmentTables({
+        dataset,
+        assessment,
+        isEditMode,
+        scoringSystem: selectedScoringSystem,
+      })
+    );
   }, [dataset, isEditMode, assessment, selectedScoringSystem]);
 
   // Fetch deep configuration hierarchy when a config is selected
   useEffect(() => {
-    if (selectedConfigId && token && !(isEditMode && assessment?.configuration)) {
+    if (
+      selectedConfigId &&
+      token &&
+      !(isEditMode && assessment?.configuration)
+    ) {
       dispatch(fetchConfiguration({ id: selectedConfigId, token }));
       setActiveQuestTab(0); // Reset tab when config changes
     }
@@ -541,66 +371,6 @@ export default function AddEditDatasetAssessmentForm() {
     [questions]
   );
 
-  // Handle Importing Attributes from a previous assessment
-  const handleImportAttributes = useCallback(() => {
-    if (!importAssessmentId) return;
-
-    const sourceAsmt = selectedImportAssessment;
-    if (!sourceAsmt || !sourceAsmt.tableAssessments) return;
-
-    const sourceTablesMap = new Map(
-      sourceAsmt.tableAssessments.map((ta) => [ta.tableId, ta])
-    );
-
-    setTables((prevTables) =>
-      prevTables.map((tbl) => {
-        const srcTable = sourceTablesMap.get(tbl.tableId);
-        if (!srcTable) return tbl;
-
-        const srcAttrMap = new Map(
-          (srcTable.attributes || []).map((a) => [a.attributeId, a])
-        );
-
-        return {
-          ...tbl,
-          attributes: tbl.attributes.map((attr) => {
-            const srcAttr = srcAttrMap.get(attr.attributeId);
-            if (!srcAttr) return attr;
-
-            return {
-              ...attr,
-              sensitivity: normalizeAttributeScaleValue(
-                srcAttr.sensitivity,
-                "sensitivity",
-                { allowNull: false, scoringSystem: selectedScoringSystem }
-              ),
-              replicability: normalizeAttributeScaleValue(
-                srcAttr.replicability,
-                "replicability",
-                { allowNull: false, scoringSystem: selectedScoringSystem }
-              ),
-              availability: normalizeAttributeScaleValue(
-                srcAttr.availability,
-                "availability",
-                { allowNull: false, scoringSystem: selectedScoringSystem }
-              ),
-              distinguishability: normalizeAttributeScaleValue(
-                srcAttr.distinguishability,
-                "distinguishability",
-                { allowNull: false, scoringSystem: selectedScoringSystem }
-              ),
-              isDirectIdentifier: Boolean(srcAttr.isDirectIdentifier),
-              isExcluded: Boolean(srcAttr.isExcluded),
-            };
-          }),
-        };
-      })
-    );
-
-    // Reset dropdown after successful import
-    setImportAssessmentId("");
-  }, [importAssessmentId, selectedImportAssessment, selectedScoringSystem]);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setShowAllErrors(true);
@@ -609,23 +379,16 @@ export default function AddEditDatasetAssessmentForm() {
     if (!isEditMode && !selectedScoringSystemId) return;
     setIsSubmitting(true);
 
-    const assessmentPayload = {
+    const assessmentPayload = buildAssessmentPayload({
       name,
       description,
-      datasetId: selectedDatasetId,
-      configurationId: selectedConfigId,
-      attributeScoringSystemId: selectedScoringSystemId
-        ? Number(selectedScoringSystemId)
-        : selectedScoringSystem?.id ?? null,
-      answers: Object.entries(answers).map(([qId, ansData]) => ({
-        id: ansData.id || null,
-        questionId: Number(qId),
-        selectedOptionId: ansData.optionId,
-        selectedOptionCode: ansData.code !== ansData.text ? ansData.code : null,
-        text: ansData.text,
-      })),
-      tableAssessments: tables,
-    };
+      selectedDatasetId,
+      selectedConfigId,
+      selectedScoringSystemId,
+      selectedScoringSystem,
+      answers,
+      tables,
+    });
 
     try {
       if (isEditMode) {
@@ -672,330 +435,46 @@ export default function AddEditDatasetAssessmentForm() {
             : t("datasetAssessments.form.newTitle")}
         </RATypography>
 
-        <RABox display="flex" flexDirection="column" gap={2}>
-          <RAInput
-            select
-            label={t("datasetAssessments.form.datasetLabel")}
-            value={selectedDatasetId}
-            onChange={(e) => setSelectedDatasetId(e.target.value)}
-            fullWidth
-            required
-            disabled={isReadOnly || isEditMode}
-          >
-            {datasets.map((ds) => (
-              <MenuItem key={ds.id} value={ds.id}>
-                {ds.name}
-              </MenuItem>
-            ))}
-          </RAInput>
-          <RAInput
-            select
-            label={t("datasetAssessments.form.configurationLabel")}
-            value={selectedConfigId}
-            onChange={(e) => setSelectedConfigId(e.target.value)}
-            fullWidth
-            required
-            disabled={isReadOnly || isEditMode}
-          >
-            {configurationOptions.map((cfg) => (
-              <MenuItem key={cfg.id} value={cfg.id}>
-                <RABox display="flex" flexDirection="column">
-                  <RATypography variant="button" fontWeight="medium">
-                    {cfg.name} v{cfg.version || cfg.currentVersion || 1}
-                  </RATypography>
-                  {cfg.description && (
-                    <RATypography variant="caption" color="secondary">
-                      {cfg.description}
-                    </RATypography>
-                  )}
-                </RABox>
-              </MenuItem>
-            ))}
-          </RAInput>
-          <RAInput
-            select
-            label="Attribute scoring system"
-            value={selectedScoringSystemId}
-            onChange={(e) => setSelectedScoringSystemId(e.target.value)}
-            fullWidth
-            required
-            disabled={isReadOnly || isEditMode}
-          >
-            {scoringSystemOptions.map((system) => (
-              <MenuItem key={system.id} value={system.id}>
-                <RABox display="flex" flexDirection="column">
-                  <RATypography variant="button" fontWeight="medium">
-                    {system.name} v{system.versionNumber || system.currentVersion || 1}
-                  </RATypography>
-                  {system.description && (
-                    <RATypography variant="caption" color="secondary">
-                      {system.description}
-                    </RATypography>
-                  )}
-                </RABox>
-              </MenuItem>
-            ))}
-          </RAInput>
-          <OnBlurRAInput
-            label={t("datasetAssessments.form.assessmentNameLabel")}
-            value={name}
-            onCommit={setName}
-            fullWidth
-            required
-            disabled={isReadOnly}
-          />
-          <OnBlurRAInput
-            label={t("datasetAssessments.form.descriptionLabel")}
-            value={description}
-            onCommit={setDescription}
-            fullWidth
-            multiline
-            minRows={3}
-            disabled={isReadOnly}
-          />
-        </RABox>
+        <AssessmentSetupSection
+          datasets={datasets}
+          configurationOptions={configurationOptions}
+          scoringSystemOptions={scoringSystemOptions}
+          selectedDatasetId={selectedDatasetId}
+          setSelectedDatasetId={setSelectedDatasetId}
+          selectedConfigId={selectedConfigId}
+          setSelectedConfigId={setSelectedConfigId}
+          selectedScoringSystemId={selectedScoringSystemId}
+          setSelectedScoringSystemId={setSelectedScoringSystemId}
+          name={name}
+          setName={setName}
+          description={description}
+          setDescription={setDescription}
+          isEditMode={isEditMode}
+          isReadOnly={isReadOnly}
+        />
 
-        <Card
-          sx={{
-            border: "1px solid #e0e0e0",
-            boxShadow: 1,
-            borderRadius: 2,
-            mb: 4,
-          }}
-        >
-          {selectedConfigId ? (
-            configLoading ? (
-              <RABox
-                display="flex"
-                justifyContent="center"
-                alignItems="center"
-                minHeight={400}
-              >
-                <CircularProgress />
-              </RABox>
-            ) : datasetCategories.length > 0 ? (
-              <>
-                {datasetCategories.length > 1 && (
-                  <RABox
-                    bgcolor="#fafafa"
-                    borderBottom={1}
-                    borderColor="divider"
-                    p={2}
-                  >
-                    <RATypography
-                      variant="h5"
-                      fontWeight="bold"
-                      align="center"
-                      mb={2}
-                    >
-                      {t("datasetAssessments.form.dataRiskCategories")}
-                    </RATypography>
+        <QuestionnaireSection
+          selectedConfigId={selectedConfigId}
+          configLoading={configLoading}
+          datasetCategories={datasetCategories}
+          questionsByCategory={questionsByCategory}
+          activeQuestTab={activeQuestTab}
+          setActiveQuestTab={setActiveQuestTab}
+          answers={answers}
+          handleAnswerChange={handleAnswerChange}
+          currentLang={currentLang}
+          isReadOnly={isReadOnly}
+          showAllErrors={showAllErrors}
+        />
 
-                    <Box
-                      display="flex"
-                      flexWrap="wrap"
-                      justifyContent="center"
-                      gap={1.5}
-                    >
-                      {datasetCategories.map((cat, globalIndex) => {
-                        const isActive = activeQuestTab === globalIndex;
-                        return (
-                          <RAButton
-                            key={cat.code}
-                            variant={isActive ? "contained" : "outlined"}
-                            color={isActive ? "primary" : "secondary"}
-                            onClick={() => setActiveQuestTab(globalIndex)}
-                            sx={{
-                              width: { xs: "100%", sm: "auto" }, // Full width on mobile, auto on desktop
-                              minWidth: { sm: "200px" }, // Uniform button sizes
-                              height: "100%",
-                              py: 1,
-                              px: 2,
-                              fontWeight: isActive ? "bold" : "normal",
-                              textTransform: "none",
-                              bgcolor: isActive ? "primary.main" : "white",
-                              color: isActive ? "white" : "text.primary",
-                              borderColor: isActive
-                                ? "primary.main"
-                                : "grey.300",
-                              "&:hover": {
-                                bgcolor: isActive ? "primary.dark" : "grey.100",
-                              },
-                              transition: "all 0.2s ease-in-out",
-                            }}
-                          >
-                            {cat.name}
-                          </RAButton>
-                        );
-                      })}
-                    </Box>
-                  </RABox>
-                )}
-
-                <RABox mt={3} px={3} pb={3}>
-                  {datasetCategories.map((cat, index) => {
-                    if (
-                      datasetCategories.length > 1 &&
-                      index !== activeQuestTab
-                    )
-                      return null;
-
-                    const catQuestions = questionsByCategory[cat.code] || [];
-                    if (catQuestions.length === 0)
-                      return (
-                        <RATypography
-                          key={cat.code}
-                          variant="body1"
-                          align="center"
-                          color="text"
-                        >
-                          {t("datasetAssessments.form.noQuestionsForCategory", {
-                            name: cat.name,
-                          })}
-                        </RATypography>
-                      );
-
-                    // Map questions to localized text fields on the fly
-                    const localizedCatQuestions = catQuestions.map((q) => ({
-                      ...q,
-                      text: q.textTranslations?.[currentLang] || q.text,
-                      options: (q.options || []).map((opt) => ({
-                        ...opt,
-                        text: opt.textTranslations?.[currentLang] || opt.text,
-                      })),
-                    }));
-
-                    return (
-                      <RABox key={cat.code}>
-                        <PaginatedQuestionnaire
-                          title={t("datasetAssessments.form.questionnaireOf", {
-                            name: cat.name,
-                          })}
-                          questions={localizedCatQuestions}
-                          values={Object.fromEntries(
-                            Object.entries(answers).map(([qid, { answer }]) => [
-                              Number(qid),
-                              answer,
-                            ])
-                          )}
-                          onChange={handleAnswerChange}
-                          disablePagination
-                          showRowNumbers
-                          sx={{ width: "100%" }}
-                          isReadOnly={isReadOnly}
-                          showAllErrors={showAllErrors}
-                          hideSubmit={true}
-                        />
-                      </RABox>
-                    );
-                  })}
-                </RABox>
-              </>
-            ) : (
-              <RABox
-                display="flex"
-                justifyContent="center"
-                alignItems="center"
-                minHeight={400}
-              >
-                <RATypography variant="body1" align="center" color="text">
-                  {t("datasetAssessments.form.noQuestionsForPhase")}
-                </RATypography>
-              </RABox>
-            )
-          ) : (
-            <RABox
-              display="flex"
-              justifyContent="center"
-              alignItems="center"
-              minHeight={400}
-            >
-              <RATypography variant="body1" align="center" color="text">
-                {t("datasetAssessments.form.selectConfigPrompt")}
-              </RATypography>
-            </RABox>
-          )}
-        </Card>
-
-        <RABox>
-          <RATypography variant="h6" align="center" mb={2}>
-            {t("datasetAssessments.form.attributeRiskAssessment")}
-          </RATypography>
-
-          {previousAssessments.length > 0 && !isReadOnly && (
-            <RABox
-              display="flex"
-              alignItems="center"
-              justifyContent="center"
-              gap={2}
-              mb={3}
-              flexWrap="wrap"
-            >
-              <RATypography variant="body2" color="secondary">
-                {t(
-                  "datasetAssessments.form.importAttributesDesc",
-                  "You can prefill the attribute risk values by importing them from a previously completed assessment for this dataset."
-                )}
-              </RATypography>
-              <RAInput
-                select
-                label={t(
-                  "datasetAssessments.form.importAttributesLabel",
-                  "Import attributes from previous assessment"
-                )}
-                value={importAssessmentId}
-                onChange={(e) => setImportAssessmentId(String(e.target.value))}
-                sx={{ minWidth: 210 }}
-                size="small"
-                InputLabelProps={{ shrink: true }}
-                SelectProps={{
-                  displayEmpty: true,
-                  renderValue: () =>
-                    selectedImportAssessment ? (
-                      selectedImportAssessment.name
-                    ) : (
-                      <em>
-                        {t(
-                          "datasetAssessments.form.selectAssessment",
-                          "Select assessment..."
-                        )}
-                      </em>
-                    ),
-                }}
-              >
-                <MenuItem value="" disabled>
-                  <em>
-                    {t(
-                      "datasetAssessments.form.selectAssessment",
-                      "Select assessment..."
-                    )}
-                  </em>
-                </MenuItem>
-                {previousAssessments.map((a) => (
-                  <MenuItem key={a.id} value={String(a.id)}>
-                    {a.name}
-                  </MenuItem>
-                ))}
-              </RAInput>
-              <RAButton
-                variant="gradient"
-                color="primary"
-                onClick={handleImportAttributes}
-                disabled={!importAssessmentId}
-                sx={{ padding: "8px 16px", minWidth: 0 }}
-              >
-                <DownloadIcon />
-              </RAButton>
-            </RABox>
-          )}
-
-          <DatasetTablesAssessment
-            tables={tables}
-            setTables={setTables}
-            isReadOnly={isReadOnly}
-            scoringSystem={selectedScoringSystem}
-          />
-        </RABox>
+        <AttributeRiskAssessmentSection
+          dataset={dataset}
+          previousAssessments={previousAssessments}
+          tables={tables}
+          setTables={setTables}
+          scoringSystem={selectedScoringSystem}
+          isReadOnly={isReadOnly}
+        />
 
         <RAButton
           type="submit"

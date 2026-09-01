@@ -11,46 +11,78 @@ import {
 
 /**
  * Hook to configure editable columns for dataset tables.
- * @param {Array} tables
- * @param {Function} setTables
- * @param {boolean} disabled - Global disable flag (e.g. if lock lost or saving)
- * @param {Function} t - i18next translation function
+ * @param {Object} options
+ * @param {Array} options.tables
+ * @param {Function} options.setTables
+ * @param {boolean} [options.disabled=false] - Global disable flag, e.g. when the lock is lost or the form is saving.
+ * @param {Function} options.t - i18next translation function.
+ * @param {Function} [options.onExcludedChange] - Optional domain-aware exclusion handler.
+ * @param {Function} [options.onAttributeNameChange] - Optional domain-aware rename handler.
  */
-export function useDatasetFormTableConfig(
-  tables,
+export function useDatasetFormTableConfig({
+  tables = [],
   setTables,
   disabled = false,
-  t
-) {
-
+  t,
+  onExcludedChange,
+  onAttributeNameChange,
+} = {}) {
   const changeAttr = useCallback(
-    (tblId, attrId, changes) => {
+    (tableId, attributeId, changes) => {
       setTables((prev) =>
-        prev.map((tbl) =>
-          tbl.id === tblId
+        prev.map((table) =>
+          table.id === tableId
             ? {
-                ...tbl,
-                attributes: tbl.attributes.map((a) =>
-                  a.id === attrId ? { ...a, ...changes } : a
+                ...table,
+                attributes: table.attributes.map((attribute) =>
+                  attribute.id === attributeId
+                    ? { ...attribute, ...changes }
+                    : attribute
                 ),
               }
-            : tbl
+            : table
         )
       );
     },
     [setTables]
   );
 
+  const changeExcluded = useCallback(
+    (table, attribute, excluded) => {
+      if (onExcludedChange) {
+        onExcludedChange(table, attribute, excluded);
+        return;
+      }
+
+      changeAttr(table.id, attribute.id, { excluded });
+    },
+    [changeAttr, onExcludedChange]
+  );
+
+  const changeName = useCallback(
+    (table, attribute, name) => {
+      if (onAttributeNameChange) {
+        onAttributeNameChange(table, attribute, name);
+        return;
+      }
+
+      changeAttr(table.id, attribute.id, { name });
+    },
+    [changeAttr, onAttributeNameChange]
+  );
+
   const deleteAttr = useCallback(
-    (tblId, attrId) => {
+    (tableId, attributeId) => {
       setTables((prev) =>
-        prev.map((tbl) =>
-          tbl.id === tblId
+        prev.map((table) =>
+          table.id === tableId
             ? {
-                ...tbl,
-                attributes: tbl.attributes.filter((a) => a.id !== attrId),
+                ...table,
+                attributes: table.attributes.filter(
+                  (attribute) => attribute.id !== attributeId
+                ),
               }
-            : tbl
+            : table
         )
       );
     },
@@ -58,14 +90,14 @@ export function useDatasetFormTableConfig(
   );
 
   const addAttr = useCallback(
-    (tblId) => {
+    (tableId) => {
       setTables((prev) =>
-        prev.map((tbl) =>
-          tbl.id === tblId
+        prev.map((table) =>
+          table.id === tableId
             ? {
-                ...tbl,
+                ...table,
                 attributes: [
-                  ...tbl.attributes,
+                  ...table.attributes,
                   {
                     id: `new-${Date.now()}`,
                     name: "",
@@ -74,7 +106,7 @@ export function useDatasetFormTableConfig(
                   },
                 ],
               }
-            : tbl
+            : table
         )
       );
     },
@@ -83,8 +115,8 @@ export function useDatasetFormTableConfig(
 
   const columnsByTable = useMemo(() => {
     const map = {};
-    tables.forEach((tbl) => {
-      map[tbl.id] = [
+    tables.forEach((table) => {
+      map[table.id] = [
         {
           Header: t("datasets.attributesTable.index"),
           id: "rowIndex",
@@ -103,9 +135,7 @@ export function useDatasetFormTableConfig(
             <MemoNameCell
               initialValue={row.original.name}
               disabled={disabled}
-              onCommit={(val) =>
-                changeAttr(tbl.id, row.original.id, { name: val })
-              }
+              onCommit={(value) => changeName(table, row.original, value)}
             />
           ),
         },
@@ -118,8 +148,8 @@ export function useDatasetFormTableConfig(
             <MemoDataTypeCell
               initialValue={row.original.dataType}
               disabled={disabled}
-              onCommit={(val) =>
-                changeAttr(tbl.id, row.original.id, { dataType: val })
+              onCommit={(value) =>
+                changeAttr(table.id, row.original.id, { dataType: value })
               }
             />
           ),
@@ -133,9 +163,7 @@ export function useDatasetFormTableConfig(
             <MemoCheckboxCell
               initialValue={row.original.excluded}
               disabled={disabled}
-              onCommit={(val) =>
-                changeAttr(tbl.id, row.original.id, { excluded: val })
-              }
+              onCommit={(value) => changeExcluded(table, row.original, value)}
             />
           ),
         },
@@ -149,7 +177,7 @@ export function useDatasetFormTableConfig(
               size="small"
               color="error"
               disabled={disabled}
-              onClick={() => deleteAttr(tbl.id, row.original.id)}
+              onClick={() => deleteAttr(table.id, row.original.id)}
             >
               <DeleteIcon fontSize="small" />
             </IconButton>
@@ -158,13 +186,7 @@ export function useDatasetFormTableConfig(
       ];
     });
     return map;
-  }, [
-    tables,
-    changeAttr,
-    deleteAttr,
-    disabled,
-    t,
-  ]);
+  }, [tables, changeAttr, changeExcluded, changeName, deleteAttr, disabled, t]);
 
-  return { columnsByTable, addAttr, deleteAttr };
+  return { columnsByTable, addAttr };
 }

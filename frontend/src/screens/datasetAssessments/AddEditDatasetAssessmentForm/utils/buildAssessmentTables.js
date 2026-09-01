@@ -1,0 +1,127 @@
+import {
+  getDefaultAttributeScaleMetrics,
+  normalizeAttributeScaleValue,
+} from "utils/AttributeScale";
+
+const isExcludedAttribute = (attribute) =>
+  Boolean(attribute?.excluded ?? attribute?.isExcluded);
+
+const getDirectIdentifierValue = (attribute) =>
+  Boolean(attribute?.isDirectIdentifier ?? attribute?.directIdentifier);
+
+const normalizeSavedValue = (value, field, scoringSystem) =>
+  normalizeAttributeScaleValue(value, field, {
+    allowNull: false,
+    scoringSystem,
+  });
+
+/**
+ * Excluded dataset attributes represent Direct Identifiers at assessment time.
+ * They remain visible for transparency but do not receive R/A/D/S scores.
+ */
+function buildCreateAttributeRow(attribute, scoringSystem) {
+  const excluded = isExcludedAttribute(attribute);
+
+  return {
+    id: null,
+    name: attribute.name,
+    dataType: attribute.dataType,
+    attributeId: attribute.id,
+    ...(excluded
+      ? {
+          sensitivity: null,
+          replicability: null,
+          availability: null,
+          distinguishability: null,
+        }
+      : getDefaultAttributeScaleMetrics(scoringSystem)),
+    isDirectIdentifier: excluded ? true : false,
+    isExcluded: excluded,
+  };
+}
+
+function buildEditAttributeRow(attribute, savedAttribute, scoringSystem) {
+  const excluded = isExcludedAttribute(attribute);
+
+  return {
+    id: savedAttribute?.id ?? null,
+    name: attribute.name,
+    dataType: attribute.dataType,
+    attributeId: attribute.id,
+    sensitivity: excluded
+      ? null
+      : normalizeSavedValue(
+          savedAttribute?.sensitivity,
+          "sensitivity",
+          scoringSystem
+        ),
+    replicability: excluded
+      ? null
+      : normalizeSavedValue(
+          savedAttribute?.replicability,
+          "replicability",
+          scoringSystem
+        ),
+    availability: excluded
+      ? null
+      : normalizeSavedValue(
+          savedAttribute?.availability,
+          "availability",
+          scoringSystem
+        ),
+    distinguishability: excluded
+      ? null
+      : normalizeSavedValue(
+          savedAttribute?.distinguishability,
+          "distinguishability",
+          scoringSystem
+        ),
+    isDirectIdentifier: excluded
+      ? true
+      : getDirectIdentifierValue(savedAttribute),
+    isExcluded: excluded,
+  };
+}
+
+export function buildAssessmentTables({
+  dataset,
+  assessment,
+  isEditMode,
+  scoringSystem,
+}) {
+  if (!dataset) return [];
+
+  const savedTablesById = new Map(
+    (assessment?.tableAssessments || []).map((tableAssessment) => [
+      String(tableAssessment.tableId),
+      tableAssessment,
+    ])
+  );
+
+  return (dataset.tables || []).map((table) => {
+    const savedTable = isEditMode
+      ? savedTablesById.get(String(table.id))
+      : null;
+    const savedAttributesById = new Map(
+      (savedTable?.attributes || []).map((attribute) => [
+        String(attribute.attributeId),
+        attribute,
+      ])
+    );
+
+    return {
+      id: savedTable?.id ?? null,
+      tableId: table.id,
+      tableName: table.name,
+      attributes: (table.attributes || []).map((attribute) =>
+        isEditMode
+          ? buildEditAttributeRow(
+              attribute,
+              savedAttributesById.get(String(attribute.id)),
+              scoringSystem
+            )
+          : buildCreateAttributeRow(attribute, scoringSystem)
+      ),
+    };
+  });
+}

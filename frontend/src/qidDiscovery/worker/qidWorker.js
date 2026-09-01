@@ -1,12 +1,11 @@
 /* eslint-env worker */
 /* global globalThis */
 import Papa from "papaparse";
-import { CSV_PREVIEW_ROW_LIMIT } from "../qidProfiler";
 import {
   buildProfilingSource,
   createColumnMetaFromFields,
 } from "../profiling/profilingSource";
-import { profileTableFromSource } from "../qidProfiler";
+import { CSV_PREVIEW_ROW_LIMIT, profileTableFromSource } from "../qidProfiler";
 
 const sessions = new Map();
 let nextSessionCounter = 0;
@@ -52,11 +51,21 @@ function parseCsvFile(file) {
  * and cache state in this worker, and returns aggregate results plus the
  * limited preview rows required by PreviewTable.
  */
-async function profileTable({ file, previewRowLimit, options }) {
+async function profileTable({
+  file,
+  previewRowLimit = CSV_PREVIEW_ROW_LIMIT,
+  options,
+}) {
   const { rows, fields } = await parseCsvFile(file);
+  const parsedPreviewRowLimit = Number(previewRowLimit);
+  const safePreviewRowLimit = Number.isFinite(parsedPreviewRowLimit)
+    ? Math.max(0, parsedPreviewRowLimit)
+    : CSV_PREVIEW_ROW_LIMIT;
   const sessionId = createSessionId(file?.name);
   const columnMeta = createColumnMetaFromFields(fields);
-  const profilingSource = buildProfilingSource(rows, columnMeta);
+  const profilingSource = buildProfilingSource(rows, columnMeta, {
+    subjectKeySourceField: options?.subjectKeySourceField || null,
+  });
   const profile = profileTableFromSource(profilingSource, columnMeta, options);
 
   sessions.set(sessionId, profilingSource);
@@ -65,10 +74,13 @@ async function profileTable({ file, previewRowLimit, options }) {
     name: file.name,
     rows: rows.length,
     headers: fields,
-    data: rows.slice(0, previewRowLimit || CSV_PREVIEW_ROW_LIMIT),
+    data: rows.slice(0, safePreviewRowLimit),
     columnMeta: profile.columnMeta,
     qidCombinations: profile.qidCombinations,
     qidSearchMode: profile.qidSearchMode,
+    subjectKeySourceField: profile.subjectKeySourceField,
+    suggestedSubjectKeySourceFields: profile.suggestedSubjectKeySourceFields,
+    repeatedMeasurementSummary: profile.repeatedMeasurementSummary,
     profilingSession: {
       type: "worker",
       sessionId,

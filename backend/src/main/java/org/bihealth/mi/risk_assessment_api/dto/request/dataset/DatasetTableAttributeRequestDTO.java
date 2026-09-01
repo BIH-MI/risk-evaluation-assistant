@@ -42,6 +42,14 @@ public class DatasetTableAttributeRequestDTO {
     private Double distinction;
     private Double separation;
 
+    // Empirical Replicability evidence from repeated-measurement analysis.
+    // Omitted by the frontend when no subject key was selected.
+    private Boolean replicabilityAvailable;
+    private Double replicabilityScore;
+    private Long replicabilityComparisonCount;
+    private String replicabilityMethod;
+    private String replicabilityUnavailableReason;
+
     /**
      * Converts this DTO into a new, non-persisted DatasetTableAttribute entity.
      *
@@ -72,7 +80,12 @@ public class DatasetTableAttributeRequestDTO {
                 || medianEquivalenceClassSize != null
                 || maximumEquivalenceClassSize != null
                 || distinction != null
-                || separation != null;
+                || separation != null
+                || replicabilityAvailable != null
+                || replicabilityScore != null
+                || replicabilityComparisonCount != null
+                || replicabilityMethod != null
+                || replicabilityUnavailableReason != null;
     }
 
     public void applyStatisticsTo(DatasetTableAttribute attr) {
@@ -90,5 +103,10 @@ public class DatasetTableAttributeRequestDTO {
         attr.setMaximumEquivalenceClassSize(maximumEquivalenceClassSize);
         attr.setDistinction(distinction);
         attr.setSeparation(separation);
+        attr.setReplicabilityAvailable(replicabilityAvailable);
+        attr.setReplicabilityScore(replicabilityScore);
+        attr.setReplicabilityComparisonCount(replicabilityComparisonCount);
+        attr.setReplicabilityMethod(replicabilityMethod);
+        attr.setReplicabilityUnavailableReason(replicabilityUnavailableReason);
     }
 }

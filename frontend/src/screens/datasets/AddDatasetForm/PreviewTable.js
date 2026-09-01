@@ -14,6 +14,8 @@ import {
 import RATypography from "../../../components/display/RATypography";
 import RAInput from "../../../components/input/RAInput";
 
+const getColumnIdentity = (column = {}) => column.sourceField || column.field;
+
 export const PreviewTable = React.memo(function PreviewTable({
   file,
   onRemove,
@@ -32,7 +34,6 @@ export const PreviewTable = React.memo(function PreviewTable({
   }, [file.name]);
 
   const { columnMeta = [], data = [] } = file;
-
   const topValuesMap = useMemo(() => {
     const map = {};
     const sampleData = data.slice(0, 500);
@@ -55,7 +56,7 @@ export const PreviewTable = React.memo(function PreviewTable({
   if (file.isParsing) {
     return (
       <RABox
-        key={file.name}
+        key={file._localTableId}
         mt={2}
         sx={{
           p: 2,
@@ -96,7 +97,11 @@ export const PreviewTable = React.memo(function PreviewTable({
         <MemoNameCell
           initialValue={row.original.field}
           onCommit={(newValue) =>
-            onColumnNameChange(file.name, row.original.field, newValue)
+            onColumnNameChange(
+              file._localTableId,
+              row.original.columnKey,
+              newValue
+            )
           }
         />
       ),
@@ -109,7 +114,11 @@ export const PreviewTable = React.memo(function PreviewTable({
         <MemoDataTypeCell
           initialValue={row.original.dataType}
           onCommit={(newType) =>
-            onDataTypeChange(file.name, row.original.field, newType)
+            onDataTypeChange(
+              file._localTableId,
+              row.original.columnKey,
+              newType
+            )
           }
         />
       ),
@@ -148,7 +157,11 @@ export const PreviewTable = React.memo(function PreviewTable({
         <MemoCheckboxCell
           initialValue={row.original.excluded}
           onCommit={(checked) =>
-            onExcludedChange(file.name, row.original.field, checked)
+            onExcludedChange(
+              file._localTableId,
+              row.original.columnKey,
+              checked
+            )
           }
         />
       ),
@@ -162,7 +175,9 @@ export const PreviewTable = React.memo(function PreviewTable({
         <IconButton
           size="small"
           color="error"
-          onClick={() => onDeleteColumn(file.name, row.original.field)}
+          onClick={() =>
+            onDeleteColumn(file._localTableId, row.original.columnKey)
+          }
         >
           <DeleteIcon fontSize="small" />
         </IconButton>
@@ -170,18 +185,21 @@ export const PreviewTable = React.memo(function PreviewTable({
     },
   ];
 
-  const rows = columnMeta.map(({ field, level, excluded }) => ({
-    field,
-    dataType: level,
-    excluded: Boolean(excluded),
+  const rows = columnMeta.map((column) => ({
+    columnKey: getColumnIdentity(column),
+    field: column.field,
+    dataType: column.level,
+    excluded: Boolean(column.excluded),
   }));
 
   return (
-    <RABox key={file.name} mt={2} p={2}>
+    <RABox key={file._localTableId} mt={2} p={2}>
       <RABox
         display="flex"
         alignItems="center"
         justifyContent="space-between"
+        flexWrap="wrap"
+        gap={2}
         mb={1}
       >
         <RAInput
@@ -189,7 +207,7 @@ export const PreviewTable = React.memo(function PreviewTable({
           value={bufferName}
           onChange={(e) => setBufferName(e.target.value)}
           onBlur={() => {
-            const ok = onTableNameChange(file.name, bufferName);
+            const ok = onTableNameChange(file._localTableId, bufferName);
             if (!ok) setBufferName(file.name);
           }}
           fullWidth
@@ -199,7 +217,7 @@ export const PreviewTable = React.memo(function PreviewTable({
 
         <IconButton
           size="small"
-          onClick={() => onRemove(file.name)}
+          onClick={() => onRemove(file._localTableId)}
           sx={{
             bgcolor: "error.main",
             color: "#fff",
@@ -218,7 +236,7 @@ export const PreviewTable = React.memo(function PreviewTable({
         isSorted={false}
         pagination={{ variant: "gradient", color: "info" }}
         canAdd={true}
-        onAddClick={() => onAddColumn(file.name)}
+        onAddClick={() => onAddColumn(file._localTableId)}
         addButtonPosition="bottom-right"
       />
     </RABox>

@@ -3,6 +3,7 @@ import {
   buildCandidateColumns,
   buildProfilingSource,
   createColumnMetaFromFields,
+  updateSubjectKeySourceField,
 } from "./profiling/profilingSource";
 import { runBeamSearch } from "./search/beamSearch";
 import { CombinationCache } from "./search/combinationCache";
@@ -75,9 +76,9 @@ export function selectPersistedCombinations(evaluatedResults, options) {
 }
 
 /**
- * Chooses Exact Level-Wise search for smaller candidate sets and Beam search
- * for larger candidate sets. The combination cache belongs to the profiling
- * source, so evaluated stable combinations are reused across search reruns.
+ * Runs QID discovery over already-prepared candidates. Identifier/exclusion
+ * policy is intentionally not repeated here; this function only chooses Exact
+ * Level-Wise search for small candidate sets or Beam search for larger ones.
  */
 export function discoverQidCombinations(
   candidateColumns,
@@ -120,9 +121,9 @@ export function discoverQidCombinations(
 }
 
 /**
- * Reruns cheap candidate preparation and QID combination search from an
- * existing profiling source. This is used after schema edits and must not scan
- * original rows again.
+ * Reruns cheap profiling refresh from an existing profiling source. Statistics,
+ * Direct Identifier evidence, Replicability evidence, and candidate columns are
+ * projected onto the current schema before QID search is rerun.
  */
 export function profileTableFromSource(
   profilingSource,
@@ -134,10 +135,26 @@ export function profileTableFromSource(
       columnMeta,
       qidCombinations: [],
       qidSearchMode: "none",
+      subjectKeySourceField: null,
+      suggestedSubjectKeySourceFields: [],
+      repeatedMeasurementSummary: null,
     };
   }
 
-  const profiledColumnMeta = applyStatistics(columnMeta, profilingSource);
+  if (Object.prototype.hasOwnProperty.call(options, "subjectKeySourceField")) {
+    updateSubjectKeySourceField(profilingSource, options.subjectKeySourceField);
+  } else {
+    updateSubjectKeySourceField(
+      profilingSource,
+      profilingSource.subjectKeySourceField
+    );
+  }
+
+  const profiledColumnMeta = applyStatistics(
+    columnMeta,
+    profilingSource,
+    options
+  );
   const candidateColumns = buildCandidateColumns(
     profiledColumnMeta,
     profilingSource
@@ -152,13 +169,17 @@ export function profileTableFromSource(
     columnMeta: profiledColumnMeta,
     qidCombinations,
     qidSearchMode: mode,
+    subjectKeySourceField: profilingSource.subjectKeySourceField,
+    suggestedSubjectKeySourceFields:
+      profilingSource.suggestedSubjectKeySourceFields || [],
+    repeatedMeasurementSummary: profilingSource.repeatedMeasurementSummary,
   };
 }
 
 /**
  * Builds a reusable profiling source from parsed rows, then immediately runs
  * QID combination search. The returned profilingSource is transient
- * browser-local state used only to refresh search results after schema edits.
+ * browser-local state containing encoded columns and caches for later refreshes.
  */
 export function profileTableRows(rows = [], columnMeta = [], options = {}) {
   const profilingSource = buildProfilingSource(rows, columnMeta, options);
@@ -175,4 +196,5 @@ export {
   buildCandidateColumns,
   buildProfilingSource,
   createColumnMetaFromFields,
+  updateSubjectKeySourceField,
 };

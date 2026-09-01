@@ -85,6 +85,7 @@
     "add": {
       "title": "Add New Dataset",
       "dataTablesPreview": "Data Tables Preview",
+      "directIdentifierInstruction": "Direct identifiers and generic ID-like fields detected automatically are excluded by default. Please review the attributes and adjust QID candidacy with the corresponding checkbox in the Excluded column. Direct identifiers should be removed at this stage before continuing.",
       "createButton": "Create Dataset",
       "parsing": "Parsing {{name}}...",
       "newTable": "New Table",
@@ -96,6 +97,38 @@
       "dropzoneOr": "— OR —",
       "addManualTable": "Add Empty Table Manually",
       "examples": "Examples"
+    },
+    "directIdentifiers": {
+      "includedTitle": "Potential direct identifiers are still included:",
+      "includedAction": "Please review and exclude these attributes before continuing.",
+      "reviewTitle": "Identifier-like fields require review:",
+      "reviewAction": "These attributes have ambiguous identifier evidence; review whether they should remain included.",
+      "potentialIdentifier": "Potential identifier",
+      "overrideWarning": "The attribute '{{attribute}}' was automatically detected as a likely direct identifier.",
+      "overrideGuidance": "Direct identifiers should normally be excluded before quantitative QID analysis and dataset assessment.",
+      "detectedAs": "Detected as: {{concept}}.",
+      "evidence": "Evidence: {{sources}}.",
+      "concepts": {
+        "PERSON_NAME": "Personal name",
+        "EMAIL": "Email address",
+        "PHONE": "Phone number",
+        "POSTAL_ADDRESS": "Postal address",
+        "NATIONAL_IDENTIFIER": "National identifier",
+        "PASSPORT": "Passport number",
+        "MEDICAL_RECORD_NUMBER": "Medical record number",
+        "IP_ADDRESS": "IP address"
+      },
+      "evidenceSources": {
+        "fieldName": "field name",
+        "valuePattern": "value pattern"
+      }
+    },
+    "longitudinal": {
+      "subjectKeyLabel": "Subject grouping key",
+      "subjectKeyNone": "No subject grouping",
+      "subjectKeySuggested": "Suggested: {{field}}",
+      "subjectKeyHelper": "Select only after confirming this field groups repeated measurements.",
+      "suggested": "suggested"
     }
   },
   "datasetAssessments": {
@@ -110,6 +143,38 @@
       "sensitivity": "Sensitivity",
       "directIdentifier": "Direct Identifier",
       "overridden": "Overridden"
+    },
+    "previousAssessments": {
+      "label": "Previous assessment",
+      "placeholder": "Select previous assessment...",
+      "applyValues": "Apply"
+    },
+    "evidence": {
+      "info": "Evidence",
+      "statisticalEvidence": "Statistical Evidence",
+      "unavailable": "Unavailable",
+      "replicabilityUnavailable": "Empirical Replicability unavailable:",
+      "replicabilityEvidence": "Replicability evidence",
+      "distinguishabilityEvidence": "Distinguishability evidence",
+      "score": "Score",
+      "method": "Method",
+      "validComparisons": "Valid comparisons",
+      "distinction": "Distinction",
+      "separation": "Separation",
+      "equivalenceClassSize": "Equiv. class size",
+      "minimumShort": "min",
+      "maximumShort": "max",
+      "singletonFraction": "Singleton fraction",
+      "minimumEquivalenceClassSize": "Minimum equivalence class size",
+      "medianEquivalenceClassSize": "Median equivalence class size",
+      "maximumEquivalenceClassSize": "Maximum equivalence class size",
+      "historicalEvidence": "Historical Evidence",
+      "previousAssessment": "Previous assessment",
+      "historicalValue": "Historical value",
+      "scoringSystem": "Scoring system",
+      "incompatibleAssessment": "Different scoring system; evidence only.",
+      "semantic": "Semantic",
+      "semanticAvailable": "Evidence available"
     },
     "table": {
       "datasetName": "Dataset Name",
@@ -275,6 +340,7 @@
       "datasetAssessmentLabel": "Dataset Assessment",
       "overrideTablesLabel": "Override dataset table assessments",
       "datasetTablesAssessment": "Dataset Tables Assessment",
+      "originalValue": "Original: {{value}}",
       "updateButton": "Update Activity",
       "createButton": "Create Activity",
       "nameRequired": "Name required.",

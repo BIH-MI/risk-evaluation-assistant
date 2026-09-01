@@ -25,8 +25,9 @@ export function CSVDropzone({
         return;
       }
       acceptedFiles.forEach((file) => {
-        if (onAddTable(file) !== false) {
-          onParse(file);
+        const addResult = onAddTable(file);
+        if (addResult !== false) {
+          onParse(file, addResult);
         }
       });
     },

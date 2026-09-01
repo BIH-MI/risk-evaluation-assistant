@@ -1,29 +1,38 @@
 import { detectMeasurement } from "utils/detectMeasurement";
 import { MISSING_VALUE, normalizeCellValue } from "../normalization";
 import { buildAttributeStatistics } from "../metrics/profile";
+import { createDirectIdentifierEvidenceAccumulator } from "./directIdentifierEvidence";
 
 /**
  * Traverses one observed source column exactly once. During that pass it:
  * - normalizes each cell value;
  * - counts missing values;
  * - counts normalized equivalence-class frequencies;
+ * - collects aggregate direct-identifier value-pattern evidence;
  * - assigns a compact integer dictionary code;
  * - writes the encoded code for each row.
  */
-export function profileAndEncodeColumn(rows = [], sourceField) {
+export function profileAndEncodeColumn(rows = [], sourceField, options = {}) {
   const valueProfiles = new Map();
   const observedDistinctValues = [];
   const encodedCodes = new Uint32Array(rows.length);
+  const directIdentifierAccumulator = createDirectIdentifierEvidenceAccumulator(
+    sourceField,
+    options.directIdentifierEvidence || {}
+  );
   let missingCount = 0;
+  let missingCode = null;
   let nextCode = 0;
 
   for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
     const rawValue = rows[rowIndex]?.[sourceField];
     const normalizedValue = normalizeCellValue(rawValue);
+    const isMissing = normalizedValue === MISSING_VALUE;
 
-    if (normalizedValue === MISSING_VALUE) {
+    if (isMissing) {
       missingCount += 1;
     }
+    directIdentifierAccumulator.observe(rawValue, !isMissing);
 
     let valueProfile = valueProfiles.get(normalizedValue);
     if (!valueProfile) {
@@ -34,7 +43,9 @@ export function profileAndEncodeColumn(rows = [], sourceField) {
       valueProfiles.set(normalizedValue, valueProfile);
       nextCode += 1;
 
-      if (normalizedValue !== MISSING_VALUE) {
+      if (normalizedValue === MISSING_VALUE) {
+        missingCode = valueProfile.code;
+      } else {
         observedDistinctValues.push(rawValue);
       }
     }
@@ -61,7 +72,9 @@ export function profileAndEncodeColumn(rows = [], sourceField) {
       sourceField,
       codes: encodedCodes,
       distinctCodeCount: nextCode,
+      missingCode,
     },
     dataType,
+    directIdentifierEvidence: directIdentifierAccumulator.finalize(),
   };
 }

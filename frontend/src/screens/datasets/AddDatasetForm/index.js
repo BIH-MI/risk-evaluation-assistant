@@ -1,5 +1,5 @@
 // src/screens/datasets/AddDatasetForm/index.js
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { useAuth } from "react-oidc-context";
@@ -14,16 +14,18 @@ import RAAlert from "components/feedback/RAAlert";
 
 import { CSVDropzone } from "utils/CSVDropzone";
 import { PreviewTable } from "./PreviewTable";
+import { useDatasetTableProfiling } from "./useDatasetTableProfiling";
 import { addDataset } from "store/datasets/datasetsThunks";
-import {
-  disposeUploadedTableProfile,
-  profileUploadedTable,
-  refreshUploadedTableProfile,
-} from "qidDiscovery";
 import {
   toDatasetAttributePayload,
   toDatasetQidCombinationPayload,
 } from "qidDiscovery/payload";
+import {
+  buildDirectIdentifierOverrideWarning,
+  buildDirectIdentifierSubmissionMessage,
+  isDefaultExcludedIdentifierColumn,
+  validateDirectIdentifierExclusions,
+} from "qidDiscovery/directIdentifierPolicy";
 
 let nextLocalTableId = 0;
 
@@ -45,6 +47,8 @@ const getUniqueName = (existingNames, baseName, getFallbackName) => {
   return candidate;
 };
 
+const getColumnIdentity = (column = {}) => column.sourceField || column.field;
+
 export default function AddDatasetForm() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -57,22 +61,24 @@ export default function AddDatasetForm() {
   const [sharedUsers, setSharedUsers] = useState([]);
   const [tables, setTables] = useState([]);
   const [errors, setErrors] = useState({ tables: "", tableName: "" });
-  const tablesRef = useRef(tables);
-  const profileRefreshCounterRef = useRef(0);
+  const [warnings, setWarnings] = useState({ directIdentifier: "" });
 
-  useEffect(() => {
-    tablesRef.current = tables;
-  }, [tables]);
+  const directIdentifierValidation = useMemo(
+    () => validateDirectIdentifierExclusions(tables),
+    [tables]
+  );
+  const directIdentifierSubmissionMessage = useMemo(
+    () => buildDirectIdentifierSubmissionMessage(t, directIdentifierValidation),
+    [directIdentifierValidation, t]
+  );
 
-  useEffect(() => {
-    return () => {
-      tablesRef.current.forEach((table) => {
-        disposeUploadedTableProfile(table._qidProfilingSession);
-      });
-    };
-  }, []);
-
-  // --- CSV handlers ---
+  const { profileTable, refreshTable, disposeTableProfile } =
+    useDatasetTableProfiling({
+      tables,
+      setTables,
+      setErrors,
+      t,
+    });
 
   const handleAddTable = useCallback(
     (file) => {
@@ -84,8 +90,10 @@ export default function AddDatasetForm() {
         return false;
       }
 
+      const localTableId = createLocalTableId();
+
       setTables((prev) => {
-        if (prev.some((t) => t.name === file.name)) {
+        if (prev.some((table) => table.name === file.name)) {
           setErrors((e) => ({
             ...e,
             tables: t("datasets.alerts.duplicateCsv", { name: file.name }),
@@ -96,127 +104,24 @@ export default function AddDatasetForm() {
         return [
           ...prev,
           {
-            _localTableId: createLocalTableId(),
+            _localTableId: localTableId,
             name: file.name,
             isParsing: true,
             isManual: false,
           },
         ];
       });
-      return true;
+      return localTableId;
     },
     [tables, t]
   );
 
   const handleTableParse = useCallback(
-    async (file) => {
-      try {
-        const { profilingSession, ...profiledTable } =
-          await profileUploadedTable(file);
-
-        setTables((prev) =>
-          prev.map((table) =>
-            table.name === file.name && table.isParsing
-              ? {
-                  ...profiledTable,
-                  _localTableId: table._localTableId,
-                  _qidProfilingSession: profilingSession,
-                  isParsing: false,
-                  isProfiling: false,
-                  isManual: false,
-                }
-              : table
-          )
-        );
-      } catch (err) {
-        setErrors((e) => ({
-          ...e,
-          tables:
-            err.message ||
-            t("datasets.alerts.profilingFailed", "CSV profiling failed."),
-        }));
-        setTables((prev) =>
-          prev.filter((table) => !(table.name === file.name && table.isParsing))
-        );
-      }
+    (file, tableId) => {
+      profileTable(file, tableId);
     },
-    [t]
+    [profileTable]
   );
-
-  const refreshTableAfterSchemaChange = useCallback(
-    (table, nextColumnMeta) => {
-      if (!table._qidProfilingSession) {
-        setTables((prev) =>
-          prev.map((currentTable) =>
-            currentTable._localTableId === table._localTableId
-              ? {
-                  ...currentTable,
-                  columnMeta: nextColumnMeta,
-                  qidCombinations: [],
-                  qidSearchMode: "none",
-                }
-              : currentTable
-          )
-        );
-        return;
-      }
-
-      const requestId = profileRefreshCounterRef.current + 1;
-      profileRefreshCounterRef.current = requestId;
-
-      setTables((prev) =>
-        prev.map((currentTable) =>
-          currentTable._localTableId === table._localTableId
-            ? {
-                ...currentTable,
-                columnMeta: nextColumnMeta,
-                isProfiling: true,
-                _qidRefreshRequestId: requestId,
-              }
-            : currentTable
-        )
-      );
-
-      refreshUploadedTableProfile(table._qidProfilingSession, nextColumnMeta)
-        .then(({ columnMeta, qidCombinations, qidSearchMode }) => {
-          setTables((prev) =>
-            prev.map((currentTable) =>
-              currentTable._localTableId === table._localTableId &&
-              currentTable._qidRefreshRequestId === requestId
-                ? {
-                    ...currentTable,
-                    columnMeta,
-                    qidCombinations,
-                    qidSearchMode,
-                    isProfiling: false,
-                  }
-                : currentTable
-            )
-          );
-        })
-        .catch((err) => {
-          setErrors((e) => ({
-            ...e,
-            tables:
-              err.message ||
-              t("datasets.alerts.profilingFailed", "CSV profiling failed."),
-          }));
-          setTables((prev) =>
-            prev.map((currentTable) =>
-              currentTable._localTableId === table._localTableId
-                ? {
-                    ...currentTable,
-                    isProfiling: false,
-                  }
-                : currentTable
-            )
-          );
-        });
-    },
-    [t]
-  );
-
-  // --- Manual Table Handlers ---
 
   const handleAddManualTable = useCallback(() => {
     setTables((prev) => {
@@ -243,10 +148,10 @@ export default function AddDatasetForm() {
   }, [t]);
 
   const handleAddColumn = useCallback(
-    (tableName) => {
+    (tableId) => {
       setTables((prev) =>
         prev.map((table) => {
-          if (table.name !== tableName) return table;
+          if (table._localTableId !== tableId) return table;
 
           const fieldName = getUniqueName(
             (table.columnMeta || []).map((column) => column.field),
@@ -275,37 +180,43 @@ export default function AddDatasetForm() {
   );
 
   const handleDeleteColumn = useCallback(
-    (tableName, fieldName) => {
+    (tableId, columnKey) => {
       const table = tables.find(
-        (currentTable) => currentTable.name === tableName
+        (currentTable) => currentTable._localTableId === tableId
       );
       if (!table) return;
 
-      refreshTableAfterSchemaChange(
-        table,
-        table.columnMeta.filter((column) => column.field !== fieldName)
+      refreshTable(
+        tableId,
+        table.columnMeta.filter(
+          (column) => getColumnIdentity(column) !== columnKey
+        )
       );
     },
-    [refreshTableAfterSchemaChange, tables]
+    [refreshTable, tables]
   );
-
-  // --- Common Handlers ---
 
   const handleRemoveTable = useCallback(
-    (tableName) => {
-      const table = tables.find(
-        (currentTable) => currentTable.name === tableName
+    (tableId) => {
+      disposeTableProfile(tableId);
+      setTables((prev) =>
+        prev.filter((table) => table._localTableId !== tableId)
       );
-      disposeUploadedTableProfile(table?._qidProfilingSession);
-      setTables((prev) => prev.filter((t) => t.name !== tableName));
       setErrors((e) => ({ ...e, tableName: "" }));
     },
-    [tables]
+    [disposeTableProfile]
   );
 
+  /**
+   * Renames the table shown in Add Dataset. The table name is persisted as
+   * metadata only, but duplicate names would make later table/attribute review
+   * ambiguous.
+   */
   const handleTableNameChange = useCallback(
-    (oldName, newName) => {
-      const dup = tables.some((t) => t.name === newName && t.name !== oldName);
+    (tableId, newName) => {
+      const dup = tables.some(
+        (table) => table._localTableId !== tableId && table.name === newName
+      );
       if (dup) {
         setErrors((e) => ({
           ...e,
@@ -316,24 +227,31 @@ export default function AddDatasetForm() {
       }
       setErrors((e) => ({ ...e, tableName: "" }));
       setTables((prev) =>
-        prev.map((t) => (t.name === oldName ? { ...t, name: newName } : t))
+        prev.map((table) =>
+          table._localTableId === tableId ? { ...table, name: newName } : table
+        )
       );
       return true;
     },
     [tables, t]
   );
 
+  /**
+   * Renames an attribute and refreshes the cached profile. Source columns stay
+   * stable so Direct Identifier evidence and QID discovery can be recalculated
+   * without parsing the CSV again.
+   */
   const handleColumnNameChange = useCallback(
-    (tableName, oldField, newField) => {
+    (tableId, columnKey, newField) => {
       const table = tables.find(
-        (currentTable) => currentTable.name === tableName
+        (currentTable) => currentTable._localTableId === tableId
       );
       if (!table) return;
 
-      refreshTableAfterSchemaChange(
-        table,
+      refreshTable(
+        tableId,
         table.columnMeta.map((column) =>
-          column.field === oldField
+          getColumnIdentity(column) === columnKey
             ? {
                 ...column,
                 field: newField,
@@ -342,46 +260,79 @@ export default function AddDatasetForm() {
         )
       );
     },
-    [refreshTableAfterSchemaChange, tables]
+    [refreshTable, tables]
   );
 
-  const handleDataTypeChange = useCallback((tableName, field, newType) => {
+  const handleDataTypeChange = useCallback((tableId, columnKey, newType) => {
     setTables((prev) =>
-      prev.map((t) =>
-        t.name === tableName
+      prev.map((table) =>
+        table._localTableId === tableId
           ? {
-              ...t,
-              columnMeta: t.columnMeta.map((c) =>
-                c.field === field ? { ...c, level: newType } : c
+              ...table,
+              columnMeta: table.columnMeta.map((column) =>
+                getColumnIdentity(column) === columnKey
+                  ? { ...column, level: newType }
+                  : column
               ),
             }
-          : t
+          : table
       )
     );
   }, []);
 
+  /**
+   * Applies the user's QID-candidacy decision. Unchecking an automatically
+   * excluded identifier records an override before refreshing discovery so the
+   * column immediately becomes a QID candidate and is not re-excluded.
+   */
   const handleExcludedChange = useCallback(
-    (tableName, field, excluded) => {
+    (tableId, columnKey, excluded) => {
       const table = tables.find(
-        (currentTable) => currentTable.name === tableName
+        (currentTable) => currentTable._localTableId === tableId
       );
       if (!table) return;
 
-      refreshTableAfterSchemaChange(
-        table,
+      const changedColumn = table.columnMeta.find(
+        (column) => getColumnIdentity(column) === columnKey
+      );
+      const overrideWarning = buildDirectIdentifierOverrideWarning(
+        t,
+        changedColumn,
+        excluded
+      );
+      if (overrideWarning) {
+        setWarnings((current) => ({
+          ...current,
+          directIdentifier: overrideWarning,
+        }));
+      } else if (excluded) {
+        setWarnings((current) => ({
+          ...current,
+          directIdentifier: "",
+        }));
+      }
+
+      refreshTable(
+        tableId,
         table.columnMeta.map((column) =>
-          column.field === field
+          getColumnIdentity(column) === columnKey
             ? {
                 ...column,
                 excluded,
+                directIdentifierExclusionOverridden:
+                  !excluded && isDefaultExcludedIdentifierColumn(column),
               }
             : column
         )
       );
     },
-    [refreshTableAfterSchemaChange, tables]
+    [refreshTable, tables, t]
   );
 
+  /**
+   * Persists aggregate profiling output and the reviewed exclusion decisions.
+   * Raw rows, encoded columns, and combination caches remain browser-local.
+   */
   const handleSubmit = useCallback(
     (e) => {
       e.preventDefault();
@@ -400,11 +351,14 @@ export default function AddDatasetForm() {
         }));
         return;
       }
+      if (!directIdentifierValidation.canSubmit) {
+        setErrors((e) => ({
+          ...e,
+          tables: directIdentifierSubmissionMessage,
+        }));
+        return;
+      }
 
-      // REVIEW(PRIVACY): Participant-level rows are transient browser-local input.
-      // Raw rows and observed values must never be included in Redux, persistence,
-      // API payloads, logs or external requests. Only aggregate statistics are
-      // persisted when the Dataset is created.
       const payloadTables = tables.map(
         ({ name: fileName, columnMeta = [], qidCombinations = [] }) => ({
           name: fileName.replace(/\.csv$/i, ""),
@@ -435,13 +389,28 @@ export default function AddDatasetForm() {
           }));
         });
     },
-    [name, description, sharedUsers, tables, dispatch, token, navigate, t]
+    [
+      name,
+      description,
+      sharedUsers,
+      tables,
+      directIdentifierValidation,
+      directIdentifierSubmissionMessage,
+      dispatch,
+      token,
+      navigate,
+      t,
+    ]
   );
 
   const disableSubmit =
     !name.trim() ||
     !tables.length ||
-    tables.some((table) => table.isParsing || table.isProfiling);
+    tables.some((table) => table.isParsing || table.isProfiling) ||
+    !directIdentifierValidation.canSubmit;
+  const hasReadyTables = tables.some(
+    (table) => !table.isParsing && Array.isArray(table.columnMeta)
+  );
 
   return (
     <RABox py={8}>
@@ -493,21 +462,48 @@ export default function AddDatasetForm() {
           setError={(msg) => setErrors((e) => ({ ...e, tables: msg }))}
         />
 
-        <RABox
-          display="flex"
-          justifyContent="center"
-          alignItems="center"
-          mt={4}
-          gap={2}
-        >
-          <RATypography variant="h6" textAlign="center">
-            {t("datasets.add.dataTablesPreview")}
-          </RATypography>
-        </RABox>
+        {directIdentifierSubmissionMessage && (
+          <RABox
+            sx={{
+              p: 1.5,
+              borderLeft: "4px solid",
+              borderColor: "warning.main",
+              bgcolor: "rgba(251, 140, 0, 0.08)",
+              borderRadius: 1,
+            }}
+          >
+            <RATypography
+              variant="body2"
+              sx={{ whiteSpace: "pre-line", color: "text.primary" }}
+            >
+              {directIdentifierSubmissionMessage}
+            </RATypography>
+          </RABox>
+        )}
+
+        {hasReadyTables && (
+          <>
+            <RABox
+              display="flex"
+              justifyContent="center"
+              alignItems="center"
+              mt={4}
+              gap={2}
+            >
+              <RATypography variant="h6" textAlign="center">
+                {t("datasets.add.dataTablesPreview")}
+              </RATypography>
+            </RABox>
+
+            <RATypography variant="body2" color="secondary" textAlign="center">
+              {t("datasets.add.directIdentifierInstruction")}
+            </RATypography>
+          </>
+        )}
 
         {tables.map((table) => (
           <PreviewTable
-            key={table.name}
+            key={table._localTableId}
             file={table}
             onRemove={handleRemoveTable}
             onTableNameChange={handleTableNameChange}
@@ -530,7 +526,7 @@ export default function AddDatasetForm() {
         </RAButton>
       </RABox>
 
-      {(errors.tables || errors.tableName) && (
+      {(errors.tables || errors.tableName || warnings.directIdentifier) && (
         <RABox
           sx={{
             position: "fixed",
@@ -547,7 +543,11 @@ export default function AddDatasetForm() {
               dismissible
               onClose={() => setErrors((e) => ({ ...e, tables: "" }))}
             >
-              <RATypography variant="body2" color="white">
+              <RATypography
+                variant="body2"
+                color="white"
+                sx={{ whiteSpace: "pre-line" }}
+              >
                 {errors.tables}
               </RATypography>
             </RAAlert>
@@ -560,6 +560,26 @@ export default function AddDatasetForm() {
             >
               <RATypography variant="body2" color="white">
                 {errors.tableName}
+              </RATypography>
+            </RAAlert>
+          )}
+          {warnings.directIdentifier && (
+            <RAAlert
+              color="warning"
+              dismissible
+              onClose={() =>
+                setWarnings((current) => ({
+                  ...current,
+                  directIdentifier: "",
+                }))
+              }
+            >
+              <RATypography
+                variant="body2"
+                color="white"
+                sx={{ whiteSpace: "pre-line" }}
+              >
+                {warnings.directIdentifier}
               </RATypography>
             </RAAlert>
           )}

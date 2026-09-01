@@ -25,20 +25,22 @@ import DataTableHeadCell from "./DataTableHeadCell";
 
 
 function DataTable({
-                     entriesPerPage,
-                     canSearch,
-                     canAdd,
-                     showTotalEntries,
-                     table,
-                     pagination,
-                     isSorted=false,
-                     noEndBorder,
-                     searchColumnKey = "",
-                     searchPlaceholder = "",
-                     onAddClick,
-                     rowProps,
-                     showAllEntries = false,
-                   }) {
+  entriesPerPage,
+  canSearch,
+  canAdd,
+  showTotalEntries,
+  table,
+  pagination,
+  isSorted = false,
+  noEndBorder,
+  searchColumnKey = "",
+  searchPlaceholder = "",
+  onAddClick,
+  rowProps,
+  showAllEntries = false,
+  tableContainerSx,
+  footerSx,
+}) {
 
   const [controller] = useMaterialUIController();
   const { sidenavColor } = controller;
@@ -120,7 +122,7 @@ function DataTable({
   const rowsToRender = showAllEntries ? rows : page;
 
   return (
-    <TableContainer>
+    <TableContainer sx={tableContainerSx}>
       {/* Header: Search and Add Button */}
       <RABox
         display="flex"
@@ -207,6 +209,7 @@ function DataTable({
           justifyContent={{ xs: "flex-start", sm: "space-between" }}
           alignItems={{ xs: "flex-start", sm: "center" }}
           p={!showTotalEntries && pageOptions.length === 1 ? 0 : 3}
+          sx={footerSx}
         >
           {entriesPerPage && (
             <RABox display="flex" alignItems="center" mb={{ xs: 2, sm: 0 }}>
@@ -274,6 +277,8 @@ DataTable.defaultProps = {
   onAddClick: () => {},
   rowProps: undefined,
   showAllEntries: false,
+  tableContainerSx: undefined,
+  footerSx: undefined,
 };
 
 // Typechecking props for the DataTable
@@ -307,6 +312,16 @@ DataTable.propTypes = {
   onAddClick: PropTypes.func,
   rowProps: PropTypes.func,
   showAllEntries: PropTypes.bool,
+  tableContainerSx: PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.func,
+    PropTypes.array,
+  ]),
+  footerSx: PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.func,
+    PropTypes.array,
+  ]),
 };
 
 export default DataTable;

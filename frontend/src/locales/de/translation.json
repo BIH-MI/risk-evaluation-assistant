@@ -90,6 +90,7 @@
     "add": {
       "title": "Neuen Datensatz hinzufügen",
       "dataTablesPreview": "Datentabellen-Vorschau",
+      "directIdentifierInstruction": "Automatisch erkannte direkte Identifikatoren und generische ID-ähnliche Felder werden standardmäßig ausgeschlossen. Bitte prüfen Sie die Attribute und passen Sie die QID-Kandidatur über das entsprechende Kontrollkästchen in der Spalte Ausgeschlossen an. Direkte Identifikatoren sollten in diesem Schritt entfernt werden, bevor Sie fortfahren.",
       "createButton": "Datensatz erstellen",
       "parsing": "Analysiere {{name}}...",
       "newTable": "Neue Tabelle",
@@ -101,6 +102,38 @@
       "dropzoneOr": "— ODER —",
       "addManualTable": "Leere Tabelle manuell hinzufügen",
       "examples": "Beispiele"
+    },
+    "directIdentifiers": {
+      "includedTitle": "Potenzielle direkte Identifikatoren sind noch eingeschlossen:",
+      "includedAction": "Bitte prüfen und schließen Sie diese Attribute aus, bevor Sie fortfahren.",
+      "reviewTitle": "Identifikatorähnliche Felder müssen geprüft werden:",
+      "reviewAction": "Diese Attribute haben mehrdeutige Identifikator-Evidenz; prüfen Sie, ob sie eingeschlossen bleiben sollen.",
+      "potentialIdentifier": "Potenzieller Identifikator",
+      "overrideWarning": "Das Attribut '{{attribute}}' wurde automatisch als wahrscheinlicher direkter Identifikator erkannt.",
+      "overrideGuidance": "Direkte Identifikatoren sollten vor quantitativer QID-Analyse und Datensatzbewertung normalerweise ausgeschlossen werden.",
+      "detectedAs": "Erkannt als: {{concept}}.",
+      "evidence": "Evidenz: {{sources}}.",
+      "concepts": {
+        "PERSON_NAME": "Personenname",
+        "EMAIL": "E-Mail-Adresse",
+        "PHONE": "Telefonnummer",
+        "POSTAL_ADDRESS": "Postadresse",
+        "NATIONAL_IDENTIFIER": "Nationale Kennung",
+        "PASSPORT": "Passnummer",
+        "MEDICAL_RECORD_NUMBER": "Medizinische Aktennummer",
+        "IP_ADDRESS": "IP-Adresse"
+      },
+      "evidenceSources": {
+        "fieldName": "Feldname",
+        "valuePattern": "Wertemuster"
+      }
+    },
+    "longitudinal": {
+      "subjectKeyLabel": "Subjekt-Gruppierungsschlüssel",
+      "subjectKeyNone": "Keine Subjekt-Gruppierung",
+      "subjectKeySuggested": "Vorgeschlagen: {{field}}",
+      "subjectKeyHelper": "Nur auswählen, wenn bestätigt wurde, dass dieses Feld Wiederholungsmessungen gruppiert.",
+      "suggested": "vorgeschlagen"
     }
   },
   "datasetAssessments": {
@@ -115,6 +148,38 @@
       "sensitivity": "Sensibilität",
       "directIdentifier": "Direkter Identifikator",
       "overridden": "Überschrieben"
+    },
+    "previousAssessments": {
+      "label": "Vorherige Bewertung",
+      "placeholder": "Vorherige Bewertung auswählen...",
+      "applyValues": "Anwenden"
+    },
+    "evidence": {
+      "info": "Evidenz",
+      "statisticalEvidence": "Statistische Evidenz",
+      "unavailable": "Nicht verfügbar",
+      "replicabilityUnavailable": "Empirische Replizierbarkeit nicht verfügbar:",
+      "replicabilityEvidence": "Replizierbarkeits-Evidenz",
+      "distinguishabilityEvidence": "Unterscheidbarkeits-Evidenz",
+      "score": "Score",
+      "method": "Methode",
+      "validComparisons": "Gültige Vergleiche",
+      "distinction": "Distinction",
+      "separation": "Separation",
+      "equivalenceClassSize": "Äquiv.-Klassengröße",
+      "minimumShort": "min",
+      "maximumShort": "max",
+      "singletonFraction": "Singleton-Anteil",
+      "minimumEquivalenceClassSize": "Minimale Äquivalenzklassengröße",
+      "medianEquivalenceClassSize": "Mediane Äquivalenzklassengröße",
+      "maximumEquivalenceClassSize": "Maximale Äquivalenzklassengröße",
+      "historicalEvidence": "Historische Evidenz",
+      "previousAssessment": "Vorherige Bewertung",
+      "historicalValue": "Historischer Wert",
+      "scoringSystem": "Bewertungssystem",
+      "incompatibleAssessment": "Anderes Bewertungssystem; nur als Evidenz.",
+      "semantic": "Semantisch",
+      "semanticAvailable": "Evidenz verfügbar"
     },
     "table": {
       "datasetName": "Datensatzname",
@@ -280,6 +345,7 @@
       "datasetAssessmentLabel": "Datensatz-Bewertung",
       "overrideTablesLabel": "Tabellenbewertungen des Datensatzes überschreiben",
       "datasetTablesAssessment": "Datensatz-Tabellenbewertung",
+      "originalValue": "Original: {{value}}",
       "updateButton": "Aktivität aktualisieren",
       "createButton": "Aktivität erstellen",
       "nameRequired": "Name erforderlich.",

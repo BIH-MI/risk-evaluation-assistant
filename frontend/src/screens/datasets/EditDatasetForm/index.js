@@ -23,15 +23,21 @@ import RAAlert from "../../../components/feedback/RAAlert";
 
 import { useUsersApi } from "../../../api/users";
 import { useDatasetFormTableConfig } from "./useDatasetFormTableConfig";
+import { buildEditDatasetPayload } from "./buildEditDatasetPayload";
 import {
   fetchDatasets,
   updateDataset,
 } from "../../../store/datasets/datasetsThunks";
 import { useActiveLock } from "../../../hooks/locks/useActiveLock";
 import {
-  toDatasetAttributePayload,
-  toDatasetQidCombinationPayload,
-} from "qidDiscovery/payload";
+  applyDirectIdentifierEvidenceDefaults,
+  applySchemaDirectIdentifierEvidence,
+  buildDirectIdentifierOverrideWarning,
+  buildDirectIdentifierReviewMessage,
+  buildDirectIdentifierSubmissionMessage,
+  isDefaultExcludedIdentifierColumn,
+  validateDirectIdentifierExclusions,
+} from "qidDiscovery/directIdentifierPolicy";
 
 export default function EditDatasetForm() {
   const theme = useTheme();
@@ -52,8 +58,10 @@ export default function EditDatasetForm() {
   const [errors, setErrors] = useState({
     name: "",
     description: "",
+    tables: "",
     tableName: "",
   });
+  const [warnings, setWarnings] = useState({ directIdentifier: "" });
   const [sharedUsernames, setSharedUsernames] = useState([]);
   const [sharedUsers, setSharedUsers] = useState([]);
 
@@ -84,6 +92,26 @@ export default function EditDatasetForm() {
     () => allDatasets.find((d) => String(d.id) === datasetId),
     [allDatasets, datasetId]
   );
+  const directIdentifierValidation = useMemo(
+    () => validateDirectIdentifierExclusions(tables),
+    [tables]
+  );
+  const directIdentifierSubmissionMessage = useMemo(
+    () => buildDirectIdentifierSubmissionMessage(t, directIdentifierValidation),
+    [directIdentifierValidation, t]
+  );
+  const directIdentifierReviewMessage = useMemo(
+    () => buildDirectIdentifierReviewMessage(t, directIdentifierValidation),
+    [directIdentifierValidation, t]
+  );
+
+  const attachSchemaDirectIdentifierEvidence = useCallback(
+    (attribute) =>
+      attribute.directIdentifierEvidence
+        ? applyDirectIdentifierEvidenceDefaults(attribute)
+        : applySchemaDirectIdentifierEvidence(attribute),
+    []
+  );
 
   useEffect(() => {
     if (!dataset) return;
@@ -94,7 +122,14 @@ export default function EditDatasetForm() {
 
     setName(dataset.name || "");
     setDescription(dataset.description || "");
-    setTables(dataset.tables || []);
+    setTables(
+      (dataset.tables || []).map((table) => ({
+        ...table,
+        attributes: (table.attributes || []).map(
+          attachSchemaDirectIdentifierEvidence
+        ),
+      }))
+    );
 
     const initialUsernames = dataset.sharedUsernames || [];
     setSharedUsernames(initialUsernames);
@@ -109,7 +144,7 @@ export default function EditDatasetForm() {
 
     formInitialized.current = true;
     initializedId.current = dataset.id;
-  }, [dataset, fetchUsersByUsernames]);
+  }, [attachSchemaDirectIdentifierEvidence, dataset, fetchUsersByUsernames]);
 
   // --- Handlers ---
   const handleSharedChange = useCallback((users) => {
@@ -118,10 +153,16 @@ export default function EditDatasetForm() {
     setSharedUsernames(list.map((u) => u.username));
   }, []);
 
+  /**
+   * Renames a persisted table in form state. Duplicate names are blocked here
+   * because table names are used as reviewer-facing context during assessment.
+   */
   const handleTableNameChange = useCallback(
     (tableId, newName) => {
-      const dup = tables.some((t) => t.id !== tableId && t.name === newName);
-      if (dup) {
+      const duplicateName = tables.some(
+        (table) => table.id !== tableId && table.name === newName
+      );
+      if (duplicateName) {
         setErrors((e) => ({
           ...e,
           tableName: t("datasets.alerts.duplicateTable", { name: newName }),
@@ -130,8 +171,8 @@ export default function EditDatasetForm() {
       }
       setErrors((e) => ({ ...e, tableName: "" }));
       setTables((prev) =>
-        prev.map((tbl) =>
-          tbl.id === tableId ? { ...tbl, name: newName } : tbl
+        prev.map((table) =>
+          table.id === tableId ? { ...table, name: newName } : table
         )
       );
       return true;
@@ -140,9 +181,94 @@ export default function EditDatasetForm() {
   );
 
   const handleRemoveTable = useCallback((tableId) => {
-    setTables((prev) => prev.filter((t) => t.id !== tableId));
+    setTables((prev) => prev.filter((table) => table.id !== tableId));
   }, []);
 
+  /**
+   * Renames an attribute and refreshes schema-only Direct Identifier evidence.
+   * Edit Dataset has no raw CSV session, so persisted value-pattern evidence is
+   * preserved and only name-derived evidence is recalculated when applicable.
+   */
+  const handleAttributeNameChange = useCallback((table, attribute, name) => {
+    setTables((prev) =>
+      prev.map((currentTable) =>
+        currentTable.id === table.id
+          ? {
+              ...currentTable,
+              attributes: currentTable.attributes.map((currentAttribute) => {
+                if (currentAttribute.id !== attribute.id) {
+                  return currentAttribute;
+                }
+
+                const renamedAttribute = {
+                  ...currentAttribute,
+                  name,
+                };
+
+                return !currentAttribute.directIdentifierEvidence ||
+                  currentAttribute.directIdentifierEvidence.schemaOnly
+                  ? applySchemaDirectIdentifierEvidence(renamedAttribute, name)
+                  : renamedAttribute;
+              }),
+            }
+          : currentTable
+      )
+    );
+  }, []);
+
+  /**
+   * Applies the user's QID-candidacy decision for an existing attribute.
+   * Unchecking a default-excluded identifier records an override so future
+   * schema-only refreshes do not silently re-exclude it.
+   */
+  const handleExcludedChange = useCallback(
+    (table, attribute, excluded) => {
+      const overrideWarning = buildDirectIdentifierOverrideWarning(
+        t,
+        attribute,
+        excluded
+      );
+      if (overrideWarning) {
+        setWarnings((current) => ({
+          ...current,
+          directIdentifier: overrideWarning,
+        }));
+      } else if (excluded) {
+        setWarnings((current) => ({
+          ...current,
+          directIdentifier: "",
+        }));
+      }
+
+      setTables((prev) =>
+        prev.map((currentTable) =>
+          currentTable.id === table.id
+            ? {
+                ...currentTable,
+                attributes: currentTable.attributes.map((currentAttribute) =>
+                  currentAttribute.id === attribute.id
+                    ? {
+                        ...currentAttribute,
+                        excluded,
+                        directIdentifierExclusionOverridden:
+                          !excluded &&
+                          isDefaultExcludedIdentifierColumn(currentAttribute),
+                      }
+                    : currentAttribute
+                ),
+              }
+            : currentTable
+        )
+      );
+    },
+    [t]
+  );
+
+  /**
+   * Saves the reviewed schema and aggregate QID metadata. Edit Dataset never
+   * reconstructs raw rows, so obsolete combinations are filtered by included
+   * attributes before the payload is sent.
+   */
   const handleSubmit = useCallback(
     async (e) => {
       e.preventDefault();
@@ -151,51 +277,21 @@ export default function EditDatasetForm() {
         setLockError(t("datasets.alerts.lockLost"));
         return;
       }
+      if (!directIdentifierValidation.canSubmit) {
+        setErrors((current) => ({
+          ...current,
+          tables: directIdentifierSubmissionMessage,
+        }));
+        return;
+      }
 
       setIsSubmitting(true);
 
-      const payload = {
-        name: name.trim(),
-        description: description.trim(),
+      const payload = buildEditDatasetPayload(tables, {
+        name,
+        description,
         sharedUsernames,
-        tables: tables.map((tbl) => {
-          const includedAttributeIds = new Set(
-            tbl.attributes
-              .filter((attribute) => !Boolean(attribute.excluded))
-              .map((attribute) => attribute.id)
-              .filter(
-                (id) =>
-                  id !== null && id !== undefined && typeof id !== "string"
-              )
-              .map(String)
-          );
-          const includedAttributeNames = new Set(
-            tbl.attributes
-              .filter((attribute) => !Boolean(attribute.excluded))
-              .map((attribute) => attribute.name)
-          );
-
-          return {
-            id: tbl.id,
-            name: tbl.name,
-            attributes: tbl.attributes.map(toDatasetAttributePayload),
-            qidCombinations: (tbl.qidCombinations || [])
-              .filter((combination) => {
-                if (combination.attributeIds?.length) {
-                  return combination.attributeIds.every((attributeId) =>
-                    includedAttributeIds.has(String(attributeId))
-                  );
-                }
-
-                const attributeNames = combination.attributeNames || [];
-                return attributeNames.length > 0 && attributeNames.every(
-                  (attributeName) => includedAttributeNames.has(attributeName)
-                );
-              })
-              .map(toDatasetQidCombinationPayload),
-          };
-        }),
-      };
+      });
 
       try {
         await dispatch(
@@ -215,6 +311,8 @@ export default function EditDatasetForm() {
       sharedUsernames,
       tables,
       hasLock,
+      directIdentifierValidation,
+      directIdentifierSubmissionMessage,
       dispatch,
       token,
       navigate,
@@ -222,12 +320,15 @@ export default function EditDatasetForm() {
     ]
   );
 
-  const { columnsByTable, addAttr } = useDatasetFormTableConfig(
+  const { columnsByTable, addAttr } = useDatasetFormTableConfig({
     tables,
     setTables,
-    isReadOnly,
-    t
-  );
+    disabled: isReadOnly,
+    t,
+    onExcludedChange: handleExcludedChange,
+    onAttributeNameChange: handleAttributeNameChange,
+  });
+  const disableSubmit = isReadOnly || !directIdentifierValidation.canSubmit;
 
   return (
     <>
@@ -272,14 +373,52 @@ export default function EditDatasetForm() {
             disabled={isReadOnly}
           />
 
+          {directIdentifierSubmissionMessage && (
+            <RABox
+              sx={{
+                p: 1.5,
+                borderLeft: "4px solid",
+                borderColor: "warning.main",
+                bgcolor: "rgba(251, 140, 0, 0.08)",
+                borderRadius: 1,
+              }}
+            >
+              <RATypography
+                variant="body2"
+                sx={{ whiteSpace: "pre-line", color: "text.primary" }}
+              >
+                {directIdentifierSubmissionMessage}
+              </RATypography>
+            </RABox>
+          )}
+
+          {directIdentifierReviewMessage && (
+            <RABox
+              sx={{
+                p: 1.5,
+                borderLeft: "4px solid",
+                borderColor: "info.main",
+                bgcolor: "rgba(3, 169, 244, 0.08)",
+                borderRadius: 1,
+              }}
+            >
+              <RATypography
+                variant="body2"
+                sx={{ whiteSpace: "pre-line", color: "text.primary" }}
+              >
+                {directIdentifierReviewMessage}
+              </RATypography>
+            </RABox>
+          )}
+
           <RABox mt={6}>
             {tables.length > 0 && (
               <RATypography variant="h6" mb={2} textAlign="center">
                 {t("datasets.form.datasetTables")}
               </RATypography>
             )}
-            {tables.map((tbl) => (
-              <RABox key={tbl.id} mb={4}>
+            {tables.map((table) => (
+              <RABox key={table.id} mb={4}>
                 <RABox
                   display="flex"
                   justifyContent="space-between"
@@ -288,9 +427,9 @@ export default function EditDatasetForm() {
                 >
                   <OnBlurRAInput
                     label={t("datasets.form.tableName")}
-                    value={tbl.name}
+                    value={table.name}
                     onCommit={(newName) =>
-                      handleTableNameChange(tbl.id, newName)
+                      handleTableNameChange(table.id, newName)
                     }
                     variant="standard"
                     sx={{ maxWidth: 300 }}
@@ -299,7 +438,7 @@ export default function EditDatasetForm() {
 
                   <IconButton
                     size="small"
-                    onClick={() => handleRemoveTable(tbl.id)}
+                    onClick={() => handleRemoveTable(table.id)}
                     disabled={isReadOnly}
                     sx={{
                       bgcolor: "error.main",
@@ -315,14 +454,14 @@ export default function EditDatasetForm() {
 
                 <DataTable
                   table={{
-                    columns: columnsByTable[tbl.id],
-                    rows: tbl.attributes,
+                    columns: columnsByTable[table.id],
+                    rows: table.attributes,
                   }}
                   canSearch
                   searchColumnKey="name"
                   searchPlaceholder={t("datasets.form.searchAttributes")}
                   pagination={{ enabled: true }}
-                  onAddRow={() => addAttr(tbl.id)}
+                  onAddRow={() => addAttr(table.id)}
                 />
               </RABox>
             ))}
@@ -331,7 +470,7 @@ export default function EditDatasetForm() {
           <RAButton
             type="submit"
             sx={{ alignSelf: "center", mt: 2 }}
-            disabled={isReadOnly}
+            disabled={disableSubmit}
           >
             {isSubmitting
               ? t("datasets.form.saving")
@@ -339,7 +478,7 @@ export default function EditDatasetForm() {
           </RAButton>
         </RABox>
 
-        {errors.tableName && (
+        {(errors.tables || errors.tableName || warnings.directIdentifier) && (
           <RABox
             sx={{
               position: "fixed",
@@ -349,7 +488,52 @@ export default function EditDatasetForm() {
               zIndex: theme.zIndex.snackbar,
             }}
           >
-            <RATypography color="error">{errors.tableName}</RATypography>
+            {errors.tables && (
+              <RAAlert
+                color="error"
+                dismissible
+                onClose={() => setErrors((e) => ({ ...e, tables: "" }))}
+              >
+                <RATypography
+                  variant="body2"
+                  color="white"
+                  sx={{ whiteSpace: "pre-line" }}
+                >
+                  {errors.tables}
+                </RATypography>
+              </RAAlert>
+            )}
+            {errors.tableName && (
+              <RAAlert
+                color="error"
+                dismissible
+                onClose={() => setErrors((e) => ({ ...e, tableName: "" }))}
+              >
+                <RATypography variant="body2" color="white">
+                  {errors.tableName}
+                </RATypography>
+              </RAAlert>
+            )}
+            {warnings.directIdentifier && (
+              <RAAlert
+                color="warning"
+                dismissible
+                onClose={() =>
+                  setWarnings((current) => ({
+                    ...current,
+                    directIdentifier: "",
+                  }))
+                }
+              >
+                <RATypography
+                  variant="body2"
+                  color="white"
+                  sx={{ whiteSpace: "pre-line" }}
+                >
+                  {warnings.directIdentifier}
+                </RATypography>
+              </RAAlert>
+            )}
           </RABox>
         )}
       </RABox>

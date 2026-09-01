@@ -44,7 +44,7 @@ public class DatasetTableAttribute {
     @Column(name = "is_excluded", nullable = false)
     private boolean excluded = false;
 
-    // REVIEW(METHOD): These fields contain descriptive statistics calculated
+    // These fields contain descriptive statistics calculated
     // locally during dataset definition. They provide quantitative evidence for
     // later risk assessment but are not final QID classifications.
     @Column(name = "record_count")
@@ -88,6 +88,24 @@ public class DatasetTableAttribute {
 
     @Column(name = "separation")
     private Double separation;
+
+    // Empirical Replicability evidence from repeated-measurement analysis
+    // during dataset creation. Null when no subject key was selected or the
+    // attribute's datatype is not yet supported by the empirical method.
+    @Column(name = "replicability_available")
+    private Boolean replicabilityAvailable;
+
+    @Column(name = "replicability_score")
+    private Double replicabilityScore;
+
+    @Column(name = "replicability_comparison_count")
+    private Long replicabilityComparisonCount;
+
+    @Column(name = "replicability_method")
+    private String replicabilityMethod;
+
+    @Column(name = "replicability_unavailable_reason")
+    private String replicabilityUnavailableReason;
 
     /**
      * Required by JPA.

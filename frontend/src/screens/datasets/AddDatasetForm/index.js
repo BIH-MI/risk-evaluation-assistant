@@ -1,5 +1,5 @@
 // src/screens/datasets/AddDatasetForm/index.js
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { useAuth } from "react-oidc-context";
@@ -11,11 +11,15 @@ import OnBlurRAInput from "components/input/RAInput/OnBlurRAInput";
 import RAUserAutocomplete from "components/input/RAUserAutocomplete";
 import RAButton from "components/input/RAButton";
 import RAAlert from "components/feedback/RAAlert";
+import RAInput from "components/input/RAInput";
+import { MenuItem } from "@mui/material";
 
 import { CSVDropzone } from "utils/CSVDropzone";
 import { PreviewTable } from "./PreviewTable";
 import { useDatasetTableProfiling } from "./useDatasetTableProfiling";
 import { addDataset } from "store/datasets/datasetsThunks";
+import { fetchQidDiscoveryConfigurationsApi } from "api/qidDiscoveryConfigurations";
+import { getQidSearchTypeLabel } from "qidDiscovery/configuration/searchTypeLabels";
 import {
   toDatasetAttributePayload,
   toDatasetQidCombinationPayload,
@@ -62,6 +66,11 @@ export default function AddDatasetForm() {
   const [tables, setTables] = useState([]);
   const [errors, setErrors] = useState({ tables: "", tableName: "" });
   const [warnings, setWarnings] = useState({ directIdentifier: "" });
+  const [qidDiscoveryConfigurations, setQidDiscoveryConfigurations] = useState([]);
+  const [selectedQidDiscoveryConfigurationId, setSelectedQidDiscoveryConfigurationId] =
+    useState("");
+  const [qidConfigurationsLoading, setQidConfigurationsLoading] =
+    useState(false);
 
   const directIdentifierValidation = useMemo(
     () => validateDirectIdentifierExclusions(tables),
@@ -70,6 +79,14 @@ export default function AddDatasetForm() {
   const directIdentifierSubmissionMessage = useMemo(
     () => buildDirectIdentifierSubmissionMessage(t, directIdentifierValidation),
     [directIdentifierValidation, t]
+  );
+  const selectedQidDiscoveryConfiguration = useMemo(
+    () =>
+      qidDiscoveryConfigurations.find(
+        (configuration) =>
+          String(configuration.id) === String(selectedQidDiscoveryConfigurationId)
+      ) || null,
+    [qidDiscoveryConfigurations, selectedQidDiscoveryConfigurationId]
   );
 
   const { profileTable, refreshTable, disposeTableProfile } =
@@ -80,8 +97,67 @@ export default function AddDatasetForm() {
       t,
     });
 
+  useEffect(() => {
+    if (!token) return undefined;
+
+    let mounted = true;
+    const loadQidConfigurations = async () => {
+      setQidConfigurationsLoading(true);
+      try {
+        const data = await fetchQidDiscoveryConfigurationsApi(token, {
+          activeOnly: true,
+        });
+        if (!mounted) return;
+
+        const activeConfigurations = Array.isArray(data) ? data : [];
+        setQidDiscoveryConfigurations(activeConfigurations);
+        setSelectedQidDiscoveryConfigurationId((current) => {
+          if (
+            current &&
+            activeConfigurations.some(
+              (configuration) => String(configuration.id) === String(current)
+            )
+          ) {
+            return current;
+          }
+
+          const defaultConfiguration =
+            activeConfigurations.find(
+              (configuration) => configuration.defaultConfiguration
+            ) || activeConfigurations[0];
+          return defaultConfiguration ? String(defaultConfiguration.id) : "";
+        });
+      } catch (error) {
+        if (mounted) {
+          setErrors((current) => ({
+            ...current,
+            tables:
+              error.message ||
+              "Failed to load QID discovery configurations.",
+          }));
+        }
+      } finally {
+        if (mounted) setQidConfigurationsLoading(false);
+      }
+    };
+
+    loadQidConfigurations();
+
+    return () => {
+      mounted = false;
+    };
+  }, [token]);
+
   const handleAddTable = useCallback(
     (file) => {
+      if (!selectedQidDiscoveryConfiguration) {
+        setErrors((e) => ({
+          ...e,
+          tables: "Select an active QID Discovery Configuration before profiling.",
+        }));
+        return false;
+      }
+
       if (tables.some((table) => table.name === file.name)) {
         setErrors((e) => ({
           ...e,
@@ -113,14 +189,14 @@ export default function AddDatasetForm() {
       });
       return localTableId;
     },
-    [tables, t]
+    [selectedQidDiscoveryConfiguration, tables, t]
   );
 
   const handleTableParse = useCallback(
     (file, tableId) => {
-      profileTable(file, tableId);
+      profileTable(file, tableId, selectedQidDiscoveryConfiguration);
     },
-    [profileTable]
+    [profileTable, selectedQidDiscoveryConfiguration]
   );
 
   const handleAddManualTable = useCallback(() => {
@@ -337,6 +413,13 @@ export default function AddDatasetForm() {
     (e) => {
       e.preventDefault();
       if (!name.trim()) return;
+      if (!selectedQidDiscoveryConfiguration) {
+        setErrors((e) => ({
+          ...e,
+          tables: "Select an active QID Discovery Configuration before creating a dataset.",
+        }));
+        return;
+      }
       if (!tables.length) {
         setErrors((e) => ({ ...e, tables: t("datasets.alerts.noTables") }));
         return;
@@ -372,6 +455,10 @@ export default function AddDatasetForm() {
           newDataset: {
             name: name.trim(),
             description: description.trim(),
+            qidDiscoveryConfigurationId:
+              selectedQidDiscoveryConfiguration.id,
+            qidDiscoveryConfigurationVersionId:
+              selectedQidDiscoveryConfiguration.versionId,
             sharedUsernames: sharedUsers.map((u) => u.username),
             tables: payloadTables,
           },
@@ -393,6 +480,7 @@ export default function AddDatasetForm() {
       name,
       description,
       sharedUsers,
+      selectedQidDiscoveryConfiguration,
       tables,
       directIdentifierValidation,
       directIdentifierSubmissionMessage,
@@ -405,6 +493,7 @@ export default function AddDatasetForm() {
 
   const disableSubmit =
     !name.trim() ||
+    !selectedQidDiscoveryConfiguration ||
     !tables.length ||
     tables.some((table) => table.isParsing || table.isProfiling) ||
     !directIdentifierValidation.canSubmit;
@@ -453,6 +542,30 @@ export default function AddDatasetForm() {
           onChange={(_e, newUsers) => setSharedUsers(newUsers || [])}
           placeholder={t("datasets.form.searchUsersPlaceholder")}
         />
+
+        <RAInput
+          select
+          label="QID Discovery Configuration"
+          value={selectedQidDiscoveryConfigurationId}
+          onChange={(event) =>
+            setSelectedQidDiscoveryConfigurationId(event.target.value)
+          }
+          fullWidth
+          disabled={qidConfigurationsLoading || tables.length > 0}
+        >
+          {qidDiscoveryConfigurations.map((configuration) => (
+            <MenuItem key={configuration.id} value={String(configuration.id)}>
+              <RABox display="flex" flexDirection="column">
+                <RATypography variant="button">
+                  {configuration.name}
+                </RATypography>
+                <RATypography variant="caption" color="text">
+                  {getQidSearchTypeLabel(configuration.search?.searchType)}
+                </RATypography>
+              </RABox>
+            </MenuItem>
+          ))}
+        </RAInput>
 
         <CSVDropzone
           onParse={handleTableParse}

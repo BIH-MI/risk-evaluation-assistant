@@ -18,8 +18,11 @@
     "addRecipientAssessment": "Empfänger-Bewertung hinzufügen",
     "editRecipientAssessment": "Empfänger-Bewertung bearbeiten",
     "dataSharingActivities": "Datenfreigabe-Aktivitäten",
+    "configuration": "Konfiguration",
     "configurations": "Konfigurationen",
-    "attributeScoringSystems": "Bewertungssysteme",
+    "assessment": "Assessment",
+    "attributeScoringSystems": "Attributsystem",
+    "qidDiscovery": "QID Discovery",
     "documentation": "Dokumentation"
   },
   "configurator": {

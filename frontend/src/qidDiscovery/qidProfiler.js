@@ -7,12 +7,12 @@ import {
 } from "./profiling/profilingSource";
 import { runBeamSearch } from "./search/beamSearch";
 import { CombinationCache } from "./search/combinationCache";
+import { resolveQidSearchMode } from "./configuration/resolveQidSearchMode";
+import { validateQidDiscoverySearchConfiguration } from "./configuration/validateQidDiscoverySearchConfiguration";
 import { runExactLevelWiseSearch } from "./search/exactLevelWiseSearch";
 import {
   compareSearchResults,
-  DEFAULT_QID_DISCOVERY_OPTIONS,
   isTargetSatisfied,
-  mergeQidDiscoveryOptions,
 } from "./search/ranking";
 
 export const CSV_PREVIEW_ROW_LIMIT = 10000;
@@ -77,15 +77,16 @@ export function selectPersistedCombinations(evaluatedResults, options) {
 
 /**
  * Runs QID discovery over already-prepared candidates. Identifier/exclusion
- * policy is intentionally not repeated here; this function only chooses Exact
- * Level-Wise search for small candidate sets or Beam search for larger ones.
+ * policy is intentionally not repeated here; exact-vs-beam selection is
+ * delegated to resolveQidSearchMode().
  */
 export function discoverQidCombinations(
   candidateColumns,
   profilingSource,
-  options = {}
+  searchConfiguration
 ) {
-  const mergedOptions = mergeQidDiscoveryOptions(options);
+  const validatedConfiguration =
+    validateQidDiscoverySearchConfiguration(searchConfiguration);
 
   if (
     candidateColumns.length < 2 ||
@@ -100,20 +101,28 @@ export function discoverQidCombinations(
   }
 
   const combinationCache = getCombinationCache(profilingSource);
+  const mode = resolveQidSearchMode(
+    candidateColumns.length,
+    validatedConfiguration
+  );
   const search =
-    candidateColumns.length <= mergedOptions.exactSearchMaxCandidateCount
+    mode === "exact"
       ? runExactLevelWiseSearch(
           candidateColumns,
-          mergedOptions,
+          validatedConfiguration,
           combinationCache
         )
-      : runBeamSearch(candidateColumns, mergedOptions, combinationCache);
+      : runBeamSearch(
+          candidateColumns,
+          validatedConfiguration,
+          combinationCache
+        );
 
   return {
     mode: search.mode,
     qidCombinations: selectPersistedCombinations(
       search.evaluatedResults,
-      mergedOptions
+      validatedConfiguration
     ),
     evaluatedResults: search.evaluatedResults,
     trace: search.trace,
@@ -142,11 +151,16 @@ export function profileTableFromSource(
   }
 
   if (Object.prototype.hasOwnProperty.call(options, "subjectKeySourceField")) {
-    updateSubjectKeySourceField(profilingSource, options.subjectKeySourceField);
+    updateSubjectKeySourceField(
+      profilingSource,
+      options.subjectKeySourceField,
+      options
+    );
   } else {
     updateSubjectKeySourceField(
       profilingSource,
-      profilingSource.subjectKeySourceField
+      profilingSource.subjectKeySourceField,
+      options
     );
   }
 
@@ -162,7 +176,7 @@ export function profileTableFromSource(
   const { mode, qidCombinations } = discoverQidCombinations(
     candidateColumns,
     profilingSource,
-    options
+    options.qidDiscoverySearchConfiguration || options.searchConfiguration
   );
 
   return {
@@ -190,7 +204,6 @@ export function profileTableRows(rows = [], columnMeta = [], options = {}) {
   };
 }
 
-export { DEFAULT_QID_DISCOVERY_OPTIONS };
 export {
   applyStatistics,
   buildCandidateColumns,

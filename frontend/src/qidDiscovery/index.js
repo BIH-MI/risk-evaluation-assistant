@@ -14,3 +14,8 @@ export {
   CombinationCache,
   createCombinationKey,
 } from "./search/combinationCache";
+export { resolveQidSearchMode } from "./configuration/resolveQidSearchMode";
+export {
+  QID_SEARCH_TYPES,
+  validateQidDiscoverySearchConfiguration,
+} from "./configuration/validateQidDiscoverySearchConfiguration";

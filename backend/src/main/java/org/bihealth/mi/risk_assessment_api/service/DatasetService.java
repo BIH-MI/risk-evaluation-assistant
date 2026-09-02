@@ -4,6 +4,7 @@ import org.bihealth.mi.risk_assessment_api.dto.request.dataset.*;
 import org.bihealth.mi.risk_assessment_api.dto.response.dataset.DatasetResponseDTO;
 import org.bihealth.mi.risk_assessment_api.enums.DataType;
 import org.bihealth.mi.risk_assessment_api.model.dataset.*;
+import org.bihealth.mi.risk_assessment_api.model.qid.QidDiscoveryConfigurationVersion;
 import org.bihealth.mi.risk_assessment_api.repository.dataset.DatasetRepository;
 import org.bihealth.mi.risk_assessment_api.repository.locks.EntityLockRepository;
 import org.springframework.stereotype.Service;
@@ -28,12 +29,19 @@ public class DatasetService {
     // Used to clear stale UI edit locks before deleting a dataset.
     private final EntityLockRepository lockRepository;
 
+    private final QidDiscoveryConfigurationService qidDiscoveryConfigurationService;
+
     /**
      * Creates the service with repositories for datasets and edit locks.
      */
-    public DatasetService(DatasetRepository datasetRepository, EntityLockRepository lockRepository) {
+    public DatasetService(
+            DatasetRepository datasetRepository,
+            EntityLockRepository lockRepository,
+            QidDiscoveryConfigurationService qidDiscoveryConfigurationService
+    ) {
         this.datasetRepository = datasetRepository;
         this.lockRepository = lockRepository;
+        this.qidDiscoveryConfigurationService = qidDiscoveryConfigurationService;
     }
 
     /**
@@ -61,6 +69,7 @@ public class DatasetService {
      */
     public DatasetResponseDTO addDataset(DatasetRequestDTO dto, String username) {
         Dataset ds = dto.toEntity(username);
+        applyQidDiscoveryConfiguration(ds, dto, true);
         Dataset saved = datasetRepository.save(ds);
         return new DatasetResponseDTO(saved);
     }
@@ -85,6 +94,7 @@ public class DatasetService {
 
         existing.setName(dto.getName());
         existing.setDescription(dto.getDescription());
+        applyQidDiscoveryConfiguration(existing, dto, false);
 
         List<String> incomingUsernames = dto.getSharedUsernames() != null ? dto.getSharedUsernames() : Collections.emptyList();
         existing.getSharedUsernames().clear();
@@ -154,6 +164,25 @@ public class DatasetService {
 
         Dataset saved = datasetRepository.save(existing);
         return new DatasetResponseDTO(saved);
+    }
+
+    private void applyQidDiscoveryConfiguration(
+            Dataset dataset,
+            DatasetRequestDTO dto,
+            boolean useDefaultWhenMissing
+    ) {
+        if (dto.getQidDiscoveryConfigurationId() == null
+                && dto.getQidDiscoveryConfigurationVersionId() == null
+                && !useDefaultWhenMissing) {
+            return;
+        }
+
+        QidDiscoveryConfigurationVersion version = qidDiscoveryConfigurationService.getSelectedVersion(
+                dto.getQidDiscoveryConfigurationId(),
+                dto.getQidDiscoveryConfigurationVersionId()
+        );
+        dataset.setQidDiscoveryConfiguration(version.getConfiguration());
+        dataset.setQidDiscoveryConfigurationVersion(version);
     }
 
     /**

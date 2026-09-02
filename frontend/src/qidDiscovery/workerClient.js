@@ -5,7 +5,6 @@ import {
   profileTableFromSource,
   profileTableRows,
 } from "./qidProfiler";
-import { DEFAULT_QID_DISCOVERY_OPTIONS } from "./search/ranking";
 
 let qidWorker = null;
 let qidWorkerUnavailable = false;
@@ -89,10 +88,15 @@ function postQidWorkerMessage(type, payload) {
   });
 }
 
-async function profileTableSynchronously(file, previewRowLimit, searchOptions) {
+async function profileTableSynchronously(
+  file,
+  previewRowLimit,
+  qidDiscoveryConfiguration,
+  qidOptions
+) {
   const { rows, fields } = await parseCsvFile(file);
   const columnMeta = createColumnMetaFromFields(fields);
-  const profile = profileTableRows(rows, columnMeta, searchOptions);
+  const profile = profileTableRows(rows, columnMeta, qidOptions);
 
   return {
     name: file.name,
@@ -108,7 +112,9 @@ async function profileTableSynchronously(file, previewRowLimit, searchOptions) {
     profilingSession: {
       type: "sync",
       source: profile.profilingSource,
+      qidDiscoveryConfiguration,
     },
+    qidDiscoveryConfiguration,
     qidProcessingMode: "sync",
   };
 }
@@ -124,11 +130,16 @@ async function profileTableSynchronously(file, previewRowLimit, searchOptions) {
 export async function profileUploadedTable(file, options = {}) {
   const {
     previewRowLimit = CSV_PREVIEW_ROW_LIMIT,
-    searchOptions = DEFAULT_QID_DISCOVERY_OPTIONS,
+    qidDiscoveryConfiguration,
     subjectKeySourceField = null,
   } = options;
+
+  if (!qidDiscoveryConfiguration?.search) {
+    throw new Error("QID Discovery Configuration must be selected.");
+  }
+
   const qidOptions = {
-    ...searchOptions,
+    qidDiscoverySearchConfiguration: qidDiscoveryConfiguration.search,
     subjectKeySourceField,
   };
   const worker = getQidWorker();
@@ -137,6 +148,7 @@ export async function profileUploadedTable(file, options = {}) {
     const profile = await postQidWorkerMessage("PROFILE_TABLE", {
       file,
       previewRowLimit,
+      qidDiscoveryConfiguration,
       options: qidOptions,
     });
 
@@ -146,7 +158,12 @@ export async function profileUploadedTable(file, options = {}) {
     };
   }
 
-  return profileTableSynchronously(file, previewRowLimit, qidOptions);
+  return profileTableSynchronously(
+    file,
+    previewRowLimit,
+    qidDiscoveryConfiguration,
+    qidOptions
+  );
 }
 
 /**
@@ -160,11 +177,16 @@ export async function refreshUploadedTableProfile(
   options = {}
 ) {
   const {
-    searchOptions = DEFAULT_QID_DISCOVERY_OPTIONS,
+    qidDiscoveryConfiguration = profilingSession?.qidDiscoveryConfiguration,
     subjectKeySourceField,
   } = options;
+
+  if (!qidDiscoveryConfiguration?.search) {
+    throw new Error("QID Discovery Configuration must be selected.");
+  }
+
   const qidOptions = {
-    ...searchOptions,
+    qidDiscoverySearchConfiguration: qidDiscoveryConfiguration.search,
   };
 
   if (Object.prototype.hasOwnProperty.call(options, "subjectKeySourceField")) {

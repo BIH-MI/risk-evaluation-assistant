@@ -39,6 +39,8 @@ import ConfigurationPage from "./screens/configurations";
 import AddEditConfigurationForm from "./screens/configurations/AddEditConfigurationForm";
 import AttributeScoringSystems from "./screens/attributeScoringSystems";
 import AddEditAttributeScoringSystem from "./screens/attributeScoringSystems/AddEditAttributeScoringSystem";
+import QidDiscoveryConfiguration from "./screens/qidDiscoveryConfiguration";
+import AddEditQidDiscoveryConfiguration from "./screens/qidDiscoveryConfiguration/AddEditQidDiscoveryConfiguration";
 
 const routes = [
   {
@@ -179,14 +181,22 @@ const routes = [
   {
     type: "divider",
     key: "divider-config",
+    adminOnly: true,
+  },
+  {
+    type: "title",
+    title: "navigation.configuration",
+    key: "configuration-title",
+    adminOnly: true,
   },
   {
     type: "collapse",
-    name: "navigation.configurations",
-    key: "configuration",
-    route: "/configuration",
-    icon: <Icon fontSize="small">settings</Icon>,
-    component: <ConfigurationPage />,
+    name: "navigation.qidDiscovery",
+    key: "configuration/qid-discovery",
+    route: "/configuration/qid-discovery",
+    icon: <Icon fontSize="small">manage_search</Icon>,
+    component: <QidDiscoveryConfiguration />,
+    adminOnly: true,
   },
   {
     type: "collapse",
@@ -195,6 +205,19 @@ const routes = [
     route: "/configuration/attribute-scoring-systems",
     icon: <Icon fontSize="small">tune</Icon>,
     component: <AttributeScoringSystems />,
+    adminOnly: true,
+  },
+  {
+    key: "configuration-qid-discovery-new",
+    route: "/configuration/qid-discovery/new",
+    component: <AddEditQidDiscoveryConfiguration />,
+    adminOnly: true,
+  },
+  {
+    key: "configuration-qid-discovery-edit",
+    route: "/configuration/qid-discovery/:id/edit",
+    component: <AddEditQidDiscoveryConfiguration />,
+    adminOnly: true,
   },
   {
     key: "configuration-attribute-scoring-systems-new",
@@ -209,28 +232,42 @@ const routes = [
     adminOnly: true,
   },
   {
+    type: "collapse",
+    name: "navigation.assessment",
+    key: "configuration",
+    route: "/configuration",
+    icon: <Icon fontSize="small">settings</Icon>,
+    component: <ConfigurationPage />,
+    adminOnly: true,
+  },
+  {
     key: "configuration-new",
     route: "/configuration/new",
     component: <AddEditConfigurationForm />,
+    adminOnly: true,
   },
   {
     key: "configuration-edit-id",
     route: "/configuration/:id/edit",
     component: <AddEditConfigurationForm />,
+    adminOnly: true,
   },
   {
     key: "configuration-view-id",
     route: "/configuration/:id/view",
     component: <AddEditConfigurationForm />,
+    adminOnly: true,
   },
   {
     key: "configuration-edit",
     route: "/configuration/edit",
     component: <AddEditConfigurationForm />,
+    adminOnly: true,
   },
   {
     type: "divider",
     key: "divide-last-config",
+    adminOnly: true,
   },
   {
     type: "route",

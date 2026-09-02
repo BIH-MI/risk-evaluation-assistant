@@ -32,6 +32,12 @@ public class DatasetResponseDTO {
     // Assessment IDs are enough for list views to link to existing assessments.
     private List<Long> assessmentIds;
 
+    // QID discovery configuration version that generated the stored QID metadata.
+    private Long qidDiscoveryConfigurationId;
+    private Long qidDiscoveryConfigurationVersionId;
+    private Integer qidDiscoveryConfigurationVersion;
+    private String qidDiscoveryConfigurationName;
+
     // Full table schema returned with the dataset.
     private List<DatasetTableResponseDTO> tables;
 
@@ -47,6 +53,15 @@ public class DatasetResponseDTO {
         this.description      = entity.getDescription();
         this.creationDate     = entity.getCreationDate();
         this.sharedUsernames  = entity.getSharedUsernames();
+        if (entity.getQidDiscoveryConfiguration() != null) {
+            this.qidDiscoveryConfigurationId = entity.getQidDiscoveryConfiguration().getId();
+            this.qidDiscoveryConfigurationName = entity.getQidDiscoveryConfiguration().getName();
+        }
+        if (entity.getQidDiscoveryConfigurationVersion() != null) {
+            this.qidDiscoveryConfigurationVersionId = entity.getQidDiscoveryConfigurationVersion().getId();
+            this.qidDiscoveryConfigurationVersion = entity.getQidDiscoveryConfigurationVersion().getVersionNumber();
+            this.qidDiscoveryConfigurationName = entity.getQidDiscoveryConfigurationVersion().getName();
+        }
         this.tables = entity.getTables().stream()
                 .map(DatasetTableResponseDTO::new)
                 .collect(Collectors.toList());

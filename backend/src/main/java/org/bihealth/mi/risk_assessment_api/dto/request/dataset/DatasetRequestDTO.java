@@ -24,6 +24,10 @@ public class DatasetRequestDTO {
     // Optional dataset description.
     private String description;
 
+    // QID discovery configuration snapshot used by dataset profiling.
+    private Long qidDiscoveryConfigurationId;
+    private Long qidDiscoveryConfigurationVersionId;
+
     // Additional users who should be able to access the dataset.
     private List<String> sharedUsernames;
 

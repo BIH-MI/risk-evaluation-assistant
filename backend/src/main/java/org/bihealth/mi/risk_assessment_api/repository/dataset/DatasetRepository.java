@@ -7,4 +7,5 @@ import java.util.List;
 public interface DatasetRepository extends JpaRepository<Dataset, Long> {
     List<Dataset> findByCreatorUsername(String creatorUsername);
     List<Dataset> findBySharedUsernamesContains(String username);
+    long countByQidDiscoveryConfigurationId(Long qidDiscoveryConfigurationId);
 }

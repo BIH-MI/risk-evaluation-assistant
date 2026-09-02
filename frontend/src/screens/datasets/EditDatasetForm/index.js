@@ -291,6 +291,9 @@ export default function EditDatasetForm() {
         name,
         description,
         sharedUsernames,
+        qidDiscoveryConfigurationId: dataset?.qidDiscoveryConfigurationId,
+        qidDiscoveryConfigurationVersionId:
+          dataset?.qidDiscoveryConfigurationVersionId,
       });
 
       try {
@@ -309,6 +312,8 @@ export default function EditDatasetForm() {
       name,
       description,
       sharedUsernames,
+      dataset?.qidDiscoveryConfigurationId,
+      dataset?.qidDiscoveryConfigurationVersionId,
       tables,
       hasLock,
       directIdentifierValidation,

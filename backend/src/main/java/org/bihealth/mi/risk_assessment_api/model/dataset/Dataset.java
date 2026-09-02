@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.Setter;
 import org.bihealth.mi.risk_assessment_api.model.AuditableEntity;
 import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetAssessment;
+import org.bihealth.mi.risk_assessment_api.model.qid.QidDiscoveryConfiguration;
+import org.bihealth.mi.risk_assessment_api.model.qid.QidDiscoveryConfigurationVersion;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
@@ -38,6 +40,18 @@ public class Dataset extends AuditableEntity {
     @JsonManagedReference
     @OnDelete(action = OnDeleteAction.CASCADE)
     private List<DatasetTable> tables = new ArrayList<>();
+
+    /**
+     * A profiling session retains the selected QID configuration version so later
+     * schema refreshes cannot silently change search behavior.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "qid_discovery_configuration_id")
+    private QidDiscoveryConfiguration qidDiscoveryConfiguration;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "qid_discovery_configuration_version_id")
+    private QidDiscoveryConfigurationVersion qidDiscoveryConfigurationVersion;
 
     // Assessments of this dataset under one or more risk configurations.
     @OneToMany(mappedBy = "dataset", cascade = CascadeType.ALL, orphanRemoval = true)

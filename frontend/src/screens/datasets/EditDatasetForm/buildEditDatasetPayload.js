@@ -76,11 +76,19 @@ function buildTablePayload(table) {
  */
 export function buildEditDatasetPayload(
   tables,
-  { name, description, sharedUsernames }
+  {
+    name,
+    description,
+    sharedUsernames,
+    qidDiscoveryConfigurationId,
+    qidDiscoveryConfigurationVersionId,
+  }
 ) {
   return {
     name: name.trim(),
     description: description.trim(),
+    qidDiscoveryConfigurationId,
+    qidDiscoveryConfigurationVersionId,
     sharedUsernames,
     tables: tables.map(buildTablePayload),
   };

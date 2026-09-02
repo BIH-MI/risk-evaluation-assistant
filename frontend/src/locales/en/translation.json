@@ -13,8 +13,11 @@
     "addRecipientAssessment": "Add Recipient Assessment",
     "editRecipientAssessment": "Edit Recipient Assessment",
     "dataSharingActivities": "Data Sharing Activities",
+    "configuration": "Configuration",
     "configurations": "Configurations",
-    "attributeScoringSystems": "Scoring Systems",
+    "assessment": "Assessment",
+    "attributeScoringSystems": "Attribute System",
+    "qidDiscovery": "QID Discovery",
     "documentation": "Documentation"
   },
   "configurator": {

@@ -18,6 +18,15 @@ import LoginRedirect from "components/authentication/LoginRedirect";
 
 import { setMiniSidenav, useMaterialUIController } from "context";
 import routes from "routes.js";
+import { useAuth } from "react-oidc-context";
+import { isAdminUser } from "utils/auth";
+
+function flattenRoutes(routeItems) {
+    return routeItems.flatMap((route) => [
+        route,
+        ...(route.collapse ? flattenRoutes(route.collapse) : []),
+    ]);
+}
 
 export default function App() {
     const [controller, materialDispatch] = useMaterialUIController();
@@ -29,6 +38,9 @@ export default function App() {
 
     const [onMouseEnter, setOnMouseEnter] = useState(false);
     const { pathname } = useLocation();
+    const { user } = useAuth();
+    const isAdmin = isAdminUser(user);
+    const flatRoutes = flattenRoutes(routes);
 
     // Reset scroll on route change
     useEffect(() => {
@@ -71,18 +83,24 @@ export default function App() {
                             <Configurator />
 
                             <Routes>                                
-                                {routes.map(({ key, route, component }) => (
-                                    <Route
-                                        key={key}
-                                        path={route}
-                                        element={
-                                            <DashboardLayout>
-                                                <DashboardNavbar />
-                                                {component}
-                                            </DashboardLayout>
-                                        }
-                                    />
-                                ))}
+                                {flatRoutes
+                                    .filter(({ route, component }) => route && component)
+                                    .map(({ key, route, component, adminOnly }) => (
+                                        <Route
+                                            key={key}
+                                            path={route}
+                                            element={
+                                                <DashboardLayout>
+                                                    <DashboardNavbar />
+                                                    {adminOnly && !isAdmin ? (
+                                                        <Navigate to="/datasets" replace />
+                                                    ) : (
+                                                        component
+                                                    )}
+                                                </DashboardLayout>
+                                            }
+                                        />
+                                    ))}
 
                                 {/* Fallback to /datasets */}
                                 <Route

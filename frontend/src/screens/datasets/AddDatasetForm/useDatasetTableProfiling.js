@@ -97,10 +97,10 @@ export function useDatasetTableProfiling({ tables, setTables, setErrors, t }) {
   );
 
   const profileTable = useCallback(
-    async (file, tableId) => {
+    async (file, tableId, qidDiscoveryConfiguration) => {
       try {
         const { profilingSession, ...profiledTable } =
-          await profileUploadedTable(file);
+          await profileUploadedTable(file, { qidDiscoveryConfiguration });
 
         setTables((currentTables) =>
           currentTables.map((table) =>
@@ -109,6 +109,9 @@ export function useDatasetTableProfiling({ tables, setTables, setErrors, t }) {
                   ...profiledTable,
                   _localTableId: table._localTableId,
                   _qidProfilingSession: profilingSession,
+                  qidDiscoveryConfiguration:
+                    profiledTable.qidDiscoveryConfiguration ||
+                    qidDiscoveryConfiguration,
                   name: table.name || profiledTable.name,
                   isParsing: false,
                   isProfiling: false,

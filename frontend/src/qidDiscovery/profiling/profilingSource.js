@@ -61,16 +61,19 @@ export function buildProfilingSource(rows = [], columnMeta = [], options = {}) {
     columnsBySourceField.set(
       sourceField,
       profileColumn(rows, sourceField, {
-        directIdentifierEvidence: options.directIdentifierEvidence || {},
+        directIdentifier: options.directIdentifier,
       })
     );
   }
 
   const profilingSource = {
     recordCount: rows.length,
+    replicabilityConfiguration: options.replicability,
     columnsBySourceField,
     suggestedSubjectKeySourceFields: suggestSubjectKeySourceFields(
-      Array.from(columnsBySourceField.keys())
+      Array.from(columnsBySourceField.keys()),
+      options.replicability,
+      options.directIdentifier
     ),
     subjectKeySourceField: null,
     repeatedMeasurementSummary: null,
@@ -80,7 +83,8 @@ export function buildProfilingSource(rows = [], columnMeta = [], options = {}) {
 
   refreshReplicabilityEvidence(
     profilingSource,
-    options.subjectKeySourceField || null
+    options.subjectKeySourceField || null,
+    options.replicability
   );
 
   return profilingSource;
@@ -94,9 +98,14 @@ export function buildProfilingSource(rows = [], columnMeta = [], options = {}) {
  */
 export function updateSubjectKeySourceField(
   profilingSource,
-  subjectKeySourceField
+  subjectKeySourceField,
+  options = {}
 ) {
-  refreshReplicabilityEvidence(profilingSource, subjectKeySourceField || null);
+  refreshReplicabilityEvidence(
+    profilingSource,
+    subjectKeySourceField || null,
+    options.replicability || profilingSource?.replicabilityConfiguration
+  );
   return {
     subjectKeySourceField: profilingSource.subjectKeySourceField,
     repeatedMeasurementSummary: profilingSource.repeatedMeasurementSummary,
@@ -123,13 +132,18 @@ export function applyStatistics(
         ? buildDirectIdentifierEvidenceForCurrentFieldName(
             column.field,
             source?.directIdentifierEvidence || column.directIdentifierEvidence,
-            options.directIdentifierEvidence || {}
+            options.directIdentifier
           )
         : null;
     const columnWithDirectIdentifierDefaults =
-      applyDirectIdentifierEvidenceDefaults(column, directIdentifierEvidence, {
-        resetDecisionOnConceptChange: true,
-      });
+      applyDirectIdentifierEvidenceDefaults(
+        column,
+        directIdentifierEvidence,
+        options.directIdentifier,
+        {
+          resetDecisionOnConceptChange: true,
+        }
+      );
 
     return {
       ...columnWithDirectIdentifierDefaults,

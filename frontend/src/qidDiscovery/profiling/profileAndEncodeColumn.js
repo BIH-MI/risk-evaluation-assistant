@@ -18,7 +18,7 @@ export function profileAndEncodeColumn(rows = [], sourceField, options = {}) {
   const encodedCodes = new Uint32Array(rows.length);
   const directIdentifierAccumulator = createDirectIdentifierEvidenceAccumulator(
     sourceField,
-    options.directIdentifierEvidence || {}
+    options.directIdentifier || options.directIdentifierEvidence || {}
   );
   let missingCount = 0;
   let missingCode = null;

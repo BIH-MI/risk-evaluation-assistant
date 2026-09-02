@@ -54,6 +54,7 @@ function parseCsvFile(file) {
 async function profileTable({
   file,
   previewRowLimit = CSV_PREVIEW_ROW_LIMIT,
+  qidDiscoveryConfiguration,
   options,
 }) {
   const { rows, fields } = await parseCsvFile(file);
@@ -84,7 +85,9 @@ async function profileTable({
     profilingSession: {
       type: "worker",
       sessionId,
+      qidDiscoveryConfiguration,
     },
+    qidDiscoveryConfiguration,
   };
 }
 

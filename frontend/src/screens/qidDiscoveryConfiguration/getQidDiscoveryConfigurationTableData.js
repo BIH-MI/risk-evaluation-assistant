@@ -10,7 +10,6 @@ import {
   EditIconButton,
   ForkIconButton,
 } from "components/input/RAButton/FixStyledButtons";
-import { getQidSearchTypeLabel } from "./qidDiscoveryConfigurationUtils";
 
 export default function getQidDiscoveryConfigurationTableData(
   configurations,
@@ -23,17 +22,11 @@ export default function getQidDiscoveryConfigurationTableData(
     {
       Header: "Display Name",
       accessor: "displayName",
-      width: "32%",
+      width: "42%",
       align: "left",
       Cell: ({ value }) => (
         <LabeledAvatar value={value} variant="configuration" shape="square" />
       ),
-    },
-    {
-      Header: "QID Search Type",
-      accessor: "searchType",
-      width: "20%",
-      align: "center",
     },
     {
       Header: "Status",
@@ -57,7 +50,7 @@ export default function getQidDiscoveryConfigurationTableData(
     {
       Header: "Last Updated",
       accessor: "lastModifiedDate",
-      width: "18%",
+      width: "28%",
       align: "center",
       Cell: ({ row }) => (
         <DateTimeDisplay
@@ -122,7 +115,6 @@ export default function getQidDiscoveryConfigurationTableData(
   const rows = configurations.map((configuration) => ({
     id: configuration.id,
     displayName: configuration.name,
-    searchType: getQidSearchTypeLabel(configuration.search?.searchType),
     active: Boolean(configuration.active),
     defaultConfiguration: Boolean(configuration.defaultConfiguration),
     creationDate: configuration.creationDate,

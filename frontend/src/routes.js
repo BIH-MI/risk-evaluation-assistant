@@ -32,7 +32,7 @@ import AddEditRecipientForm from "./screens/recipients/AddEditRecipientForm";
 import RecipientAssessments from "./screens/recipientAssessments";
 import AddEditDataSharingActivity from "./screens/sharingActivity/AddEditDataSharingActivity";
 import DataSharingActivities from "./screens/sharingActivity";
-import DataSharingReport from "./screens/report";
+import DataSharingReport from "./screens/dataSharingReport";
 import AddEditRecipientAssessmentForm from "./screens/recipientAssessments/AddEditRecipientAssessmentForm";
 import AddEditDatasetAssessmentForm from "./screens/datasetAssessments/AddEditDatasetAssessmentForm";
 import ConfigurationPage from "./screens/configurations";

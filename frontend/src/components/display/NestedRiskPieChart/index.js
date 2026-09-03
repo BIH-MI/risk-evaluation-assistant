@@ -9,6 +9,7 @@ import {
 import { useTranslation } from "react-i18next";
 import RABox from "../../../components/layout/RABox";
 import RATypography from "../RATypography";
+import { RISK_CHART_COLORS } from "utils/riskChartColors";
 
 const formatPercentage = (percentage) => {
   if (!Number.isFinite(percentage)) return "0%";
@@ -84,31 +85,28 @@ export default function NestedRiskPieChart({ categoryData }) {
       positiveCount = 0,
       neutralCount = 0,
       negativeCount = 0,
-      highRiskCount = 0, // Brought in from the updated backend
+      highRiskCount = 0,
       isHighRiskTriggered = false,
     } = categoryData;
 
-    // Single Ring: Maps the actual counts + the High Risk Trigger
     const data = [
       {
         name: t("report.factors.positive", "Positive Impact"),
         value: positiveCount,
-        color: "#4CAF50", // Green
+        color: RISK_CHART_COLORS.positive,
       },
       {
         name: t("report.factors.neutral", "Neutral Impact"),
         value: neutralCount,
-        color: "#9E9E9E", // Grey
+        color: RISK_CHART_COLORS.neutral,
       },
       {
         name: t("report.factors.negative", "Negative Impact"),
         value: negativeCount,
-        color: "#F44336", // Red
+        color: RISK_CHART_COLORS.negative,
       },
     ];
 
-    // Add High Risk Trigger as a distinct category in the ring
-    // We use highRiskCount from the backend if available, otherwise default to 1 if triggered
     const triggerSize =
       highRiskCount > 0 ? highRiskCount : isHighRiskTriggered ? 1 : 0;
 
@@ -116,7 +114,7 @@ export default function NestedRiskPieChart({ categoryData }) {
       data.push({
         name: t("report.factors.highRiskTrigger", "High Risk Triggered"),
         value: triggerSize,
-        color: "#b71c1c", // Dark Red to distinguish from standard negative
+        color: RISK_CHART_COLORS.highRiskTrigger,
         shortLabel: "⚠️",
         isTrigger: true,
       });
@@ -179,7 +177,6 @@ export default function NestedRiskPieChart({ categoryData }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <PieChart>
-        {/* SINGLE RING: Positive / Neutral / Negative / High Risk Triggers */}
         <Pie
           data={pieData}
           dataKey="value"

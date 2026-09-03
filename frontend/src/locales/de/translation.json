@@ -508,13 +508,21 @@
     "attributeLevelAssessment": "Risikobewertung auf Attributebene",
     "identifiabilityThreshold": "Identifizierbarkeits-Schwellenwert ({{scaleRange}})",
     "sensitivityThreshold": "Sensibilitäts-Schwellenwert ({{scaleRange}})",
+    "loading": "Bericht wird geladen...",
+    "calculating": "Risiko wird berechnet...",
     "generatingPdf": "PDF wird erstellt...",
     "downloadPdf": "PDF herunterladen",
+    "downloadExcel": "Nach Excel exportieren",
+    "calculateError": "Risiko konnte nicht berechnet werden",
+    "pdfError": "PDF konnte nicht erstellt werden",
+    "excelError": "Excel-Export fehlgeschlagen",
     "general": {
       "datasetInfo": "Datensatz-Informationen",
       "recipientInfo": "Empfänger-Informationen",
       "name": "Name",
       "description": "Beschreibung",
+      "configuration": "Konfiguration",
+      "attributeScoringSystem": "Bewertungssystem",
       "configUsed": "Sowohl für Empfänger- als auch für Datensatzbewertungen wurde die folgende Konfiguration verwendet:",
       "unknown": "Unbekannt"
     },
@@ -524,7 +532,11 @@
       "moreInfo": "Klicken für mehr Infos",
       "noData": "Keine Daten verfügbar",
       "noCalc": "Für diese Kategorie wurde keine Berechnung durchgeführt.",
-      "unknown": "UNBEKANNT"
+      "unknown": "UNBEKANNT",
+      "positive": "Positive Auswirkung",
+      "neutral": "Neutrale Auswirkung",
+      "negative": "Negative Auswirkung",
+      "highRiskTrigger": "Hochrisiko-Auslöser"
     },
     "summary": {
       "baseDataRiskClass": "Basis-Datenrisiko (Klassifizierung):",
@@ -578,7 +590,7 @@
       "riskThresholdAnon": "Risikoschwellenwert für die Anonymisierung"
     },
     "attributes": {
-      "explanation": "Die Attribute jeder Tabelle werden hinsichtlich Replizierbarkeit, Verfügbarkeit, Unterscheidbarkeit und Sensibilität bewertet (1–3). Ein Attribut wird automatisch als „Quasi-Identifikator“ markiert, wenn die Summe seiner Werte für Replizierbarkeit, Verfügbarkeit und Unterscheidbarkeit größer als <strong>{{identThreshold}}</strong> ist. Es wird als „Sensibles Attribut“ markiert, wenn sein Sensibilitätswert größer als <strong>{{sensThreshold}}</strong> ist.",
+      "explanation": "Die Attribute jeder Tabelle werden mit dem konfigurierten Attribut-Bewertungssystem bewertet ({{scaleRange}}). Ein Attribut wird automatisch als „Quasi-Identifikator“ markiert, wenn die Summe seiner Werte für Replizierbarkeit, Verfügbarkeit und Unterscheidbarkeit größer als <strong>{{identThreshold}}</strong> ist. Es wird als „Sensibles Attribut“ markiert, wenn sein Sensibilitätswert größer als <strong>{{sensThreshold}}</strong> ist.",
       "noTables": "Keine Tabellenbewertungen verfügbar.",
       "tableName": "Tabellenname",
       "name": "Name",
@@ -586,6 +598,7 @@
       "availability": "Verfügbarkeit",
       "distinguishability": "Unterscheidbarkeit",
       "sensitivity": "Sensibilität",
+      "directIdentifier": "Direkter Identifikator",
       "quasiIdentifier": "Quasi-Identifikator",
       "sensitiveAttribute": "Sensibles Attribut"
     }

@@ -498,13 +498,21 @@
     "attributeLevelAssessment": "Attribute-Level Risk Assessment",
     "identifiabilityThreshold": "Identifiability Threshold ({{scaleRange}})",
     "sensitivityThreshold": "Sensitivity Threshold ({{scaleRange}})",
+    "loading": "Loading report...",
+    "calculating": "Calculating risk...",
     "generatingPdf": "Generating PDF...",
     "downloadPdf": "Download PDF",
+    "downloadExcel": "Export to Excel",
+    "calculateError": "Failed to calculate risk",
+    "pdfError": "Failed to generate PDF",
+    "excelError": "Failed to export to Excel",
     "general": {
       "datasetInfo": "Dataset Information",
       "recipientInfo": "Recipient Information",
       "name": "Name",
       "description": "Description",
+      "configuration": "Configuration",
+      "attributeScoringSystem": "Scoring System",
       "configUsed": "Both Recipient and Dataset assessments used the following configuration:",
       "unknown": "Unknown"
     },
@@ -514,7 +522,11 @@
       "moreInfo": "Click for more info",
       "noData": "No data available",
       "noCalc": "No calculation performed for this category.",
-      "unknown": "UNKNOWN"
+      "unknown": "UNKNOWN",
+      "positive": "Positive Impact",
+      "neutral": "Neutral Impact",
+      "negative": "Negative Impact",
+      "highRiskTrigger": "High Risk Trigger"
     },
     "summary": {
       "baseDataRiskClass": "Base Data Risk (Classification):",
@@ -548,7 +560,7 @@
       "unknown": "UNKNOWN"
     },
     "attributes": {
-      "explanation": "Each table’s attributes are scored on replicability, availability, distinguishability, and sensitivity (1–3). An attribute is automatically marked as a “Quasi-Identifier” if the sum of its Replicability, Availability, and Distinguishability scores is greater than <strong>{{identThreshold}}</strong>. It is marked as a “Sensitive Attribute” if its Sensitivity score is greater than <strong>{{sensThreshold}}</strong>.",
+      "explanation": "Each table’s attributes are scored with the configured Attribute Scoring System ({{scaleRange}}). An attribute is automatically marked as a “Quasi-Identifier” if the sum of its Replicability, Availability, and Distinguishability scores is greater than <strong>{{identThreshold}}</strong>. It is marked as a “Sensitive Attribute” if its Sensitivity score is greater than <strong>{{sensThreshold}}</strong>.",
       "noTables": "No table assessments available.",
       "tableName": "Table Name",
       "name": "Name",
@@ -556,6 +568,7 @@
       "availability": "Availability",
       "distinguishability": "Distinguishability",
       "sensitivity": "Sensitivity",
+      "directIdentifier": "Direct Identifier",
       "quasiIdentifier": "Quasi Identifier",
       "sensitiveAttribute": "Sensitive Attribute"
     }

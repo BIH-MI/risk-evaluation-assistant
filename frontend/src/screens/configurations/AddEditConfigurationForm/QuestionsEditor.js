@@ -338,9 +338,13 @@ export default function QuestionsEditor({ categoryCode, isReadOnly }) {
           mb={4}
           p={3}
           borderRadius="lg"
-          border="1px solid #e0e0e0"
-          bgcolor="#fafafa"
           boxShadow={1}
+          sx={{
+            border: 1,
+            borderColor: ({ palette }) => palette.light?.main || palette.divider,
+            bgcolor: ({ palette }) =>
+              palette.background.card || palette.background.default,
+          }}
         >
           <Stack
             direction={{ xs: "column", md: "row" }}

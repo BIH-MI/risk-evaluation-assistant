@@ -1,18 +1,4 @@
-const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:8080";
-
-async function handleApiError(res, defaultMsg) {
-  const text = await res.text();
-  let message = text || defaultMsg;
-
-  try {
-    const parsed = JSON.parse(text);
-    message = parsed.message || parsed.error || defaultMsg;
-  } catch {
-    // Spring may return plain text from global exception handlers.
-  }
-
-  throw new Error(message);
-}
+import { apiUrl, handleApiError } from "api/httpClient";
 
 export async function fetchQidDiscoveryConfigurationsApi(
   token,

@@ -1,4 +1,10 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { useAuth } from "react-oidc-context";
@@ -29,6 +35,7 @@ import {
   fetchConfiguration,
 } from "store/configurations/configurationThunks";
 import { useActiveLock } from "hooks/locks/useActiveLock";
+import { getErrorMessage } from "utils/errors";
 
 const EMPTY_ARRAY = [];
 
@@ -71,6 +78,11 @@ export default function AddEditDatasetAssessmentForm() {
   const [activeQuestTab, setActiveQuestTab] = useState(0);
   const [showAllErrors, setShowAllErrors] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const initializedAssessmentIdRef = useRef(null);
+  const hasCustomNameRef = useRef(false);
+  const generatedNameRef = useRef({ datasetId: null, name: "" });
+  const lockRedirectTimerRef = useRef(null);
 
   // Memos for easy lookup
   const dataset = useMemo(
@@ -200,9 +212,29 @@ export default function AddEditDatasetAssessmentForm() {
   const onLockFailed = useCallback(
     (err) => {
       setLockError(t("datasetAssessments.alerts.lockFailed"));
-      setTimeout(() => navigate(`/datasets/${datasetId}/assessments`), 2000);
+
+      if (lockRedirectTimerRef.current) {
+        clearTimeout(lockRedirectTimerRef.current);
+      }
+
+      /**
+       * The redirect timer is cleaned up on unmount so navigation cannot fire
+       * after the user has already left the form.
+       */
+      lockRedirectTimerRef.current = setTimeout(() => {
+        navigate(`/datasets/${datasetId}/assessments`);
+      }, 2000);
     },
     [navigate, datasetId, t]
+  );
+
+  useEffect(
+    () => () => {
+      if (lockRedirectTimerRef.current) {
+        clearTimeout(lockRedirectTimerRef.current);
+      }
+    },
+    []
   );
 
   const hasLock = useActiveLock(
@@ -227,24 +259,45 @@ export default function AddEditDatasetAssessmentForm() {
     }
   }, [dispatch, token]);
 
-  // Load Existing Assessment Metadata (Runs once when assessment loads)
+  /**
+   * Edit initialization is keyed by assessment ID, not form contents, so a
+   * background Redux refresh (e.g. after saving) cannot silently overwrite
+   * unsaved edits just because the user cleared the name field.
+   */
   useEffect(() => {
-    if (isEditMode && assessment && !name) {
-      setName(assessment.name || "");
-      setDescription(assessment.description || "");
-      setSelectedDatasetId(assessment.datasetId || "");
-      setSelectedConfigId(assessment.configurationId || "");
-      setSelectedScoringSystemId(assessment.attributeScoringSystemId || "");
-    }
-  }, [isEditMode, assessment, name]);
+    if (!isEditMode || !assessment) return;
+    if (initializedAssessmentIdRef.current === assessment.id) return;
 
-  // Automatically name the assessment in create mode when a dataset is selected
+    setName(assessment.name || "");
+    setDescription(assessment.description || "");
+    setSelectedDatasetId(assessment.datasetId || "");
+    setSelectedConfigId(assessment.configurationId || "");
+    setSelectedScoringSystemId(assessment.attributeScoringSystemId || "");
+
+    initializedAssessmentIdRef.current = assessment.id;
+  }, [isEditMode, assessment]);
+
+  /**
+   * Suggest a name for a new assessment as the dataset selection changes,
+   * but stop suggesting the moment the user types a name of their own.
+   */
   useEffect(() => {
-    if (!isEditMode && dataset && !name) {
-      const nextIndex = (dataset.assessmentIds?.length || 0) + 1;
-      setName(`${dataset.name} / Assessment ${nextIndex}`);
-    }
-  }, [isEditMode, dataset, name]);
+    if (isEditMode || !dataset || hasCustomNameRef.current) return;
+
+    const datasetKey = String(dataset.id);
+    if (generatedNameRef.current.datasetId === datasetKey) return;
+
+    const nextIndex = (dataset.assessmentIds?.length || 0) + 1;
+    const suggestedName = `${dataset.name} / Assessment ${nextIndex}`;
+
+    generatedNameRef.current = { datasetId: datasetKey, name: suggestedName };
+    setName(suggestedName);
+  }, [isEditMode, dataset]);
+
+  const handleNameChange = useCallback((value) => {
+    hasCustomNameRef.current = value !== generatedNameRef.current.name;
+    setName(value);
+  }, []);
 
   useEffect(() => {
     if (!dataset) {
@@ -411,7 +464,9 @@ export default function AddEditDatasetAssessmentForm() {
       }
       navigate(`/datasets/${selectedDatasetId}/assessments`);
     } catch (err) {
-      setLockError(err.message || t("datasetAssessments.alerts.saveFailed"));
+      setLockError(
+        getErrorMessage(err, t("datasetAssessments.alerts.saveFailed"))
+      );
       setIsSubmitting(false);
     }
   };
@@ -446,7 +501,7 @@ export default function AddEditDatasetAssessmentForm() {
           selectedScoringSystemId={selectedScoringSystemId}
           setSelectedScoringSystemId={setSelectedScoringSystemId}
           name={name}
-          setName={setName}
+          setName={handleNameChange}
           description={description}
           setDescription={setDescription}
           isEditMode={isEditMode}

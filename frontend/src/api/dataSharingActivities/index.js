@@ -1,4 +1,4 @@
-const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:8080";
+import { apiUrl, handleApiError } from "api/httpClient";
 
 /** GET /api/data-sharing-activities */
 export async function fetchDataSharingActivitiesApi(token) {
@@ -8,8 +8,7 @@ export async function fetchDataSharingActivitiesApi(token) {
     });
 
     if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Failed to fetch data sharing activities: ${errText}`);
+        await handleApiError(response, "Failed to fetch data sharing activities");
     }
     return response.json();
 }
@@ -22,8 +21,7 @@ export async function fetchDataSharingActivityByIdApi(id, token) {
     });
 
     if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Failed to fetch data sharing activity ${id}: ${errText}`);
+        await handleApiError(response, `Failed to fetch data sharing activity ${id}`);
     }
     return response.json();
 }
@@ -40,8 +38,7 @@ export async function createDataSharingActivityApi(newActivity, token) {
     });
 
     if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Failed to create data sharing activity: ${errText}`);
+        await handleApiError(response, "Failed to create data sharing activity");
     }
 
     return response.json();
@@ -59,8 +56,7 @@ export async function updateDataSharingActivityApi(id, updatedActivity, token) {
     });
 
     if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Failed to update data sharing activity ${id}: ${errText}`);
+        await handleApiError(response, `Failed to update data sharing activity ${id}`);
     }
 
     return response.json();
@@ -76,8 +72,7 @@ export async function deleteDataSharingActivityApi(id, token) {
     });
 
     if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Failed to delete data sharing activity ${id}: ${errText}`);
+        await handleApiError(response, `Failed to delete data sharing activity ${id}`);
     }
 
     return;
@@ -97,8 +92,7 @@ export async function computeRiskOfExposureApi(id, identifiabilityThreshold, sen
     });
 
     if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Failed to compute risk of exposure: ${errText}`);
+        await handleApiError(response, "Failed to compute risk of exposure");
     }
 
     return response.json();
@@ -118,8 +112,7 @@ export async function saveRiskExposureApi(id, riskPayload, token) {
     );
 
     if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Failed to save risk exposure: ${errText}`);
+        await handleApiError(response, "Failed to save risk exposure");
     }
     return response.json();
 }

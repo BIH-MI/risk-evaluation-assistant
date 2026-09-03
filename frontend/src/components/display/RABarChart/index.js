@@ -77,13 +77,16 @@ const RABarChart = ({
     <RABox sx={{ width, mt: 3, mb: 0 }}>
       <RABox sx={{ position: "relative", width: "100%", height: barHeight }}>
         <RABox
-          sx={{
+          sx={({ palette }) => ({
             width: "100%",
             height: "100%",
             borderRadius: `${borderRadius}px`,
-            background: categoryBands.length > 0 ? background : "#e0e0e0",
+            background:
+              categoryBands.length > 0
+                ? background
+                : palette.light?.main || palette.divider,
             boxShadow: "inset 0 1px 3px rgba(0,0,0,0.2)",
-          }}
+          })}
         />
 
         {activeIndex !== -1 && categoryBands.length > 0 && (

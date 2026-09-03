@@ -19,6 +19,7 @@ import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 // Import Flag Icons
 import { GB, DE } from "country-flag-icons/react/3x2";
 
+import { getErrorMessage } from "../../../utils/errors";
 import RABox from "../../../components/layout/RABox";
 import RATypography from "../../../components/display/RATypography";
 import RAButton from "../../../components/input/RAButton";
@@ -224,20 +225,10 @@ export default function AddEditConfigurationForm() {
           navigate(`/configuration/${newConfig.id}/edit`);
         })
         .catch((err) => {
-          let errorMessage = t(
-            "configurations.editor.errorCreate",
-            "Error creating configuration"
+          const errorMessage = getErrorMessage(
+            err,
+            t("configurations.editor.errorCreate", "Error creating configuration")
           );
-
-          if (
-            typeof err === "string" &&
-            err.trim().length > 0 &&
-            !err.startsWith("Failed to")
-          ) {
-            errorMessage = err;
-          } else if (err?.message && !err.message.startsWith("Failed to")) {
-            errorMessage = err.message;
-          }
 
           setToast({
             open: true,
@@ -271,21 +262,13 @@ export default function AddEditConfigurationForm() {
       .catch((err) => {
         setForkLoading(false);
 
-        let errorMessage = t(
-          "configurations.editor.errorFork",
-          "Error when duplicating the configuration"
+        const errorMessage = getErrorMessage(
+          err,
+          t(
+            "configurations.editor.errorFork",
+            "Error when duplicating the configuration"
+          )
         );
-
-        // Use the specific backend error message if it's provided and not a generic string
-        if (
-          typeof err === "string" &&
-          err.trim().length > 0 &&
-          !err.startsWith("Failed to")
-        ) {
-          errorMessage = err;
-        } else if (err?.message && !err.message.startsWith("Failed to")) {
-          errorMessage = err.message;
-        }
 
         setToast({
           open: true,
@@ -467,7 +450,8 @@ export default function AddEditConfigurationForm() {
       <Card
         sx={{
           minHeight: 400,
-          border: "1px solid #e0e0e0",
+          border: 1,
+          borderColor: ({ palette }) => palette.light?.main || palette.divider,
           boxShadow: 1,
           borderRadius: 2,
           p: 2,
@@ -557,7 +541,11 @@ export default function AddEditConfigurationForm() {
             {activeWizardStep.code === "IMPACT" && (
               <>
                 <Divider sx={{ my: 2 }} />
-                <RABox mt={2} p={2} bgcolor="#fafafa">
+                <RABox
+                  mt={2}
+                  p={2}
+                  sx={{ bgcolor: ({ palette }) => palette.background.default }}
+                >
                   <RATypography
                     variant="h6"
                     fontWeight="bold"
@@ -578,7 +566,11 @@ export default function AddEditConfigurationForm() {
             {activeWizardStep.code === "LIKELIHOOD" && (
               <>
                 <Divider sx={{ my: 2 }} />
-                <RABox mt={2} p={2} bgcolor="#fafafa">
+                <RABox
+                  mt={2}
+                  p={2}
+                  sx={{ bgcolor: ({ palette }) => palette.background.default }}
+                >
                   <RATypography
                     variant="h6"
                     fontWeight="bold"

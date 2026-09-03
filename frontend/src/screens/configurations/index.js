@@ -12,6 +12,7 @@ import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
 import RAInput from "components/input/RAInput";
 import { isAdminUser } from "utils/auth";
+import { getErrorMessage } from "utils/errors";
 
 import getConfigurationsTableData from "./getConfigurationsTableData";
 
@@ -91,11 +92,9 @@ export default function Configurations() {
           dispatch(fetchConfigurations(token));
         })
         .catch((err) => {
-          const errorMessage =
-            typeof err === "string"
-              ? err
-              : err?.message || t("configurations.alerts.forkError");
-          setErrorMsg(errorMessage);
+          setErrorMsg(
+            getErrorMessage(err, t("configurations.alerts.forkError"))
+          );
           handleForkClose();
         });
     }
@@ -107,11 +106,9 @@ export default function Configurations() {
       .unwrap()
       .then(() => dispatch(fetchConfigurations(token)))
       .catch((err) => {
-        const errorMessage =
-          typeof err === "string"
-            ? err
-            : err?.message || "Failed to set default configuration.";
-        setErrorMsg(errorMessage);
+        setErrorMsg(
+          getErrorMessage(err, "Failed to set default configuration.")
+        );
       });
   };
 
@@ -124,11 +121,9 @@ export default function Configurations() {
         dispatch(fetchConfigurations(token));
       })
       .catch((err) => {
-        const errorMessage =
-          typeof err === "string"
-            ? err
-            : err?.message || "Failed to archive configuration.";
-        setErrorMsg(errorMessage);
+        setErrorMsg(
+          getErrorMessage(err, "Failed to archive configuration.")
+        );
         setArchiveTarget(null);
       });
   };

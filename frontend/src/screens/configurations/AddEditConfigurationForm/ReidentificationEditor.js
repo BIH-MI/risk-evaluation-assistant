@@ -105,7 +105,11 @@ export default function ReidentificationEditor({ isReadOnly }) {
 
       <TableContainer
         component={Paper}
-        sx={{ boxShadow: "none", border: "1px solid #e0e0e0" }}
+        sx={{
+          boxShadow: "none",
+          border: 1,
+          borderColor: ({ palette }) => palette.light?.main || palette.divider,
+        }}
       >
         <Table size="small">
           <TableHead sx={{ display: "table-header-group" }}>

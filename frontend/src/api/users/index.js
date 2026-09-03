@@ -1,11 +1,11 @@
 // api/users.js
 import { useAuth } from 'react-oidc-context';
 import { useCallback } from 'react';
+import { apiUrl, handleApiError } from 'api/httpClient';
 
 export function useUsersApi() {
     const { user } = useAuth();
     const token = user?.access_token;
-    const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:8080";
 
     /**
      * Search users by free-text
@@ -23,7 +23,7 @@ export function useUsersApi() {
             }
         );
         if (!res.ok) {
-            throw new Error(`Fetch users failed: ${res.status}`);
+            await handleApiError(res, `Fetch users failed: ${res.status}`);
         }
         const data = await res.json();
         return data.map(u => ({
@@ -34,7 +34,7 @@ export function useUsersApi() {
             // role:         u.role         ?? "",
             // organization: u.organization ?? "",
         }));
-    }, [apiUrl, token]);
+    }, [token]);
 
     /**
      * Batch fetch users by exact usernames
@@ -60,7 +60,7 @@ export function useUsersApi() {
             }
         );
         if (!res.ok) {
-            throw new Error(`Fetch users by usernames failed: ${res.status}`);
+            await handleApiError(res, `Fetch users by usernames failed: ${res.status}`);
         }
         const data = await res.json();
         return data.map(u => ({
@@ -71,7 +71,7 @@ export function useUsersApi() {
             // role:         u.role         ?? "",
             // organization: u.organization ?? "",
         }));
-    }, [apiUrl, token]);
+    }, [token]);
 
     return { fetchUsers, fetchUsersByUsernames };
 }

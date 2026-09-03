@@ -1,4 +1,4 @@
-const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:8080";
+import { apiUrl, handleApiError } from "api/httpClient";
 
 export async function fetchDatasetsApi(token) {
   const response = await fetch(`${apiUrl}/api/datasets`, {
@@ -7,7 +7,7 @@ export async function fetchDatasetsApi(token) {
   });
 
   if (!response.ok) {
-    throw new Error("Failed to fetch datasets");
+    await handleApiError(response, "Failed to fetch datasets");
   }
 
   return response.json();
@@ -24,7 +24,7 @@ export async function addDatasetApi(newDataset, token) {
   });
 
   if (!response.ok) {
-    throw new Error("Failed to add dataset");
+    await handleApiError(response, "Failed to add dataset");
   }
 
   return response.json();
@@ -41,7 +41,7 @@ export async function updateDatasetApi(datasetId, updatedDataset, token) {
   });
 
   if (!response.ok) {
-    throw new Error("Failed to update dataset");
+    await handleApiError(response, "Failed to update dataset");
   }
   return response.json();
 }
@@ -53,7 +53,7 @@ export async function deleteDatasetApi(datasetId, token) {
   });
 
   if (!response.ok) {
-    throw new Error("Failed to delete the dataset");
+    await handleApiError(response, "Failed to delete the dataset");
   }
 
   return response.ok;

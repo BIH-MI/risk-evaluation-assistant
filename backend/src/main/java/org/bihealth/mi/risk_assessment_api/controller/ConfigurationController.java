@@ -142,9 +142,14 @@ public class ConfigurationController {
         return ResponseEntity.noContent().build();
     }
 
-    // Controller-local exception handlers convert configuration validation and
-    // database uniqueness failures into conflict responses with a predictable
-    // JSON shape for the frontend.
+    // Controller-local exception handlers intentionally differ from
+    // GlobalExceptionHandler for this controller only: configuration
+    // validation errors (including IllegalArgumentException, which the
+    // global handler treats as 400) are reported as 409 Conflict here since
+    // they represent a conflict with the framework's current state, and
+    // database uniqueness violations get a friendly, specific message
+    // instead of the global handler's generic one. Both already share the
+    // global handler's {"message": ...} JSON body shape.
 
     /**
      * Reports invalid configuration operations, such as duplicate names or

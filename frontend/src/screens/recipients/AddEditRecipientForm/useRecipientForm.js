@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 
 import { useActiveLock } from "hooks/locks/useActiveLock";
 import { useUsersApi } from "api/users";
+import { getErrorMessage } from "utils/errors";
 import {
   addRecipient,
   fetchRecipients,
@@ -15,7 +16,6 @@ import {
   buildRecipientPayload,
   EMPTY_RECIPIENT_FORM,
   getRecipientFormTargetKey,
-  getSubmitErrorMessage,
   mapRecipientToFormValues,
   validateRecipientForm,
 } from "./recipientFormUtils";
@@ -196,7 +196,7 @@ export default function useRecipientForm() {
         navigate("/recipients");
       } catch (error) {
         setSubmitError(
-          getSubmitErrorMessage(error, t("recipients.form.submissionFailed"))
+          getErrorMessage(error, t("recipients.form.submissionFailed"))
         );
         setIsSubmitting(false);
       }

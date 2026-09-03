@@ -25,6 +25,7 @@ import {
 import { buildAttributeEvidence } from "screens/datasetAssessments/AddEditDatasetAssessmentForm/evidence/buildAttributeEvidence";
 import { findPreviousAssessmentsForDataset } from "screens/datasetAssessments/AddEditDatasetAssessmentForm/evidence/previousAssessmentEvidence";
 import { LEGACY_ATTRIBUTE_SCORING_SYSTEM } from "utils/AttributeScale";
+import { getErrorMessage } from "utils/errors";
 import {
   buildAssessmentAttributeLookup,
   buildDataSharingActivityPayload,
@@ -662,10 +663,4 @@ export function useDataSharingActivityForm() {
     setErrorMessage,
     setLockError,
   };
-}
-
-function getErrorMessage(error) {
-  if (!error) return "";
-  if (typeof error === "string") return error;
-  return error.message || error.toString();
 }

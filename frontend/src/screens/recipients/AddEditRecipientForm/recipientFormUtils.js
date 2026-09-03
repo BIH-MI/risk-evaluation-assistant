@@ -34,9 +34,3 @@ export function buildRecipientPayload(values, sharedUsernames) {
     sharedUsernames: sharedUsernames || [],
   };
 }
-
-export function getSubmitErrorMessage(error, fallbackMessage) {
-  if (typeof error === "string" && error) return error;
-  if (error?.message) return error.message;
-  return fallbackMessage;
-}

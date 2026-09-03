@@ -1,32 +1,4 @@
-const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:8080";
-
-// Safely extract the exact error message from Spring Boot's JSON response
-async function handleApiError(res, defaultMsg) {
-  let errorMsg = defaultMsg;
-  const resClone = res.clone(); // Clone to prevent "body stream already read" if JSON fails
-
-  try {
-    const errorData = await res.json();
-    if (errorData) {
-      if (errorData.message) {
-        errorMsg = errorData.message;
-      } else if (errorData.error && typeof errorData.error === "string") {
-        errorMsg = errorData.error; // Fallback to 'error' field
-      }
-    }
-  } catch (e) {
-    try {
-      const text = await resClone.text();
-      // Only use the text if it's not raw HTML (e.g., standard Spring Boot 404 page)
-      if (text && !text.trim().startsWith("<")) {
-        errorMsg = text;
-      }
-    } catch (inner) {}
-  }
-
-  // Always throw a standard Javascript Error containing a primitive string
-  throw new Error(errorMsg);
-}
+import { apiUrl, handleApiError } from "api/httpClient";
 
 export async function fetchConfigurationsApi(token) {
   const res = await fetch(`${apiUrl}/api/configurations`, {

@@ -46,9 +46,12 @@ public class EntityLockController {
         String username = SecurityUtils.getUsername(token);
         boolean isAdmin = SecurityUtils.isAdminRole(token);
 
+        // Stored lock types are normalized to uppercase everywhere else in this
+        // controller; normalizing here too prevents a mixed-case caller from
+        // acquiring a lock row distinct from the one unlock()/who() would see.
         // The service enforces ownership of existing locks. Admins are passed
         // through so they can override lock behavior where supported.
-        lockService.acquireLock(type, id, username, isAdmin);
+        lockService.acquireLock(type.toUpperCase(), id, username, isAdmin);
         return ResponseEntity.ok().build();
     }
 

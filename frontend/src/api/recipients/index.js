@@ -1,4 +1,4 @@
-const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:8080";
+import { apiUrl, handleApiError } from "api/httpClient";
 
 export async function fetchRecipientsApi(token) {
     const response = await fetch(`${apiUrl}/api/recipients`, {
@@ -6,7 +6,7 @@ export async function fetchRecipientsApi(token) {
         headers: { Authorization: `Bearer ${token}` },
     });
     if (!response.ok) {
-        throw new Error("Failed to fetch recipients");
+        await handleApiError(response, "Failed to fetch recipients");
     }
     return response.json();
 }
@@ -20,7 +20,7 @@ export async function addRecipientApi(newRecipient, token) {
         },
         body: JSON.stringify(newRecipient),
     });
-    if (!resp.ok) throw new Error("Failed to add recipient");
+    if (!resp.ok) await handleApiError(resp, "Failed to add recipient");
     return resp.json();
 }
 
@@ -33,7 +33,7 @@ export async function updateRecipientApi(id, updated, token) {
         },
         body: JSON.stringify(updated),
     });
-    if (!resp.ok) throw new Error("Failed to update recipient");
+    if (!resp.ok) await handleApiError(resp, "Failed to update recipient");
     return resp.json();
 }
 
@@ -42,6 +42,6 @@ export async function deleteRecipientApi(id, token) {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
     });
-    if (!resp.ok) throw new Error("Failed to delete recipient");
+    if (!resp.ok) await handleApiError(resp, "Failed to delete recipient");
     return resp.ok;
 }

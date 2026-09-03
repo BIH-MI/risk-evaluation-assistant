@@ -1,6 +1,8 @@
 package org.bihealth.mi.risk_assessment_api.exception;
 
 import jakarta.persistence.EntityNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.crossstore.ChangeSetPersister;
 import org.springframework.http.HttpStatus;
@@ -23,6 +25,8 @@ import java.util.Map;
 @ControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     /**
      * Handles validation exceptions triggered by @Validated on request DTOs.
      * Returns a 400 Bad Request with a map of field names to error messages.
@@ -40,59 +44,63 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * NEW: Handles IllegalStateException.
-     * Used when a user tries to modify a configuration that is already in use (locked).
+     * Handles IllegalStateException, used when a user tries to modify an
+     * entity in a state that does not allow it (e.g. a locked configuration).
      * Returns 409 Conflict.
      */
     @ExceptionHandler(IllegalStateException.class)
-    public ResponseEntity<String> handleIllegalStateException(IllegalStateException ex) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+    public ResponseEntity<Map<String, String>> handleIllegalStateException(IllegalStateException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", ex.getMessage()));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<String> handleIllegalArgumentException(IllegalArgumentException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
+    public ResponseEntity<Map<String, String>> handleIllegalArgumentException(IllegalArgumentException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", ex.getMessage()));
     }
 
     @ExceptionHandler(SecurityException.class)
-    public ResponseEntity<String> handleSecurityException(SecurityException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ex.getMessage());
+    public ResponseEntity<Map<String, String>> handleSecurityException(SecurityException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", ex.getMessage()));
     }
 
     /**
-     * NEW: Handles EntityNotFoundException.
-     * Standard JPA exception when a record is missing.
-     * Returns 404 Not Found.
+     * Handles EntityNotFoundException, the standard JPA exception when a
+     * record is missing. Returns 404 Not Found.
      */
     @ExceptionHandler(EntityNotFoundException.class)
-    public ResponseEntity<String> handleEntityNotFound(EntityNotFoundException ex) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
+    public ResponseEntity<Map<String, String>> handleEntityNotFound(EntityNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", ex.getMessage()));
     }
 
     /**
      * Handles exceptions for when a requested entity is not found (Spring Data).
      */
     @ExceptionHandler(ChangeSetPersister.NotFoundException.class)
-    public ResponseEntity<String> handleNotFoundException(ChangeSetPersister.NotFoundException ex) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
+    public ResponseEntity<Map<String, String>> handleNotFoundException(ChangeSetPersister.NotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", ex.getMessage()));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<String> handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body("Database error: " + ex.getMessage());
+    public ResponseEntity<Map<String, String>> handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", "Database error: " + ex.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<String> handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException ex) {
-        return ResponseEntity.badRequest().body("Failed to convert path variable: " + ex.getMessage());
+    public ResponseEntity<Map<String, String>> handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException ex) {
+        return ResponseEntity.badRequest().body(Map.of("message", "Failed to convert path variable: " + ex.getMessage()));
     }
 
     /**
      * A generic handler for all other un-caught exceptions.
-     * Returns a 500 Internal Server Error to prevent exposing stack traces to the client.
+     * Logs the full exception server-side (nothing else in this class does) and
+     * returns a generic 500 body, since an arbitrary uncaught exception's own
+     * message may contain internal implementation detail that shouldn't reach
+     * the client.
      */
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<String> handleAllExceptions(Exception ex) {
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An unexpected error occurred: " + ex.getMessage());
+    public ResponseEntity<Map<String, String>> handleAllExceptions(Exception ex) {
+        log.error("Unhandled exception", ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("message", "An unexpected error occurred. Please try again or contact support if the problem persists."));
     }
 }

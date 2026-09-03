@@ -4,17 +4,12 @@ import RATypography from '../../../../RATypography';
 import RABox from "../../../../../layout/RABox";
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import { useMaterialUIController } from "context";
 
 /**
  * Renders an ISO date/time string as "MM/DD/YYYY HH:MM".
  * Reusable anywhere you need date + time.
  */
 export default function DateTimeDisplay({ value }) {
-  // 2. Grab darkMode from your state
-  const [controller] = useMaterialUIController();
-  const { darkMode } = controller;
-
   if (!value) return null;
   const dt = new Date(value);
   const date = dt.toLocaleDateString();
@@ -24,11 +19,7 @@ export default function DateTimeDisplay({ value }) {
     second: "2-digit",
   });
 
-  // 3. Apply the logic based on darkMode
-  const iconSx = {
-    fontSize: 14,
-    color: darkMode ? "#ffffff" : "#333333", // Or use theme keys like 'white' / 'dark'
-  };
+  const iconSx = { fontSize: 14, color: "text.primary" };
 
   return (
     <RABox

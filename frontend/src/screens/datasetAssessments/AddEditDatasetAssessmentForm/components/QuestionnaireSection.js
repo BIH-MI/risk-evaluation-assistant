@@ -18,6 +18,48 @@ function buildLocalizedQuestions(questions, language) {
   }));
 }
 
+const QUESTIONNAIRE_CARD_SX = {
+  border: 1,
+  borderColor: ({ palette }) => palette.light?.main || palette.divider,
+  boxShadow: 1,
+  borderRadius: 2,
+  mb: 4,
+  bgcolor: ({ palette }) => palette.background.card || palette.background.default,
+};
+
+function getCategoryButtonSx(isActive) {
+  return (theme) => {
+    const inactiveBackground =
+      theme.palette.background.card || theme.palette.background.default;
+
+    return {
+      width: { xs: "100%", sm: "auto" },
+      minWidth: { sm: 200 },
+      height: "100%",
+      py: 1,
+      px: 2,
+      fontWeight: isActive ? "bold" : "normal",
+      textTransform: "none",
+      bgcolor: isActive ? theme.palette.primary.main : inactiveBackground,
+      color: isActive
+        ? theme.palette.primary.contrastText
+        : theme.palette.text.primary,
+      borderColor: isActive
+        ? theme.palette.primary.main
+        : theme.palette.light?.main || theme.palette.divider,
+      "&:hover": {
+        bgcolor: isActive
+          ? theme.palette.primary.dark
+          : theme.palette.action.hover,
+      },
+      transition: theme.transitions.create(
+        ["background-color", "border-color", "color"],
+        { duration: theme.transitions.duration.short }
+      ),
+    };
+  };
+}
+
 function QuestionnaireSection({
   selectedConfigId,
   configLoading,
@@ -34,14 +76,7 @@ function QuestionnaireSection({
   const { t } = useTranslation();
 
   return (
-    <Card
-      sx={{
-        border: "1px solid #e0e0e0",
-        boxShadow: 1,
-        borderRadius: 2,
-        mb: 4,
-      }}
-    >
+    <Card sx={QUESTIONNAIRE_CARD_SX}>
       {selectedConfigId ? (
         configLoading ? (
           <RABox
@@ -56,10 +91,12 @@ function QuestionnaireSection({
           <>
             {datasetCategories.length > 1 && (
               <RABox
-                bgcolor="#fafafa"
                 borderBottom={1}
-                borderColor="divider"
                 p={2}
+                sx={({ palette }) => ({
+                  bgcolor: palette.background.default,
+                  borderColor: palette.light?.main || palette.divider,
+                })}
               >
                 <RATypography
                   variant="h5"
@@ -84,24 +121,7 @@ function QuestionnaireSection({
                         variant={isActive ? "contained" : "outlined"}
                         color={isActive ? "primary" : "secondary"}
                         onClick={() => setActiveQuestTab(globalIndex)}
-                        sx={{
-                          width: { xs: "100%", sm: "auto" },
-                          minWidth: { sm: "200px" },
-                          height: "100%",
-                          py: 1,
-                          px: 2,
-                          fontWeight: isActive ? "bold" : "normal",
-                          textTransform: "none",
-                          bgcolor: isActive ? "primary.main" : "white",
-                          color: isActive ? "white" : "text.primary",
-                          borderColor: isActive
-                            ? "primary.main"
-                            : "grey.300",
-                          "&:hover": {
-                            bgcolor: isActive ? "primary.dark" : "grey.100",
-                          },
-                          transition: "all 0.2s ease-in-out",
-                        }}
+                        sx={getCategoryButtonSx(isActive)}
                       >
                         {category.name}
                       </RAButton>

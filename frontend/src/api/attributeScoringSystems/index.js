@@ -1,18 +1,4 @@
-const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:8080";
-
-async function handleApiError(res, defaultMsg) {
-  const text = await res.text();
-  let message = text || defaultMsg;
-
-  try {
-    const parsed = JSON.parse(text);
-    message = parsed.message || parsed.error || defaultMsg;
-  } catch {
-    // Plain-text Spring errors are used by the global exception handler.
-  }
-
-  throw new Error(message);
-}
+import { apiUrl, handleApiError } from "api/httpClient";
 
 export async function fetchAttributeScoringSystemsApi(token, { activeOnly = false } = {}) {
   const params = activeOnly ? "?activeOnly=true" : "";

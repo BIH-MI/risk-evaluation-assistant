@@ -162,11 +162,18 @@ export default function RiskMatrixEditor({ isReadOnly }) {
 
       <TableContainer
         component={Paper}
-        sx={{ boxShadow: "none", border: "1px solid #e0e0e0" }}
+        sx={{
+          boxShadow: "none",
+          border: 1,
+          borderColor: ({ palette }) => palette.light?.main || palette.divider,
+        }}
       >
         <Table size="small">
           <TableHead
-            sx={{ display: "table-header-group", backgroundColor: "#fafafa" }}
+            sx={{
+              display: "table-header-group",
+              backgroundColor: ({ palette }) => palette.background.default,
+            }}
           >
             <TableRow>
               <TableCell
@@ -174,7 +181,9 @@ export default function RiskMatrixEditor({ isReadOnly }) {
                 sx={{
                   fontWeight: "bold",
                   width: "33%",
-                  borderRight: "1px solid #e0e0e0",
+                  borderRight: 1,
+                  borderRightColor: ({ palette }) =>
+                    palette.light?.main || palette.divider,
                 }}
               >
                 {controlsCat?.name || "Mitigating Controls"}
@@ -208,9 +217,10 @@ export default function RiskMatrixEditor({ isReadOnly }) {
                       align="center"
                       rowSpan={span}
                       sx={{
-                        borderRight: "1px solid #e0e0e0",
+                        borderRight: 1,
+                        borderRightColor: ({ palette }) =>
+                          palette.light?.main || palette.divider,
                         verticalAlign: "middle",
-                        backgroundColor: "#ffffff",
                       }}
                     >
                       <RATypography

@@ -1,8 +1,7 @@
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8080";
-
+import { apiUrl, handleApiError } from "api/httpClient";
 
 export async function calculateTotalRiskApi(payload, token) {
-  const res = await fetch(`${API_URL}/api/risk/calculate`, {
+  const res = await fetch(`${apiUrl}/api/risk/calculate`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -12,8 +11,7 @@ export async function calculateTotalRiskApi(payload, token) {
   });
 
   if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(errorText || "Failed to calculate risk");
+    await handleApiError(res, "Failed to calculate risk");
   }
 
   return res.json();

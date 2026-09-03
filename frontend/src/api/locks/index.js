@@ -1,10 +1,10 @@
 import { useAuth } from 'react-oidc-context';
-import { useCallback } from 'react'; // 1. Import useCallback
+import { useCallback } from 'react';
+import { apiUrl, handleApiError } from 'api/httpClient';
 
 export function useEntityLockApi() {
     const { user } = useAuth();
     const token = user?.access_token;
-    const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:8080";
 
     const lock = useCallback(async (entityType, id) => {
         const res = await fetch(`${apiUrl}/api/locks/${entityType}/${id}`, {
@@ -13,19 +13,17 @@ export function useEntityLockApi() {
         });
         if (res.ok) return;
         if (res.status === 409) {
-            // It's good practice to get the error message from the response if available
-            const err = await res.text();
-            throw new Error(err || 'This item is locked by another user.');
+            await handleApiError(res, 'This item is locked by another user.');
         }
-        throw new Error('Could not acquire lock (unexpected error).');
-    }, [apiUrl, token]); // 3. Add dependencies used inside the function
+        await handleApiError(res, 'Could not acquire lock (unexpected error).');
+    }, [token]);
 
     const unlock = useCallback(async (entityType, id) => {
         await fetch(`${apiUrl}/api/locks/${entityType}/${id}`, {
             method: 'DELETE',
             headers: { Authorization: `Bearer ${token}` },
         });
-    }, [apiUrl, token]);
+    }, [token]);
 
     const who = useCallback(async (entityType, id) => {
         const res = await fetch(`${apiUrl}/api/locks/${entityType}/${id}`, {
@@ -33,12 +31,11 @@ export function useEntityLockApi() {
         });
         if (res.status === 204) return null; // No lock exists
         if (!res.ok) {
-            const err = await res.text();
-            throw new Error(err || `Failed to fetch lock holder for ${entityType}/${id}`);
+            await handleApiError(res, `Failed to fetch lock holder for ${entityType}/${id}`);
         }
         const { lockedBy } = await res.json();
         return lockedBy;
-    }, [apiUrl, token]);
+    }, [token]);
 
     const getLocks = useCallback(async (entityType, ids) => {
         const res = await fetch(`${apiUrl}/api/locks/${entityType}`, {
@@ -50,11 +47,10 @@ export function useEntityLockApi() {
             body: JSON.stringify(ids),
         });
         if (!res.ok) {
-            const text = await res.text();
-            throw new Error(text || `Failed to fetch locks for ${entityType}`);
+            await handleApiError(res, `Failed to fetch locks for ${entityType}`);
         }
         return await res.json();
-    }, [apiUrl, token]);
+    }, [token]);
 
 
     return { lock, unlock, who, getLocks };

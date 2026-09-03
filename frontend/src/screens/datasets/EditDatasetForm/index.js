@@ -29,6 +29,7 @@ import {
   updateDataset,
 } from "../../../store/datasets/datasetsThunks";
 import { useActiveLock } from "../../../hooks/locks/useActiveLock";
+import { getErrorMessage } from "../../../utils/errors";
 import {
   applyDirectIdentifierEvidenceDefaults,
   applySchemaDirectIdentifierEvidence,
@@ -74,12 +75,34 @@ export default function EditDatasetForm() {
   // --- Locking Logic ---
   const [lockError, setLockError] = useState(null);
 
+  const lockRedirectTimerRef = useRef(null);
+
   const onLockFailed = useCallback(
     (err) => {
       setLockError(t("datasets.alerts.lockFailed"));
-      setTimeout(() => navigate("/datasets"), 2000);
+
+      if (lockRedirectTimerRef.current) {
+        clearTimeout(lockRedirectTimerRef.current);
+      }
+
+      /**
+       * The redirect timer is cleaned up on unmount so navigation cannot fire
+       * after the user has already left the form.
+       */
+      lockRedirectTimerRef.current = setTimeout(() => {
+        navigate("/datasets");
+      }, 2000);
     },
     [navigate, t]
+  );
+
+  useEffect(
+    () => () => {
+      if (lockRedirectTimerRef.current) {
+        clearTimeout(lockRedirectTimerRef.current);
+      }
+    },
+    []
   );
 
   const hasLock = useActiveLock("DATASET", datasetId, onLockFailed);
@@ -303,7 +326,7 @@ export default function EditDatasetForm() {
         dispatch(fetchDatasets(token));
         navigate("/datasets");
       } catch (err) {
-        setLockError(err.message || t("datasets.alerts.saveFailed"));
+        setLockError(getErrorMessage(err, t("datasets.alerts.saveFailed")));
         setIsSubmitting(false);
       }
     },

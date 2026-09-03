@@ -15,6 +15,7 @@ import RAInput from "components/input/RAInput";
 import { MenuItem } from "@mui/material";
 
 import { CSVDropzone } from "utils/CSVDropzone";
+import { getErrorMessage } from "utils/errors";
 import { PreviewTable } from "./PreviewTable";
 import { useDatasetTableProfiling } from "./useDatasetTableProfiling";
 import { addDataset } from "store/datasets/datasetsThunks";
@@ -472,7 +473,7 @@ export default function AddDatasetForm() {
         .catch((err) => {
           setErrors((e) => ({
             ...e,
-            tables: err.message || t("datasets.alerts.submissionFailed"),
+            tables: getErrorMessage(err, t("datasets.alerts.submissionFailed")),
           }));
         });
     },

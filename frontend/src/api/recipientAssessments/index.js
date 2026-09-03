@@ -1,4 +1,4 @@
-const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:8080";
+import { apiUrl, handleApiError } from "api/httpClient";
 
 /**
  * Fetches all recipient assessments (global endpoint).
@@ -10,8 +10,7 @@ export async function fetchRecipientAssessmentsApi(token) {
         headers: { Authorization: `Bearer ${token}` },
     });
     if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Failed to fetch recipient assessments: ${errText}`);
+        await handleApiError(response, "Failed to fetch recipient assessments");
     }
     return response.json();
 }
@@ -29,9 +28,9 @@ export async function fetchRecipientAssessmentsByRecipientIdApi(recipientId, tok
         }
     );
     if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(
-            `Failed to fetch recipient assessments for recipient ${recipientId}: ${errText}`
+        await handleApiError(
+            response,
+            `Failed to fetch recipient assessments for recipient ${recipientId}`
         );
     }
     return response.json();
@@ -46,16 +45,15 @@ export async function addRecipientAssessmentApi(recipientId, newAssessment, toke
         `${apiUrl}/api/recipients/${recipientId}/assessments`,
         {
             method: "POST",
-            headers: { 
+            headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${token}` 
+                Authorization: `Bearer ${token}`
             },
             body: JSON.stringify(newAssessment),
         }
     );
     if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Failed to add recipient assessment: ${errText}`);
+        await handleApiError(response, "Failed to add recipient assessment");
     }
     return response.json();
 }
@@ -74,16 +72,15 @@ export async function updateRecipientAssessmentApi(
         `${apiUrl}/api/recipients/${recipientId}/assessments/${assessmentId}`,
         {
             method: "PUT",
-            headers: { 
+            headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${token}` 
+                Authorization: `Bearer ${token}`
             },
             body: JSON.stringify(updatedAssessment),
         }
     );
     if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Failed to update recipient assessment: ${errText}`);
+        await handleApiError(response, "Failed to update recipient assessment");
     }
     return response.json();
 }
@@ -95,15 +92,14 @@ export async function updateRecipientAssessmentApi(
 export async function deleteRecipientAssessmentApi(recipientId, assessmentId, token) {
     // Construct the URL here using the consistent BASE_URL
     const response = await fetch(
-        `${apiUrl}/api/recipients/${recipientId}/assessments/${assessmentId}`, 
+        `${apiUrl}/api/recipients/${recipientId}/assessments/${assessmentId}`,
         {
             method: "DELETE",
             headers: { Authorization: `Bearer ${token}` },
         }
     );
     if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Failed to delete recipient assessment: ${errText}`);
+        await handleApiError(response, "Failed to delete recipient assessment");
     }
     return;
 }

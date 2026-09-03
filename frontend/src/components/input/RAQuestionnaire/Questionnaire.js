@@ -1,52 +1,65 @@
-// src/components/input/RAQuestionnaire/Questionnaire.js
 import React from "react";
 import PropTypes from "prop-types";
-import { Radio, RadioGroup, FormControlLabel } from "@mui/material";
-import { useTheme } from "@mui/material/styles";
+import { FormControlLabel, Radio, RadioGroup } from "@mui/material";
+import { alpha, useTheme } from "@mui/material/styles";
+
 import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
 
+function getQuestionRowSx({ isLast, isOutdated }) {
+  return (theme) => ({
+    backgroundColor: isOutdated
+      ? alpha(theme.palette.error.main, 0.12)
+      : "transparent",
+    borderBottom: isLast
+      ? "none"
+      : `1px solid ${theme.palette.light?.main || theme.palette.divider}`,
+  });
+}
+
 export default function Questionnaire({
-                                        questions,
-                                        values,
-                                        onChange,
-                                        pageSize,
-                                        sx,
-                                        showRowNumbers = false,
-                                        isReadOnly = false,
-                                      }) {
+  questions,
+  values,
+  onChange,
+  pageSize,
+  sx,
+  showRowNumbers,
+  isReadOnly,
+}) {
   const theme = useTheme();
 
   return (
     <RABox sx={{ width: "100%", height: "100%", ...sx }}>
-      {questions.map((q, idx) => (
+      {questions.map((question, index) => (
         <RABox
-          key={q.id}
+          key={question.id}
           p={2}
-          sx={{
-            backgroundColor: q.isOutdated ? "#ffebee" : "transparent",
-            borderBottom: idx === questions.length - 1 ? "none" : "1px solid #f0f0f0",
-          }}
+          sx={getQuestionRowSx({
+            isLast: index === questions.length - 1,
+            isOutdated: Boolean(question.isOutdated),
+          })}
         >
-          {/* Question Text Row */}
           <RATypography
             variant="subtitle2"
             fontWeight="medium"
             mb={2}
-            color={q.isOutdated ? "error" : "text"}
+            color={question.isOutdated ? "error" : "text"}
           >
-            {showRowNumbers && `${idx + 1}. `}{q.text}
-            {q.isRequired && <span style={{ color: 'red' }}> *</span>}
+            {showRowNumbers && `${index + 1}. `}
+            {question.text}
+            {question.isRequired && (
+              <span style={{ color: theme.palette.error.main }}> *</span>
+            )}
           </RATypography>
 
-          {/* Options */}
           <RadioGroup
-            value={values[q.id] || ""}
-            onChange={(e) => onChange(q.id, e.target.value)}
+            value={values[question.id] ?? ""}
+            onChange={(event) => onChange(question.id, event.target.value)}
           >
-            {(q.options || []).map((opt, oIdx) => {
-              // CRITICAL FIX: Ensure the value is ALWAYS a string, and has a fallback to text
-              const optionValue = String(opt.code || opt.id || opt.text || oIdx);
+            {(question.options || []).map((option, optionIndex) => {
+              const optionValue = String(
+                option.code ?? option.id ?? option.text ?? optionIndex
+              );
 
               return (
                 <FormControlLabel
@@ -55,7 +68,7 @@ export default function Questionnaire({
                   control={
                     <Radio
                       disableRipple
-                      disabled={q.disabled || isReadOnly}
+                      disabled={question.disabled || isReadOnly}
                       sx={{
                         color: theme.palette.info.main,
                         "&.Mui-checked": {
@@ -64,7 +77,15 @@ export default function Questionnaire({
                       }}
                     />
                   }
-                  label={<RATypography variant="button" color="text" fontWeight="bold">{opt.text}</RATypography>}
+                  label={
+                    <RATypography
+                      variant="button"
+                      color="text"
+                      fontWeight="bold"
+                    >
+                      {option.text}
+                    </RATypography>
+                  }
                   sx={{ mb: 1 }}
                 />
               );
@@ -90,11 +111,11 @@ Questionnaire.propTypes = {
           id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
           text: PropTypes.string.isRequired,
         })
-      )
+      ),
     })
   ).isRequired,
   values: PropTypes.objectOf(
-    PropTypes.oneOfType([PropTypes.string, PropTypes.number]) // Updated to accept both just in case
+    PropTypes.oneOfType([PropTypes.string, PropTypes.number])
   ),
   onChange: PropTypes.func.isRequired,
   pageSize: PropTypes.number.isRequired,

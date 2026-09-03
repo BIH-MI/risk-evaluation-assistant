@@ -10,11 +10,11 @@ import QuestionnaireCategoryTabs from "./QuestionnaireCategoryTabs";
 
 const QUESTIONNAIRE_CARD_SX = {
   border: 1,
-  borderColor: "divider",
+  borderColor: ({ palette }) => palette.light?.main || palette.divider,
   boxShadow: 1,
   borderRadius: 2,
   mb: 4,
-  bgcolor: "background.paper",
+  bgcolor: ({ palette }) => palette.background.card || palette.background.default,
 };
 
 function CenteredQuestionnaireState({ children }) {

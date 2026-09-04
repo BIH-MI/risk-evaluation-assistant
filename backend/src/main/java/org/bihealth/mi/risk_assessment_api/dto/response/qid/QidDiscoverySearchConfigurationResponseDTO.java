@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.bihealth.mi.risk_assessment_api.model.qid.QidDiscoveryConfigurationVersion;
+import org.bihealth.mi.risk_assessment_api.model.qid.QidSearchType;
 
 /**
  * Client-facing search object passed into browser-side QID profiling.
@@ -26,7 +27,21 @@ public class QidDiscoverySearchConfigurationResponseDTO {
     private Integer maxPersistedCombinations;
 
     public QidDiscoverySearchConfigurationResponseDTO(QidDiscoveryConfigurationVersion version) {
-        this.searchType = version.getSearchType().name();
+        QidSearchType searchType = version.getSearchType();
+        if (searchType == null) {
+            /*
+             * The write path (QidDiscoveryConfigurationService.buildVersion) requires
+             * searchType, so a null value here means this version predates that model
+             * and was never repaired by QidDiscoveryConfigurationSeeder. Fail with a
+             * diagnosable message rather than a bare NullPointerException.
+             */
+            throw new IllegalStateException(
+                    "QID discovery configuration version " + version.getId()
+                            + " has no search type recorded and must be repaired before it can be served."
+            );
+        }
+
+        this.searchType = searchType.name();
         this.exactSearchMaxCandidateCount = version.getExactSearchMaxCandidateCount();
         this.maxCombinationSize = version.getMaxCombinationSize();
         this.beamWidth = version.getBeamWidth();

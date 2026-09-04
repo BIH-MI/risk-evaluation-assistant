@@ -21,6 +21,7 @@ import { useDatasetTableProfiling } from "./useDatasetTableProfiling";
 import { addDataset } from "store/datasets/datasetsThunks";
 import { fetchQidDiscoveryConfigurationsApi } from "api/qidDiscoveryConfigurations";
 import { getQidSearchTypeLabel } from "qidDiscovery/configuration/searchTypeLabels";
+import { getQidConfigurationValidationError } from "qidDiscovery/configuration/validateQidDiscoverySearchConfiguration";
 import {
   toDatasetAttributePayload,
   toDatasetQidCombinationPayload,
@@ -89,6 +90,16 @@ export default function AddDatasetForm() {
       ) || null,
     [qidDiscoveryConfigurations, selectedQidDiscoveryConfigurationId]
   );
+
+  /**
+   * Surface an incomplete/invalid persisted QID Discovery Configuration as
+   * soon as it's selected, rather than only discovering it once a CSV upload
+   * reaches QID profiling.
+   */
+  const selectedQidDiscoveryConfigurationError = useMemo(() => {
+    if (!selectedQidDiscoveryConfiguration) return "";
+    return getQidConfigurationValidationError(selectedQidDiscoveryConfiguration);
+  }, [selectedQidDiscoveryConfiguration]);
 
   const { profileTable, refreshTable, disposeTableProfile } =
     useDatasetTableProfiling({
@@ -159,6 +170,15 @@ export default function AddDatasetForm() {
         return false;
       }
 
+      if (selectedQidDiscoveryConfigurationError) {
+        setErrors((e) => ({
+          ...e,
+          tables:
+            "The selected QID Discovery Configuration is incomplete or invalid. Please contact an administrator.",
+        }));
+        return false;
+      }
+
       if (tables.some((table) => table.name === file.name)) {
         setErrors((e) => ({
           ...e,
@@ -190,7 +210,12 @@ export default function AddDatasetForm() {
       });
       return localTableId;
     },
-    [selectedQidDiscoveryConfiguration, tables, t]
+    [
+      selectedQidDiscoveryConfiguration,
+      selectedQidDiscoveryConfigurationError,
+      tables,
+      t,
+    ]
   );
 
   const handleTableParse = useCallback(
@@ -553,6 +578,12 @@ export default function AddDatasetForm() {
           }
           fullWidth
           disabled={qidConfigurationsLoading || tables.length > 0}
+          error={Boolean(selectedQidDiscoveryConfigurationError)}
+          helperText={
+            selectedQidDiscoveryConfigurationError
+              ? "The selected QID Discovery Configuration is incomplete or invalid. Please contact an administrator."
+              : ""
+          }
         >
           {qidDiscoveryConfigurations.map((configuration) => (
             <MenuItem key={configuration.id} value={String(configuration.id)}>
@@ -574,6 +605,7 @@ export default function AddDatasetForm() {
           onManualAdd={handleAddManualTable}
           error={errors.tables}
           setError={(msg) => setErrors((e) => ({ ...e, tables: msg }))}
+          disabled={Boolean(selectedQidDiscoveryConfigurationError)}
         />
 
         {directIdentifierSubmissionMessage && (

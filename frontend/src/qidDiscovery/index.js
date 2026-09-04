@@ -18,4 +18,5 @@ export { resolveQidSearchMode } from "./configuration/resolveQidSearchMode";
 export {
   QID_SEARCH_TYPES,
   validateQidDiscoverySearchConfiguration,
+  getQidConfigurationValidationError,
 } from "./configuration/validateQidDiscoverySearchConfiguration";

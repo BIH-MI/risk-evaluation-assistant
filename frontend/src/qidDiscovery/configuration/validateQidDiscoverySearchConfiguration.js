@@ -138,3 +138,17 @@ export function validateQidDiscoverySearchConfiguration(searchConfiguration) {
 
   return normalized;
 }
+
+/**
+ * Safe wrapper for callers that only need a validation message (or none) for
+ * a whole QID Discovery Configuration, e.g. to surface a problem as soon as a
+ * configuration is selected rather than only once profiling starts.
+ */
+export function getQidConfigurationValidationError(configuration) {
+  try {
+    validateQidDiscoverySearchConfiguration(configuration?.search);
+    return "";
+  } catch (error) {
+    return error.message;
+  }
+}

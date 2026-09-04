@@ -11,6 +11,7 @@ export function CSVDropzone({
   setError,
   onAddTable,
   onManualAdd,
+  disabled = false,
 }) {
   const { t } = useTranslation();
 
@@ -38,6 +39,7 @@ export function CSVDropzone({
     onDrop,
     accept: { "text/csv": [".csv"] },
     multiple: true,
+    disabled,
   });
 
   return (
@@ -55,6 +57,8 @@ export function CSVDropzone({
         alignItems: "center",
         justifyContent: "center",
         gap: 2,
+        opacity: disabled ? 0.5 : 1,
+        cursor: disabled ? "not-allowed" : "pointer",
       }}
     >
       <input {...getInputProps()} />
@@ -72,6 +76,7 @@ export function CSVDropzone({
       <RAButton
         size="small"
         variant="gradient"
+        disabled={disabled}
         onClick={(e) => {
           e.stopPropagation(); // Prevent dropzone click (file dialog)
           if (onManualAdd) onManualAdd();

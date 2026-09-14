@@ -2,6 +2,8 @@ package org.bihealth.mi.risk_assessment_api.controller;
 
 import org.bihealth.mi.risk_assessment_api.dto.request.configuration.RiskConfigurationUpdateRequest;
 import org.bihealth.mi.risk_assessment_api.dto.response.configuration.ConfigurationResponseDTO;
+import org.bihealth.mi.risk_assessment_api.exception.EntityNameAlreadyExistsException;
+import org.bihealth.mi.risk_assessment_api.model.NamedResourceConstraints;
 import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
 import org.bihealth.mi.risk_assessment_api.security.SecurityUtils;
 import org.bihealth.mi.risk_assessment_api.service.ConfigurationService;
@@ -165,6 +167,12 @@ public class ConfigurationController {
      */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, String>> handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", "A configuration with this name already exists."));
+        return NamedResourceConstraints.matchViolationMessage(ex.getMessage())
+                .map(match -> ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                        "code", match.code(),
+                        "message", EntityNameAlreadyExistsException.messageForUnknownName(match.resourceLabel())
+                )))
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Map.of("message", "Database error: " + ex.getMessage())));
     }
 }

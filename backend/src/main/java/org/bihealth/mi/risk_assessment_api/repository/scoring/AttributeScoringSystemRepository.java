@@ -13,6 +13,6 @@ public interface AttributeScoringSystemRepository extends JpaRepository<Attribut
     List<AttributeScoringSystem> findAllByOrderByLastModifiedDateDesc();
     Optional<AttributeScoringSystem> findFirstByDefaultSystemTrueAndActiveTrueOrderByIdAsc();
     Optional<AttributeScoringSystem> findFirstByActiveTrueOrderByIdAsc();
-    boolean existsByNameIgnoreCase(String name);
-    boolean existsByNameIgnoreCaseAndIdNot(String name, Long id);
+    boolean existsByNormalizedName(String normalizedName);
+    boolean existsByNormalizedNameAndIdNot(String normalizedName, Long id);
 }

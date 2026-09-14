@@ -27,6 +27,7 @@ import org.bihealth.mi.risk_assessment_api.repository.questionnaire.AnswerReposi
 import org.bihealth.mi.risk_assessment_api.repository.questionnaire.QuestionRepository;
 import org.bihealth.mi.risk_assessment_api.repository.recipient.RecipientRepository;
 import org.bihealth.mi.risk_assessment_api.service.AttributeScoringSystemService;
+import org.bihealth.mi.risk_assessment_api.utils.EntityNameNormalizer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
@@ -103,8 +104,9 @@ public class DataLoader implements CommandLineRunner {
         // demo dataset already exists, the rest of the sample graph is assumed to
         // have been created in a previous startup.
         if (!loadSampleData) return;
+        String leossDatasetName = EntityNameNormalizer.normalizeForComparison("LEOSS Public Use File");
         boolean datasetExists = datasetRepo.findAll().stream()
-                .anyMatch(d -> "LEOSS Public Use File".equals(d.getName()));
+                .anyMatch(d -> leossDatasetName.equals(EntityNameNormalizer.normalizeForComparison(d.getName())));
         if (datasetExists) return;
 
         // Fetch the two seeded frameworks. The exact names are part of the

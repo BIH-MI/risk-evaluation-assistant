@@ -5,12 +5,17 @@ import lombok.RequiredArgsConstructor;
 import org.bihealth.mi.risk_assessment_api.dto.request.qid.QidDiscoveryConfigurationRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.request.qid.QidDiscoverySearchConfigurationRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.qid.QidDiscoveryConfigurationResponseDTO;
+import org.bihealth.mi.risk_assessment_api.exception.EntityNameAlreadyExistsException;
+import org.bihealth.mi.risk_assessment_api.model.NamedResourceConstraints;
 import org.bihealth.mi.risk_assessment_api.model.qid.QidDiscoveryConfiguration;
 import org.bihealth.mi.risk_assessment_api.model.qid.QidDiscoveryConfigurationVersion;
 import org.bihealth.mi.risk_assessment_api.model.qid.QidSearchType;
 import org.bihealth.mi.risk_assessment_api.repository.dataset.DatasetRepository;
 import org.bihealth.mi.risk_assessment_api.repository.qid.QidDiscoveryConfigurationRepository;
 import org.bihealth.mi.risk_assessment_api.repository.qid.QidDiscoveryConfigurationVersionRepository;
+import org.bihealth.mi.risk_assessment_api.utils.EntityNameNormalizer;
+import org.springframework.core.NestedExceptionUtils;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -94,7 +99,7 @@ public class QidDiscoveryConfigurationService {
             clearOtherDefaults(null);
         }
 
-        QidDiscoveryConfiguration saved = configurationRepository.save(configuration);
+        QidDiscoveryConfiguration saved = saveConfigurationHandlingDuplicateName(configuration, configuration.getName());
         return toResponse(saved, 0);
     }
 
@@ -134,7 +139,7 @@ public class QidDiscoveryConfigurationService {
             clearOtherDefaults(configuration.getId());
         }
 
-        QidDiscoveryConfiguration saved = configurationRepository.save(configuration);
+        QidDiscoveryConfiguration saved = saveConfigurationHandlingDuplicateName(configuration, configuration.getName());
         return toResponse(saved, datasetRepository.countByQidDiscoveryConfigurationId(saved.getId()));
     }
 
@@ -410,24 +415,25 @@ public class QidDiscoveryConfigurationService {
 
     private void validateUniqueName(String rawName, Long excludeId) {
         String name = requiredName(rawName);
+        String normalizedName = EntityNameNormalizer.normalizeForComparison(name);
         boolean exists = excludeId == null
-                ? configurationRepository.existsByNameIgnoreCase(name)
-                : configurationRepository.existsByNameIgnoreCaseAndIdNot(name, excludeId);
+                ? configurationRepository.existsByNormalizedName(normalizedName)
+                : configurationRepository.existsByNormalizedNameAndIdNot(normalizedName, excludeId);
         if (exists) {
-            throw new IllegalArgumentException("A QID discovery configuration with this name already exists.");
+            throw new EntityNameAlreadyExistsException("QID discovery configuration", name);
         }
     }
 
     private String uniqueDuplicateName(String baseName) {
         String cleanedBase = requiredName(baseName);
-        if (!configurationRepository.existsByNameIgnoreCase(cleanedBase)) {
+        if (!configurationRepository.existsByNormalizedName(EntityNameNormalizer.normalizeForComparison(cleanedBase))) {
             return cleanedBase;
         }
 
         int copyNumber = 2;
         while (true) {
             String candidate = cleanedBase + " " + copyNumber;
-            if (!configurationRepository.existsByNameIgnoreCase(candidate)) {
+            if (!configurationRepository.existsByNormalizedName(EntityNameNormalizer.normalizeForComparison(candidate))) {
                 return candidate;
             }
             copyNumber++;
@@ -451,10 +457,11 @@ public class QidDiscoveryConfigurationService {
     }
 
     private String requiredName(String value) {
-        if (value == null || value.trim().isEmpty()) {
+        String name = EntityNameNormalizer.normalizeForStorage(value);
+        if (name == null || name.isEmpty()) {
             throw new IllegalArgumentException("Name is required.");
         }
-        return value.trim();
+        return name;
     }
 
     private String trimToNull(String value) {
@@ -462,5 +469,25 @@ public class QidDiscoveryConfigurationService {
             return null;
         }
         return value.trim();
+    }
+
+    private QidDiscoveryConfiguration saveConfigurationHandlingDuplicateName(
+            QidDiscoveryConfiguration configuration,
+            String name
+    ) {
+        try {
+            return configurationRepository.saveAndFlush(configuration);
+        } catch (DataIntegrityViolationException ex) {
+            if (isConfigurationNameUniqueConstraintViolation(ex)) {
+                throw new EntityNameAlreadyExistsException("QID discovery configuration", name);
+            }
+            throw ex;
+        }
+    }
+
+    private boolean isConfigurationNameUniqueConstraintViolation(DataIntegrityViolationException ex) {
+        Throwable mostSpecificCause = NestedExceptionUtils.getMostSpecificCause(ex);
+        String message = mostSpecificCause == null ? ex.getMessage() : mostSpecificCause.getMessage();
+        return message != null && message.contains(NamedResourceConstraints.QID_DISCOVERY_CONFIGURATIONS_NORMALIZED_NAME);
     }
 }

@@ -13,6 +13,6 @@ public interface QidDiscoveryConfigurationRepository extends JpaRepository<QidDi
     List<QidDiscoveryConfiguration> findAllByOrderByLastModifiedDateDesc();
     Optional<QidDiscoveryConfiguration> findFirstByDefaultConfigurationTrueAndActiveTrueOrderByIdAsc();
     Optional<QidDiscoveryConfiguration> findFirstByActiveTrueOrderByIdAsc();
-    boolean existsByNameIgnoreCase(String name);
-    boolean existsByNameIgnoreCaseAndIdNot(String name, Long id);
+    boolean existsByNormalizedName(String normalizedName);
+    boolean existsByNormalizedNameAndIdNot(String normalizedName, Long id);
 }

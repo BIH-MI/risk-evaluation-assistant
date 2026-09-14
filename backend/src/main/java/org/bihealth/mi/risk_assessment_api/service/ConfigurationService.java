@@ -9,6 +9,8 @@ import org.bihealth.mi.risk_assessment_api.dto.request.configuration.RiskCategor
 import org.bihealth.mi.risk_assessment_api.dto.request.configuration.RiskConfigurationUpdateRequest;
 import org.bihealth.mi.risk_assessment_api.dto.request.configuration.RiskMatrixRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.configuration.ConfigurationResponseDTO;
+import org.bihealth.mi.risk_assessment_api.exception.EntityNameAlreadyExistsException;
+import org.bihealth.mi.risk_assessment_api.model.NamedResourceConstraints;
 import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
 import org.bihealth.mi.risk_assessment_api.model.configuration.ConfigurationVersion;
 import org.bihealth.mi.risk_assessment_api.model.configuration.ReidentificationThreshold;
@@ -21,6 +23,9 @@ import org.bihealth.mi.risk_assessment_api.repository.assessment.dataset.Dataset
 import org.bihealth.mi.risk_assessment_api.repository.assessment.recipient.RecipientAssessmentRepository;
 import org.bihealth.mi.risk_assessment_api.repository.configuration.ConfigurationVersionRepository;
 import org.bihealth.mi.risk_assessment_api.repository.configuration.RiskConfigurationRepository;
+import org.bihealth.mi.risk_assessment_api.utils.EntityNameNormalizer;
+import org.springframework.core.NestedExceptionUtils;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -81,16 +86,13 @@ public class ConfigurationService {
     public void validateUniqueName(String newName, Long excludeId) {
         if (newName == null || newName.trim().isEmpty()) return;
 
-        String normalizedNewName = normalizeName(newName);
-        boolean nameExists = configRepository.findAll().stream()
-                .filter(existing -> excludeId == null || !existing.getId().equals(excludeId))
-                .map(Configuration::getName)
-                .filter(Objects::nonNull)
-                .map(this::normalizeName)
-                .anyMatch(normalizedNewName::equals);
+        String normalizedName = EntityNameNormalizer.normalizeForComparison(newName);
+        boolean nameExists = excludeId == null
+                ? configRepository.existsByNormalizedName(normalizedName)
+                : configRepository.existsByNormalizedNameAndIdNot(normalizedName, excludeId);
 
         if (nameExists) {
-            throw new IllegalArgumentException("A configuration with this name already exists.");
+            throw new EntityNameAlreadyExistsException("configuration", EntityNameNormalizer.normalizeForStorage(newName));
         }
     }
 
@@ -138,7 +140,7 @@ public class ConfigurationService {
             clearOtherDefaults(null);
         }
 
-        Configuration saved = configRepository.save(config);
+        Configuration saved = saveConfigurationHandlingDuplicateName(config, config.getName());
         return toResponse(saved);
     }
 
@@ -170,7 +172,7 @@ public class ConfigurationService {
         );
         fork.addVersion(version);
 
-        Configuration saved = configRepository.save(fork);
+        Configuration saved = saveConfigurationHandlingDuplicateName(fork, fork.getName());
         return toResponse(saved);
     }
 
@@ -213,7 +215,7 @@ public class ConfigurationService {
             clearOtherDefaults(config.getId());
         }
 
-        Configuration saved = configRepository.save(config);
+        Configuration saved = saveConfigurationHandlingDuplicateName(config, config.getName());
         return toResponse(saved);
     }
 
@@ -654,10 +656,11 @@ public class ConfigurationService {
     }
 
     private String requiredText(String value, String message) {
-        if (value == null || value.trim().isEmpty()) {
+        String normalized = EntityNameNormalizer.normalizeForStorage(value);
+        if (normalized == null || normalized.isEmpty()) {
             throw new IllegalArgumentException(message);
         }
-        return value.trim();
+        return normalized;
     }
 
     private String trimToNull(String value) {
@@ -671,11 +674,24 @@ public class ConfigurationService {
         return language == null ? "en" : language;
     }
 
-    private String normalizeName(String value) {
-        return value.replaceAll("[^a-zA-Z0-9]", "").toLowerCase(Locale.ROOT);
-    }
-
     private String normalizeReference(String value) {
         return value == null ? "" : value.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private Configuration saveConfigurationHandlingDuplicateName(Configuration config, String name) {
+        try {
+            return configRepository.saveAndFlush(config);
+        } catch (DataIntegrityViolationException ex) {
+            if (isConfigurationNameUniqueConstraintViolation(ex)) {
+                throw new EntityNameAlreadyExistsException("configuration", name);
+            }
+            throw ex;
+        }
+    }
+
+    private boolean isConfigurationNameUniqueConstraintViolation(DataIntegrityViolationException ex) {
+        Throwable mostSpecificCause = NestedExceptionUtils.getMostSpecificCause(ex);
+        String message = mostSpecificCause == null ? ex.getMessage() : mostSpecificCause.getMessage();
+        return message != null && message.contains(NamedResourceConstraints.RISK_CONFIGURATIONS_NORMALIZED_NAME);
     }
 }

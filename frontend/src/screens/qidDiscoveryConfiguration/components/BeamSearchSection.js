@@ -1,5 +1,6 @@
 import React from "react";
 import PropTypes from "prop-types";
+import { useTranslation } from "react-i18next";
 import { Grid } from "@mui/material";
 
 import RAInput from "components/input/RAInput";
@@ -12,20 +13,22 @@ export default function BeamSearchSection({
   onChange,
   searchType,
 }) {
-  const description =
+  const { t } = useTranslation();
+  const description = t(
     searchType === "AUTOMATIC"
-      ? "These settings are used when Automatic search selection chooses Beam Search for a larger candidate set."
-      : "Beam Search keeps only the highest-ranked candidate combinations at each search depth. A larger beam explores more alternatives but requires more computation.";
+      ? "qidDiscoveryConfiguration.beamSearch.automaticDescription"
+      : "qidDiscoveryConfiguration.beamSearch.beamDescription"
+  );
 
   return (
     <FormSection
-      title="Beam Search"
+      title={t("qidDiscoveryConfiguration.beamSearch.title")}
       description={description}
     >
       <Grid container spacing={2}>
         <Grid item xs={12} md={4}>
           <RAInput
-            label="Beam Width"
+            label={t("qidDiscoveryConfiguration.fields.beamWidth")}
             type="number"
             value={search.beamWidth}
             onChange={(event) => onChange("beamWidth", event.target.value)}
@@ -35,31 +38,29 @@ export default function BeamSearchSection({
             helperText={
               showErrors && errors.beamWidth
                 ? errors.beamWidth
-                : "Maximum number of ranked candidate combinations retained for expansion at each search depth."
+                : t("qidDiscoveryConfiguration.beamSearch.beamWidthHelper")
             }
           />
         </Grid>
         <Grid item xs={12} md={4}>
           <RAInput
-            label="Minimum Improvement"
+            label={t("qidDiscoveryConfiguration.fields.minImprovement")}
             type="number"
             value={search.minImprovement}
-            onChange={(event) =>
-              onChange("minImprovement", event.target.value)
-            }
+            onChange={(event) => onChange("minImprovement", event.target.value)}
             fullWidth
             inputProps={{ min: 0, step: "any" }}
             error={showErrors && Boolean(errors.minImprovement)}
             helperText={
               showErrors && errors.minImprovement
                 ? errors.minImprovement
-                : "Minimum increase in the best search signal considered meaningful between successive depths."
+                : t("qidDiscoveryConfiguration.beamSearch.minImprovementHelper")
             }
           />
         </Grid>
         <Grid item xs={12} md={4}>
           <RAInput
-            label="Stagnation Depth Limit"
+            label={t("qidDiscoveryConfiguration.fields.stagnationDepthLimit")}
             type="number"
             value={search.stagnationDepthLimit}
             onChange={(event) =>
@@ -71,7 +72,9 @@ export default function BeamSearchSection({
             helperText={
               showErrors && errors.stagnationDepthLimit
                 ? errors.stagnationDepthLimit
-                : "Number of consecutive search depths without sufficient improvement before Beam Search stops."
+                : t(
+                    "qidDiscoveryConfiguration.beamSearch.stagnationDepthLimitHelper"
+                  )
             }
           />
         </Grid>

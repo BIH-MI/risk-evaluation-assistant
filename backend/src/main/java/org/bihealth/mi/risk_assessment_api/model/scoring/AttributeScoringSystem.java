@@ -4,7 +4,8 @@ import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import org.bihealth.mi.risk_assessment_api.model.AuditableEntity;
+import org.bihealth.mi.risk_assessment_api.model.NamedResourceConstraints;
+import org.bihealth.mi.risk_assessment_api.model.NamedResourceEntity;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -25,12 +26,12 @@ import java.util.Optional;
         name = "attribute_scoring_systems",
         uniqueConstraints = {
                 @UniqueConstraint(
-                        name = "uk_attribute_scoring_system_name",
-                        columnNames = "name"
+                        name = NamedResourceConstraints.ATTRIBUTE_SCORING_SYSTEMS_NORMALIZED_NAME,
+                        columnNames = "normalized_name"
                 )
         }
 )
-public class AttributeScoringSystem extends AuditableEntity {
+public class AttributeScoringSystem extends NamedResourceEntity {
 
     @Column(name = "is_active", nullable = false)
     private boolean active = true;

@@ -10,7 +10,8 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.Setter;
-import org.bihealth.mi.risk_assessment_api.model.AuditableEntity;
+import org.bihealth.mi.risk_assessment_api.model.NamedResourceConstraints;
+import org.bihealth.mi.risk_assessment_api.model.NamedResourceEntity;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -31,12 +32,12 @@ import java.util.Optional;
         name = "qid_discovery_configurations",
         uniqueConstraints = {
                 @UniqueConstraint(
-                        name = "uk_qid_discovery_configuration_name",
-                        columnNames = "name"
+                        name = NamedResourceConstraints.QID_DISCOVERY_CONFIGURATIONS_NORMALIZED_NAME,
+                        columnNames = "normalized_name"
                 )
         }
 )
-public class QidDiscoveryConfiguration extends AuditableEntity {
+public class QidDiscoveryConfiguration extends NamedResourceEntity {
 
     @Column(name = "is_active")
     private boolean active = true;

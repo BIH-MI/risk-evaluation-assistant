@@ -1,5 +1,6 @@
 import React from "react";
 import PropTypes from "prop-types";
+import { useTranslation } from "react-i18next";
 import { FormControlLabel, Grid, Switch } from "@mui/material";
 
 import RAInput from "components/input/RAInput";
@@ -12,12 +13,16 @@ export default function ConfigurationDetailsSection({
   showErrors,
   onChange,
 }) {
+  const { t } = useTranslation();
+
   return (
-    <FormSection title="Configuration Details">
+    <FormSection
+      title={t("qidDiscoveryConfiguration.configurationDetails.title")}
+    >
       <Grid container spacing={2}>
         <Grid item xs={12}>
           <RAInput
-            label="Name"
+            label={t("qidDiscoveryConfiguration.fields.name")}
             value={form.name}
             onChange={(event) => onChange("name", event.target.value)}
             fullWidth
@@ -28,7 +33,7 @@ export default function ConfigurationDetailsSection({
         </Grid>
         <Grid item xs={12}>
           <RAInput
-            label="Description"
+            label={t("qidDiscoveryConfiguration.fields.description")}
             value={form.description}
             onChange={(event) => onChange("description", event.target.value)}
             fullWidth
@@ -38,7 +43,7 @@ export default function ConfigurationDetailsSection({
         </Grid>
         <Grid item xs={12} md={4}>
           <RAInput
-            label="Version"
+            label={t("qidDiscoveryConfiguration.fields.version")}
             value={form.versionNumber}
             disabled
             fullWidth
@@ -52,7 +57,7 @@ export default function ConfigurationDetailsSection({
                 onChange={(event) => onChange("active", event.target.checked)}
               />
             }
-            label="Active"
+            label={t("qidDiscoveryConfiguration.fields.active")}
           />
         </Grid>
         <Grid item xs={12} md={4}>
@@ -65,7 +70,7 @@ export default function ConfigurationDetailsSection({
                 }
               />
             }
-            label="Default"
+            label={t("qidDiscoveryConfiguration.fields.default")}
           />
           {showErrors && errors.defaultConfiguration && (
             <RATypography variant="caption" color="error" display="block">

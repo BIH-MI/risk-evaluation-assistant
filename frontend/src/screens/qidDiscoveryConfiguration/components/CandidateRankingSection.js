@@ -1,17 +1,15 @@
 import React from "react";
 import PropTypes from "prop-types";
+import { useTranslation } from "react-i18next";
 import { Grid } from "@mui/material";
 
 import RAInput from "components/input/RAInput";
 import FormSection from "./FormSection";
 
-const DESCRIPTIONS = Object.freeze({
-  AUTOMATIC:
-    "Ranking orders candidate combinations and, when Beam Search is selected, determines which candidates remain available for further expansion.",
-  EXACT:
-    "Ranking orders discovered combinations and influences which results are retained. It does not determine which combinations Exact Search evaluates.",
-  BEAM:
-    "Ranking determines which candidate combinations remain in the beam and therefore directly influences which search branches are explored.",
+const DESCRIPTION_KEYS = Object.freeze({
+  AUTOMATIC: "qidDiscoveryConfiguration.candidateRanking.automaticDescription",
+  EXACT: "qidDiscoveryConfiguration.candidateRanking.exactDescription",
+  BEAM: "qidDiscoveryConfiguration.candidateRanking.beamDescription",
 });
 
 export default function CandidateRankingSection({
@@ -21,15 +19,19 @@ export default function CandidateRankingSection({
   onChange,
   searchType,
 }) {
+  const { t } = useTranslation();
+
   return (
     <FormSection
-      title="Candidate Ranking"
-      description={DESCRIPTIONS[searchType] || DESCRIPTIONS.AUTOMATIC}
+      title={t("qidDiscoveryConfiguration.candidateRanking.title")}
+      description={t(
+        DESCRIPTION_KEYS[searchType] || DESCRIPTION_KEYS.AUTOMATIC
+      )}
     >
       <Grid container spacing={2}>
         <Grid item xs={12} md={4}>
           <RAInput
-            label="Distinction Weight"
+            label={t("qidDiscoveryConfiguration.fields.distinctionWeight")}
             type="number"
             value={search.distinctionWeight}
             onChange={(event) =>
@@ -41,13 +43,15 @@ export default function CandidateRankingSection({
             helperText={
               showErrors && errors.distinctionWeight
                 ? errors.distinctionWeight
-                : "Relative contribution of Distinction to the candidate ranking score."
+                : t(
+                    "qidDiscoveryConfiguration.candidateRanking.distinctionWeightHelper"
+                  )
             }
           />
         </Grid>
         <Grid item xs={12} md={4}>
           <RAInput
-            label="Separation Weight"
+            label={t("qidDiscoveryConfiguration.fields.separationWeight")}
             type="number"
             value={search.separationWeight}
             onChange={(event) =>
@@ -59,13 +63,15 @@ export default function CandidateRankingSection({
             helperText={
               showErrors && errors.separationWeight
                 ? errors.separationWeight
-                : "Relative contribution of Separation to the candidate ranking score."
+                : t(
+                    "qidDiscoveryConfiguration.candidateRanking.separationWeightHelper"
+                  )
             }
           />
         </Grid>
         <Grid item xs={12} md={4}>
           <RAInput
-            label="Attribute Count Penalty"
+            label={t("qidDiscoveryConfiguration.fields.attributeCountPenalty")}
             type="number"
             value={search.attributeCountPenalty}
             onChange={(event) =>
@@ -77,7 +83,9 @@ export default function CandidateRankingSection({
             helperText={
               showErrors && errors.attributeCountPenalty
                 ? errors.attributeCountPenalty
-                : "Penalty applied to larger combinations so smaller combinations are preferred when otherwise similarly ranked."
+                : t(
+                    "qidDiscoveryConfiguration.candidateRanking.attributeCountPenaltyHelper"
+                  )
             }
           />
         </Grid>

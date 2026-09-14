@@ -1,8 +1,10 @@
 package org.bihealth.mi.risk_assessment_api.exception;
 
 import jakarta.persistence.EntityNotFoundException;
+import org.bihealth.mi.risk_assessment_api.model.NamedResourceConstraints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.crossstore.ChangeSetPersister;
 import org.springframework.http.HttpStatus;
@@ -53,6 +55,11 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", ex.getMessage()));
     }
 
+    @ExceptionHandler(EntityNameAlreadyExistsException.class)
+    public ResponseEntity<Map<String, String>> handleEntityNameAlreadyExistsException(EntityNameAlreadyExistsException ex) {
+        return nameConflict(ex.getCode(), ex.getMessage());
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleIllegalArgumentException(IllegalArgumentException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", ex.getMessage()));
@@ -82,6 +89,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, String>> handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
+        NamedResourceConstraints.ConstraintMatch match = findNamedResourceConstraint(ex);
+        if (match != null) {
+            return nameConflict(
+                    match.code(),
+                    EntityNameAlreadyExistsException.messageForUnknownName(match.resourceLabel())
+            );
+        }
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", "Database error: " + ex.getMessage()));
     }
 
@@ -102,5 +116,18 @@ public class GlobalExceptionHandler {
         log.error("Unhandled exception", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("message", "An unexpected error occurred. Please try again or contact support if the problem persists."));
+    }
+
+    private ResponseEntity<Map<String, String>> nameConflict(String code, String message) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                "code", code,
+                "message", message
+        ));
+    }
+
+    private NamedResourceConstraints.ConstraintMatch findNamedResourceConstraint(DataIntegrityViolationException ex) {
+        Throwable mostSpecificCause = NestedExceptionUtils.getMostSpecificCause(ex);
+        String message = mostSpecificCause == null ? ex.getMessage() : mostSpecificCause.getMessage();
+        return NamedResourceConstraints.matchViolationMessage(message).orElse(null);
     }
 }

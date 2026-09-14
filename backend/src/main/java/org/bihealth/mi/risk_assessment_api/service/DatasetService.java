@@ -3,10 +3,14 @@ package org.bihealth.mi.risk_assessment_api.service;
 import org.bihealth.mi.risk_assessment_api.dto.request.dataset.*;
 import org.bihealth.mi.risk_assessment_api.dto.response.dataset.DatasetResponseDTO;
 import org.bihealth.mi.risk_assessment_api.enums.DataType;
+import org.bihealth.mi.risk_assessment_api.exception.DatasetNameAlreadyExistsException;
 import org.bihealth.mi.risk_assessment_api.model.dataset.*;
 import org.bihealth.mi.risk_assessment_api.model.qid.QidDiscoveryConfigurationVersion;
 import org.bihealth.mi.risk_assessment_api.repository.dataset.DatasetRepository;
 import org.bihealth.mi.risk_assessment_api.repository.locks.EntityLockRepository;
+import org.bihealth.mi.risk_assessment_api.utils.EntityNameNormalizer;
+import org.springframework.core.NestedExceptionUtils;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import jakarta.persistence.EntityNotFoundException;
@@ -68,9 +72,13 @@ public class DatasetService {
      * Creates a new dataset aggregate from the request DTO.
      */
     public DatasetResponseDTO addDataset(DatasetRequestDTO dto, String username) {
+        String normalizedName = requiredDatasetName(dto.getName());
+        ensureDatasetNameAvailable(normalizedName, null);
+
         Dataset ds = dto.toEntity(username);
+        ds.setName(normalizedName);
         applyQidDiscoveryConfiguration(ds, dto, true);
-        Dataset saved = datasetRepository.save(ds);
+        Dataset saved = saveDatasetHandlingDuplicateName(ds, normalizedName);
         return new DatasetResponseDTO(saved);
     }
 
@@ -92,7 +100,10 @@ public class DatasetService {
             throw new SecurityException("Not owner of dataset");
         }
 
-        existing.setName(dto.getName());
+        String normalizedName = requiredDatasetName(dto.getName());
+        ensureDatasetNameAvailable(normalizedName, id);
+
+        existing.setName(normalizedName);
         existing.setDescription(dto.getDescription());
         applyQidDiscoveryConfiguration(existing, dto, false);
 
@@ -162,8 +173,45 @@ public class DatasetService {
             }
         }
 
-        Dataset saved = datasetRepository.save(existing);
+        Dataset saved = saveDatasetHandlingDuplicateName(existing, normalizedName);
         return new DatasetResponseDTO(saved);
+    }
+
+    private String requiredDatasetName(String value) {
+        String normalizedName = EntityNameNormalizer.normalizeForStorage(value);
+        if (normalizedName == null || normalizedName.isEmpty()) {
+            throw new IllegalArgumentException("Dataset name is required.");
+        }
+        return normalizedName;
+    }
+
+    private void ensureDatasetNameAvailable(String normalizedName, Long excludeId) {
+        String normalizedNameKey = EntityNameNormalizer.normalizeForComparison(normalizedName);
+        boolean exists = excludeId == null
+                ? datasetRepository.existsByNormalizedName(normalizedNameKey)
+                : datasetRepository.existsByNormalizedNameAndIdNot(normalizedNameKey, excludeId);
+
+        if (exists) {
+            throw new DatasetNameAlreadyExistsException(normalizedName);
+        }
+    }
+
+    private Dataset saveDatasetHandlingDuplicateName(Dataset dataset, String normalizedName) {
+        try {
+            return datasetRepository.saveAndFlush(dataset);
+        } catch (DataIntegrityViolationException ex) {
+            if (isDatasetNameUniqueConstraintViolation(ex)) {
+                throw new DatasetNameAlreadyExistsException(normalizedName);
+            }
+            throw ex;
+        }
+    }
+
+    private boolean isDatasetNameUniqueConstraintViolation(DataIntegrityViolationException ex) {
+        Throwable mostSpecificCause = NestedExceptionUtils.getMostSpecificCause(ex);
+        String message = mostSpecificCause == null ? ex.getMessage() : mostSpecificCause.getMessage();
+        return message != null
+                && message.contains(DatasetNameAlreadyExistsException.DATASET_NAME_UNIQUE_CONSTRAINT);
     }
 
     private void applyQidDiscoveryConfiguration(

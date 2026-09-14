@@ -1,5 +1,6 @@
 import React from "react";
 import PropTypes from "prop-types";
+import { useTranslation } from "react-i18next";
 import { Grid } from "@mui/material";
 
 import RAInput from "components/input/RAInput";
@@ -11,15 +12,19 @@ export default function ResultRetentionSection({
   showErrors,
   onChange,
 }) {
+  const { t } = useTranslation();
+
   return (
     <FormSection
-      title="Result Retention"
-      description="Controls how many of the discovered aggregate QID combinations are kept after the search completes."
+      title={t("qidDiscoveryConfiguration.resultRetention.title")}
+      description={t("qidDiscoveryConfiguration.resultRetention.description")}
     >
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}>
           <RAInput
-            label="Maximum Retained Combinations"
+            label={t(
+              "qidDiscoveryConfiguration.fields.maxPersistedCombinations"
+            )}
             type="number"
             value={search.maxPersistedCombinations}
             onChange={(event) =>
@@ -31,7 +36,9 @@ export default function ResultRetentionSection({
             helperText={
               showErrors && errors.maxPersistedCombinations
                 ? errors.maxPersistedCombinations
-                : "Maximum number of aggregate QID combination results retained after discovery. This does not limit how many combinations may be evaluated during the search."
+                : t(
+                    "qidDiscoveryConfiguration.resultRetention.maxPersistedCombinationsHelper"
+                  )
             }
           />
         </Grid>

@@ -7,4 +7,6 @@ import java.util.List;
 public interface DataSharingActivityRepository extends JpaRepository<DataSharingActivity, Long> {
     List<DataSharingActivity> findByCreatorUsername(String creatorUsername);
     List<DataSharingActivity> findBySharedUsernamesContains(String username);
+    boolean existsByNormalizedName(String normalizedName);
+    boolean existsByNormalizedNameAndIdNot(String normalizedName, Long id);
 }

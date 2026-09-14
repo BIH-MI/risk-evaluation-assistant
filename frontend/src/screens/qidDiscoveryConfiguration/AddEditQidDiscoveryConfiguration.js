@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "react-oidc-context";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
-import { useTheme } from "@mui/material/styles";
 import { CircularProgress } from "@mui/material";
 
 import RAAlert from "components/feedback/RAAlert";
 import RABox from "components/layout/RABox";
 import RAButton from "components/input/RAButton";
 import RATypography from "components/display/RATypography";
+import RAFloatingAlertStack from "components/feedback/RAFloatingAlertStack";
 import { isAdminUser } from "utils/auth";
 import {
   createQidDiscoveryConfigurationApi,
@@ -33,8 +34,9 @@ import {
 export default function AddEditQidDiscoveryConfiguration() {
   const { id } = useParams();
   const { user } = useAuth();
+  const { t, i18n } = useTranslation();
+  const currentLanguage = i18n.language?.split("-")[0] || "en";
   const navigate = useNavigate();
-  const theme = useTheme();
   const token = user?.access_token;
   const isAdmin = isAdminUser(user);
   const isEditMode = Boolean(id);
@@ -72,7 +74,8 @@ export default function AddEditQidDiscoveryConfiguration() {
       } catch (error) {
         if (mounted) {
           setErrorMsg(
-            error.message || "Failed to load QID discovery configuration."
+            error.message ||
+              t("qidDiscoveryConfiguration.alerts.loadConfigurationFailed")
           );
         }
       } finally {
@@ -85,11 +88,15 @@ export default function AddEditQidDiscoveryConfiguration() {
     return () => {
       mounted = false;
     };
-  }, [id, isAdmin, isEditMode, token]);
+  }, [id, isAdmin, isEditMode, t, token]);
 
+  // currentLanguage isn't read directly here, but validateQidConfigurationForm
+  // translates its messages via t, so it must stay a dependency to re-run
+  // validation (and refresh already-shown errors) on language switch.
   const validationErrors = useMemo(
-    () => validateQidConfigurationForm(form, configurations),
-    [configurations, form]
+    () => validateQidConfigurationForm(t, form, configurations),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [configurations, form, currentLanguage]
   );
   const hasErrors = hasQidConfigurationFormErrors(validationErrors);
 
@@ -125,12 +132,13 @@ export default function AddEditQidDiscoveryConfiguration() {
       navigate("/configuration/qid-discovery");
     } catch (error) {
       setErrorMsg(
-        error.message || "Failed to save QID discovery configuration."
+        error.message ||
+          t("qidDiscoveryConfiguration.alerts.saveConfigurationFailed")
       );
     } finally {
       setSaving(false);
     }
-  }, [form, hasErrors, navigate, saving, token]);
+  }, [form, hasErrors, navigate, saving, t, token]);
 
   const handleSubmit = useCallback(
     (event) => {
@@ -145,7 +153,7 @@ export default function AddEditQidDiscoveryConfiguration() {
       <RABox p={3}>
         <RAAlert color="warning">
           <RATypography variant="body2" color="white">
-            Only administrators can manage QID discovery configurations.
+            {t("qidDiscoveryConfiguration.alerts.adminOnly")}
           </RATypography>
         </RAAlert>
       </RABox>
@@ -190,7 +198,9 @@ export default function AddEditQidDiscoveryConfiguration() {
       p={2}
     >
       <RATypography variant="h4" fontWeight="bold" align="center">
-        {isEditMode ? "Edit QID Discovery" : "Create QID Discovery"}
+        {isEditMode
+          ? t("qidDiscoveryConfiguration.form.editTitle")
+          : t("qidDiscoveryConfiguration.form.createTitle")}
       </RATypography>
 
       <ConfigurationDetailsSection
@@ -243,27 +253,22 @@ export default function AddEditQidDiscoveryConfiguration() {
           disabled={saving}
           sx={{ minWidth: 160 }}
         >
-          {saving ? "Saving..." : "Save"}
+          {saving
+            ? t("qidDiscoveryConfiguration.form.saving")
+            : t("qidDiscoveryConfiguration.form.save")}
         </RAButton>
       </RABox>
 
-      {errorMsg && (
-        <RABox
-          sx={{
-            position: "fixed",
-            bottom: theme.spacing(2),
-            right: theme.spacing(2),
-            zIndex: theme.zIndex.snackbar,
-            width: 380,
-          }}
-        >
-          <RAAlert color="error" dismissible onClose={() => setErrorMsg("")}>
-            <RATypography variant="body2" color="white">
-              {errorMsg}
-            </RATypography>
-          </RAAlert>
-        </RABox>
-      )}
+      <RAFloatingAlertStack
+        alerts={[
+          {
+            id: "errorMsg",
+            color: "error",
+            message: errorMsg,
+            onClose: () => setErrorMsg(""),
+          },
+        ]}
+      />
     </RABox>
   );
 }

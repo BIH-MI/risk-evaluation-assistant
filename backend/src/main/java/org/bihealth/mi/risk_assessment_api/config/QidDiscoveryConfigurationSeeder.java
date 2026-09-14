@@ -6,6 +6,7 @@ import org.bihealth.mi.risk_assessment_api.model.qid.QidDiscoveryConfiguration;
 import org.bihealth.mi.risk_assessment_api.model.qid.QidDiscoveryConfigurationVersion;
 import org.bihealth.mi.risk_assessment_api.repository.qid.QidDiscoveryConfigurationRepository;
 import org.bihealth.mi.risk_assessment_api.service.QidDiscoveryConfigurationService;
+import org.bihealth.mi.risk_assessment_api.utils.EntityNameNormalizer;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -50,7 +51,8 @@ public class QidDiscoveryConfigurationSeeder implements CommandLineRunner {
 
     private void ensureDefaultSeedConfigurationExists() {
         QidDiscoveryConfiguration existingSeedConfiguration = configurationRepository.findAll().stream()
-                .filter(configuration -> DEFAULT_QID_DISCOVERY_CONFIGURATION_NAME.equalsIgnoreCase(configuration.getName()))
+                .filter(configuration -> EntityNameNormalizer.normalizeForComparison(DEFAULT_QID_DISCOVERY_CONFIGURATION_NAME)
+                        .equals(EntityNameNormalizer.normalizeForComparison(configuration.getName())))
                 .findFirst()
                 .orElse(null);
 

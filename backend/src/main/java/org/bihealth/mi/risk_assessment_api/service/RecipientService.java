@@ -3,8 +3,13 @@ package org.bihealth.mi.risk_assessment_api.service;
 import jakarta.persistence.EntityNotFoundException;
 import org.bihealth.mi.risk_assessment_api.dto.request.recipient.RecipientRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.recipient.RecipientResponseDTO;
+import org.bihealth.mi.risk_assessment_api.exception.EntityNameAlreadyExistsException;
+import org.bihealth.mi.risk_assessment_api.model.NamedResourceConstraints;
 import org.bihealth.mi.risk_assessment_api.model.recipient.Recipient;
 import org.bihealth.mi.risk_assessment_api.repository.recipient.RecipientRepository;
+import org.bihealth.mi.risk_assessment_api.utils.EntityNameNormalizer;
+import org.springframework.core.NestedExceptionUtils;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -80,13 +85,16 @@ public class RecipientService {
      * Creates a new recipient owned by the authenticated user.
      */
     public RecipientResponseDTO createRecipient(RecipientRequestDTO dto, String username, boolean isAdmin) {
+        String name = requiredRecipientName(dto.getName());
+        ensureRecipientNameAvailable(name, null);
+
         Recipient recipient = new Recipient();
         recipient.setCreatorUsername(username);
 
         // The UI currently has one recipient name field. Keep the inherited name
         // and organization field synchronized for compatibility with existing views.
-        recipient.setName(dto.getName());
-        recipient.setOrganization(dto.getName());
+        recipient.setName(name);
+        recipient.setOrganization(name);
 
         recipient.setDescription(dto.getDescription());
         recipient.setOrganizationLink(dto.getOrganizationLink());
@@ -95,7 +103,7 @@ public class RecipientService {
             recipient.setSharedUsernames(new HashSet<>(dto.getSharedUsernames()));
         }
 
-        Recipient saved = recipientRepository.save(recipient);
+        Recipient saved = saveRecipientHandlingDuplicateName(recipient, name);
         return new RecipientResponseDTO(saved);
     }
 
@@ -108,9 +116,12 @@ public class RecipientService {
 
         verifyRecipientAccess(recipient, username, isAdmin);
 
+        String name = requiredRecipientName(dto.getName());
+        ensureRecipientNameAvailable(name, id);
+
         // Keep name and organization mirrored as in createRecipient.
-        recipient.setName(dto.getName());
-        recipient.setOrganization(dto.getName());
+        recipient.setName(name);
+        recipient.setOrganization(name);
 
         recipient.setDescription(dto.getDescription());
         recipient.setOrganizationLink(dto.getOrganizationLink());
@@ -119,7 +130,7 @@ public class RecipientService {
             recipient.setSharedUsernames(new HashSet<>(dto.getSharedUsernames()));
         }
 
-        Recipient updated = recipientRepository.save(recipient);
+        Recipient updated = saveRecipientHandlingDuplicateName(recipient, name);
         return new RecipientResponseDTO(updated);
     }
 
@@ -133,5 +144,41 @@ public class RecipientService {
         verifyRecipientAccess(recipient, username, isAdmin);
 
         recipientRepository.delete(recipient);
+    }
+
+    private String requiredRecipientName(String value) {
+        String name = EntityNameNormalizer.normalizeForStorage(value);
+        if (name == null || name.isEmpty()) {
+            throw new IllegalArgumentException("Recipient name is required.");
+        }
+        return name;
+    }
+
+    private void ensureRecipientNameAvailable(String name, Long excludeId) {
+        String normalizedName = EntityNameNormalizer.normalizeForComparison(name);
+        boolean exists = excludeId == null
+                ? recipientRepository.existsByNormalizedName(normalizedName)
+                : recipientRepository.existsByNormalizedNameAndIdNot(normalizedName, excludeId);
+
+        if (exists) {
+            throw new EntityNameAlreadyExistsException("recipient", name);
+        }
+    }
+
+    private Recipient saveRecipientHandlingDuplicateName(Recipient recipient, String name) {
+        try {
+            return recipientRepository.saveAndFlush(recipient);
+        } catch (DataIntegrityViolationException ex) {
+            if (isRecipientNameUniqueConstraintViolation(ex)) {
+                throw new EntityNameAlreadyExistsException("recipient", name);
+            }
+            throw ex;
+        }
+    }
+
+    private boolean isRecipientNameUniqueConstraintViolation(DataIntegrityViolationException ex) {
+        Throwable mostSpecificCause = NestedExceptionUtils.getMostSpecificCause(ex);
+        String message = mostSpecificCause == null ? ex.getMessage() : mostSpecificCause.getMessage();
+        return message != null && message.contains(NamedResourceConstraints.RECIPIENTS_NORMALIZED_NAME);
     }
 }

@@ -7,4 +7,6 @@ import java.util.List;
 public interface RecipientRepository extends JpaRepository<Recipient, Long> {
     List<Recipient> findByCreatorUsername(String creatorUsername);
     List<Recipient> findBySharedUsernamesContains(String username);
+    boolean existsByNormalizedName(String normalizedName);
+    boolean existsByNormalizedNameAndIdNot(String normalizedName, Long id);
 }

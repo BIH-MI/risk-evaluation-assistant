@@ -4,12 +4,14 @@ import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import org.bihealth.mi.risk_assessment_api.model.AuditableEntity;
+import org.bihealth.mi.risk_assessment_api.model.NamedResourceConstraints;
+import org.bihealth.mi.risk_assessment_api.model.NamedResourceEntity;
 import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetAssessment;
 import org.bihealth.mi.risk_assessment_api.model.qid.QidDiscoveryConfiguration;
 import org.bihealth.mi.risk_assessment_api.model.qid.QidDiscoveryConfigurationVersion;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
+import org.bihealth.mi.risk_assessment_api.utils.EntityNameNormalizer;
 
 import java.util.*;
 
@@ -24,8 +26,16 @@ import java.util.*;
 @Getter
 @Setter
 @Entity
-@Table(name = "datasets")
-public class Dataset extends AuditableEntity {
+@Table(
+        name = "datasets",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = NamedResourceConstraints.DATASETS_NORMALIZED_NAME,
+                        columnNames = "normalized_name"
+                )
+        }
+)
+public class Dataset extends NamedResourceEntity {
 
     // Usernames with explicit access to this dataset in addition to the creator.
     @ElementCollection
@@ -58,4 +68,12 @@ public class Dataset extends AuditableEntity {
     @JsonManagedReference
     @OnDelete(action = OnDeleteAction.CASCADE)
     private List<DatasetAssessment> datasetAssessments = new ArrayList<>();
+
+    public static String normalizeName(String name) {
+        return EntityNameNormalizer.normalizeForStorage(name);
+    }
+
+    public static String normalizeNameKey(String name) {
+        return EntityNameNormalizer.normalizeForComparison(name);
+    }
 }

@@ -16,6 +16,7 @@ import org.bihealth.mi.risk_assessment_api.repository.configuration.RiskCategory
 import org.bihealth.mi.risk_assessment_api.repository.configuration.RiskMatrixRepository;
 import org.bihealth.mi.risk_assessment_api.repository.questionnaire.QuestionRepository;
 import org.bihealth.mi.risk_assessment_api.service.ConfigurationService;
+import org.bihealth.mi.risk_assessment_api.utils.EntityNameNormalizer;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.io.Resource;
@@ -121,6 +122,7 @@ public class ConfigLoader implements CommandLineRunner {
         Set<String> existingConfigNames = existingConfigs.stream()
                 .map(Configuration::getName)
                 .filter(Objects::nonNull)
+                .map(EntityNameNormalizer::normalizeForComparison)
                 .collect(Collectors.toSet());
 
         for (Resource resource : resources) {
@@ -255,14 +257,15 @@ public class ConfigLoader implements CommandLineRunner {
             // framework would otherwise fail much later during risk computation.
             linkAndValidateConfig(config, resource.getFilename());
 
-            if (existingConfigNames.contains(config.getName())) {
+            String normalizedConfigName = EntityNameNormalizer.normalizeForComparison(config.getName());
+            if (existingConfigNames.contains(normalizedConfigName)) {
                 System.out.println("   -> Skipping '" + config.getName() + "' (Already exists)");
                 return;
             }
 
             // Persist the root configuration plus immutable version 1 content.
             configurationService.createConfiguration(config, "admin");
-            existingConfigNames.add(config.getName());
+            existingConfigNames.add(normalizedConfigName);
             System.out.println("   ✅ Successfully saved: '" + config.getName() + "'");
 
         } catch (Exception e) {

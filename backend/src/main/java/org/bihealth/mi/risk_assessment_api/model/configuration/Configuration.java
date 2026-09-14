@@ -5,7 +5,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import org.bihealth.mi.risk_assessment_api.model.AuditableEntity;
+import org.bihealth.mi.risk_assessment_api.model.NamedResourceConstraints;
+import org.bihealth.mi.risk_assessment_api.model.NamedResourceEntity;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Question;
 
 import java.util.ArrayList;
@@ -26,8 +27,16 @@ import java.util.Set;
 @Getter
 @Setter
 @Entity
-@Table(name = "risk_configurations")
-public class Configuration extends AuditableEntity {
+@Table(
+        name = "risk_configurations",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = NamedResourceConstraints.RISK_CONFIGURATIONS_NORMALIZED_NAME,
+                        columnNames = "normalized_name"
+                )
+        }
+)
+public class Configuration extends NamedResourceEntity {
 
     // Only active configurations are normally selectable for new assessments.
     @Column(name = "is_active", nullable = false)

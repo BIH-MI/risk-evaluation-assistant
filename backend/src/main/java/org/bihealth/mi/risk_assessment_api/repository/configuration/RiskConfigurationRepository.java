@@ -10,4 +10,6 @@ import java.util.List;
 public interface RiskConfigurationRepository extends JpaRepository<Configuration, Long> {
     List<Configuration> findByCreatorUsername(String creatorUsername);
     List<Configuration> findBySharedUsernamesContains(String username);
+    boolean existsByNormalizedName(String normalizedName);
+    boolean existsByNormalizedNameAndIdNot(String normalizedName, Long id);
 }

@@ -5,7 +5,8 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
-import org.bihealth.mi.risk_assessment_api.model.AuditableEntity;
+import org.bihealth.mi.risk_assessment_api.model.NamedResourceConstraints;
+import org.bihealth.mi.risk_assessment_api.model.NamedResourceEntity;
 import org.bihealth.mi.risk_assessment_api.model.assessment.recipient.RecipientAssessment;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
@@ -23,8 +24,16 @@ import java.util.*;
 @Getter
 @Setter
 @Entity
-@Table(name = "recipients")
-public class Recipient extends AuditableEntity {
+@Table(
+        name = "recipients",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = NamedResourceConstraints.RECIPIENTS_NORMALIZED_NAME,
+                        columnNames = "normalized_name"
+                )
+        }
+)
+public class Recipient extends NamedResourceEntity {
 
     // Usernames with explicit access to this recipient in addition to the creator.
     @ElementCollection

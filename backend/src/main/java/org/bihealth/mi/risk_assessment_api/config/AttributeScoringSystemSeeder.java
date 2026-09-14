@@ -9,6 +9,7 @@ import org.bihealth.mi.risk_assessment_api.model.scoring.AttributeScoringSystemV
 import org.bihealth.mi.risk_assessment_api.repository.assessment.dataset.DatasetAssessmentRepository;
 import org.bihealth.mi.risk_assessment_api.repository.scoring.AttributeScoringSystemRepository;
 import org.bihealth.mi.risk_assessment_api.service.AttributeScoringSystemService;
+import org.bihealth.mi.risk_assessment_api.utils.EntityNameNormalizer;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -54,8 +55,7 @@ public class AttributeScoringSystemSeeder implements CommandLineRunner {
          * least one active system is marked as the default.
          */
         AttributeScoringSystem existingSeedSystem = scoringSystemRepository.findAll().stream()
-                .filter(system -> DEFAULT_SCORING_SYSTEM_NAME.equalsIgnoreCase(system.getName())
-                        || LEGACY_DEFAULT_SCORING_SYSTEM_NAME.equalsIgnoreCase(system.getName()))
+                .filter(system -> hasSeedSystemName(system.getName()))
                 .findFirst()
                 .orElse(null);
 
@@ -107,5 +107,11 @@ public class AttributeScoringSystemSeeder implements CommandLineRunner {
         }
         dto.setScoreOptions(options);
         return dto;
+    }
+
+    private boolean hasSeedSystemName(String name) {
+        String normalizedName = EntityNameNormalizer.normalizeForComparison(name);
+        return EntityNameNormalizer.normalizeForComparison(DEFAULT_SCORING_SYSTEM_NAME).equals(normalizedName)
+                || EntityNameNormalizer.normalizeForComparison(LEGACY_DEFAULT_SCORING_SYSTEM_NAME).equals(normalizedName);
     }
 }

@@ -6,6 +6,8 @@ import org.bihealth.mi.risk_assessment_api.dto.request.activity.DataSharingActiv
 import org.bihealth.mi.risk_assessment_api.dto.request.activity.DataSharingActivityTableAssessmentRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.request.activity.DataSharingActivityTableAttributeAssessmentRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.activity.DataSharingActivityResponseDTO;
+import org.bihealth.mi.risk_assessment_api.exception.EntityNameAlreadyExistsException;
+import org.bihealth.mi.risk_assessment_api.model.NamedResourceConstraints;
 import org.bihealth.mi.risk_assessment_api.model.activity.DataSharingActivity;
 import org.bihealth.mi.risk_assessment_api.model.assessment.activity.DataSharingActivityTableAssessment;
 import org.bihealth.mi.risk_assessment_api.model.assessment.activity.DataSharingActivityTableAssessmentAttribute;
@@ -19,6 +21,9 @@ import org.bihealth.mi.risk_assessment_api.repository.assessment.dataset.Dataset
 import org.bihealth.mi.risk_assessment_api.repository.assessment.dataset.DatasetTableAssessmentAttributeRepository;
 import org.bihealth.mi.risk_assessment_api.repository.assessment.dataset.DatasetTableAssessmentRepository;
 import org.bihealth.mi.risk_assessment_api.repository.assessment.recipient.RecipientAssessmentRepository;
+import org.bihealth.mi.risk_assessment_api.utils.EntityNameNormalizer;
+import org.springframework.core.NestedExceptionUtils;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -95,6 +100,9 @@ public class DataSharingActivityService {
      * entities so the activity can be persisted as a valid aggregate.</p>
      */
     public DataSharingActivityResponseDTO create(DataSharingActivityRequestDTO dto, String username, boolean isAdmin) {
+        String name = requiredActivityName(dto.getName());
+        ensureActivityNameAvailable(name, null);
+
         DatasetAssessment da = datasetAssessmentRepo.findById(dto.getDatasetAssessmentId())
                 .orElseThrow(() -> new EntityNotFoundException("Dataset Assessment not found"));
 
@@ -104,9 +112,10 @@ public class DataSharingActivityService {
         DataSharingActivity act = dto.toEntity(
                 username, da, ra, datasetTableAssessmentRepo, datasetTableAssessmentAttributeRepo
         );
+        act.setName(name);
         normalizeActivityAttributeScores(act, ensureAttributeScoringVersion(da));
 
-        DataSharingActivity saved = repository.save(act);
+        DataSharingActivity saved = saveActivityHandlingDuplicateName(act, name);
         return new DataSharingActivityResponseDTO(saved);
     }
 
@@ -125,7 +134,10 @@ public class DataSharingActivityService {
             throw new SecurityException("Not owner of activity: " + id);
         }
 
-        existing.setName(dto.getName());
+        String name = requiredActivityName(dto.getName());
+        ensureActivityNameAvailable(name, id);
+
+        existing.setName(name);
         existing.setDescription(dto.getDescription());
         existing.setSharedUsernames(dto.getSharedUsernames() != null ? dto.getSharedUsernames() : Collections.emptySet());
 
@@ -167,7 +179,7 @@ public class DataSharingActivityService {
         existing.getTableAssessments().clear();
         existing.getTableAssessments().addAll(processedTableAssessments);
 
-        DataSharingActivity saved = repository.save(existing);
+        DataSharingActivity saved = saveActivityHandlingDuplicateName(existing, name);
         return new DataSharingActivityResponseDTO(saved);
     }
 
@@ -320,5 +332,41 @@ public class DataSharingActivityService {
         assessment.setAttributeSensitivityThreshold(scoringVersion.getDefaultSensitivityThreshold());
         datasetAssessmentRepo.save(assessment);
         return scoringVersion;
+    }
+
+    private String requiredActivityName(String value) {
+        String name = EntityNameNormalizer.normalizeForStorage(value);
+        if (name == null || name.isEmpty()) {
+            throw new IllegalArgumentException("Data sharing activity name is required.");
+        }
+        return name;
+    }
+
+    private void ensureActivityNameAvailable(String name, Long excludeId) {
+        String normalizedName = EntityNameNormalizer.normalizeForComparison(name);
+        boolean exists = excludeId == null
+                ? repository.existsByNormalizedName(normalizedName)
+                : repository.existsByNormalizedNameAndIdNot(normalizedName, excludeId);
+
+        if (exists) {
+            throw new EntityNameAlreadyExistsException("data sharing activity", name);
+        }
+    }
+
+    private DataSharingActivity saveActivityHandlingDuplicateName(DataSharingActivity activity, String name) {
+        try {
+            return repository.saveAndFlush(activity);
+        } catch (DataIntegrityViolationException ex) {
+            if (isActivityNameUniqueConstraintViolation(ex)) {
+                throw new EntityNameAlreadyExistsException("data sharing activity", name);
+            }
+            throw ex;
+        }
+    }
+
+    private boolean isActivityNameUniqueConstraintViolation(DataIntegrityViolationException ex) {
+        Throwable mostSpecificCause = NestedExceptionUtils.getMostSpecificCause(ex);
+        String message = mostSpecificCause == null ? ex.getMessage() : mostSpecificCause.getMessage();
+        return message != null && message.contains(NamedResourceConstraints.DATA_SHARING_ACTIVITIES_NORMALIZED_NAME);
     }
 }

@@ -5,6 +5,8 @@ import lombok.RequiredArgsConstructor;
 import org.bihealth.mi.risk_assessment_api.dto.request.scoring.AttributeScoringOptionRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.request.scoring.AttributeScoringSystemRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.scoring.AttributeScoringSystemResponseDTO;
+import org.bihealth.mi.risk_assessment_api.exception.EntityNameAlreadyExistsException;
+import org.bihealth.mi.risk_assessment_api.model.NamedResourceConstraints;
 import org.bihealth.mi.risk_assessment_api.model.scoring.AttributeScoringDimension;
 import org.bihealth.mi.risk_assessment_api.model.scoring.AttributeScoringOption;
 import org.bihealth.mi.risk_assessment_api.model.scoring.AttributeScoringSystem;
@@ -12,6 +14,9 @@ import org.bihealth.mi.risk_assessment_api.model.scoring.AttributeScoringSystemV
 import org.bihealth.mi.risk_assessment_api.repository.assessment.dataset.DatasetAssessmentRepository;
 import org.bihealth.mi.risk_assessment_api.repository.scoring.AttributeScoringSystemRepository;
 import org.bihealth.mi.risk_assessment_api.repository.scoring.AttributeScoringSystemVersionRepository;
+import org.bihealth.mi.risk_assessment_api.utils.EntityNameNormalizer;
+import org.springframework.core.NestedExceptionUtils;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -109,7 +114,7 @@ public class AttributeScoringSystemService {
             clearOtherDefaults(null);
         }
 
-        AttributeScoringSystem saved = scoringSystemRepository.save(system);
+        AttributeScoringSystem saved = saveSystemHandlingDuplicateName(system, system.getName());
         return toResponse(saved, 0);
     }
 
@@ -147,7 +152,7 @@ public class AttributeScoringSystemService {
             clearOtherDefaults(system.getId());
         }
 
-        AttributeScoringSystem saved = scoringSystemRepository.save(system);
+        AttributeScoringSystem saved = saveSystemHandlingDuplicateName(system, system.getName());
         return toResponse(saved, datasetAssessmentRepository.countByAttributeScoringSystemId(saved.getId()));
     }
 
@@ -446,24 +451,25 @@ public class AttributeScoringSystemService {
 
     private void validateUniqueName(String rawName, Long excludeId) {
         String name = requiredName(rawName);
+        String normalizedName = EntityNameNormalizer.normalizeForComparison(name);
         boolean exists = excludeId == null
-                ? scoringSystemRepository.existsByNameIgnoreCase(name)
-                : scoringSystemRepository.existsByNameIgnoreCaseAndIdNot(name, excludeId);
+                ? scoringSystemRepository.existsByNormalizedName(normalizedName)
+                : scoringSystemRepository.existsByNormalizedNameAndIdNot(normalizedName, excludeId);
         if (exists) {
-            throw new IllegalArgumentException("A scoring system with this name already exists.");
+            throw new EntityNameAlreadyExistsException("attribute scoring system", name);
         }
     }
 
     private String uniqueDuplicateName(String baseName) {
         String cleanedBase = requiredName(baseName);
-        if (!scoringSystemRepository.existsByNameIgnoreCase(cleanedBase)) {
+        if (!scoringSystemRepository.existsByNormalizedName(EntityNameNormalizer.normalizeForComparison(cleanedBase))) {
             return cleanedBase;
         }
 
         int copyNumber = 2;
         while (true) {
             String candidate = cleanedBase + " " + copyNumber;
-            if (!scoringSystemRepository.existsByNameIgnoreCase(candidate)) {
+            if (!scoringSystemRepository.existsByNormalizedName(EntityNameNormalizer.normalizeForComparison(candidate))) {
                 return candidate;
             }
             copyNumber++;
@@ -511,10 +517,11 @@ public class AttributeScoringSystemService {
     }
 
     private String requiredName(String value) {
-        if (value == null || value.trim().isEmpty()) {
+        String name = EntityNameNormalizer.normalizeForStorage(value);
+        if (name == null || name.isEmpty()) {
             throw new IllegalArgumentException("Name is required.");
         }
-        return value.trim();
+        return name;
     }
 
     private String trimToNull(String value) {
@@ -526,6 +533,24 @@ public class AttributeScoringSystemService {
 
     @SuppressWarnings("unused")
     private String normalize(String value) {
-        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+        String normalized = EntityNameNormalizer.normalizeForComparison(value);
+        return normalized == null ? "" : normalized;
+    }
+
+    private AttributeScoringSystem saveSystemHandlingDuplicateName(AttributeScoringSystem system, String name) {
+        try {
+            return scoringSystemRepository.saveAndFlush(system);
+        } catch (DataIntegrityViolationException ex) {
+            if (isSystemNameUniqueConstraintViolation(ex)) {
+                throw new EntityNameAlreadyExistsException("attribute scoring system", name);
+            }
+            throw ex;
+        }
+    }
+
+    private boolean isSystemNameUniqueConstraintViolation(DataIntegrityViolationException ex) {
+        Throwable mostSpecificCause = NestedExceptionUtils.getMostSpecificCause(ex);
+        String message = mostSpecificCause == null ? ex.getMessage() : mostSpecificCause.getMessage();
+        return message != null && message.contains(NamedResourceConstraints.ATTRIBUTE_SCORING_SYSTEMS_NORMALIZED_NAME);
     }
 }

@@ -6,7 +6,8 @@ import lombok.Setter;
 
 import java.util.*;
 
-import org.bihealth.mi.risk_assessment_api.model.AuditableEntity;
+import org.bihealth.mi.risk_assessment_api.model.NamedResourceConstraints;
+import org.bihealth.mi.risk_assessment_api.model.NamedResourceEntity;
 import org.bihealth.mi.risk_assessment_api.model.assessment.activity.DataSharingActivityTableAssessment;
 import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetAssessment;
 import org.bihealth.mi.risk_assessment_api.model.assessment.recipient.RecipientAssessment;
@@ -24,8 +25,16 @@ import org.hibernate.annotations.OnDeleteAction;
 @Getter
 @Setter
 @Entity
-@Table(name = "data_sharing_activities")
-public class DataSharingActivity extends AuditableEntity {
+@Table(
+        name = "data_sharing_activities",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = NamedResourceConstraints.DATA_SHARING_ACTIVITIES_NORMALIZED_NAME,
+                        columnNames = "normalized_name"
+                )
+        }
+)
+public class DataSharingActivity extends NamedResourceEntity {
 
     // Usernames with explicit access to this activity in addition to the creator.
     @ElementCollection

@@ -24,7 +24,11 @@ export const addDataset = createAsyncThunk(
     try {
       return await addDatasetApi(newDataset, token);
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue({
+        code: error.code,
+        message: error.message,
+        status: error.status,
+      });
     }
   }
 );
@@ -36,7 +40,11 @@ export const updateDataset = createAsyncThunk(
     try {
       return await updateDatasetApi(datasetId, updatedDataset, token);
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue({
+        code: error.code,
+        message: error.message,
+        status: error.status,
+      });
     }
   }
 );

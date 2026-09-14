@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import PropTypes from "prop-types";
+import { useTranslation } from "react-i18next";
 import { alpha, useTheme } from "@mui/material/styles";
 import IconButton from "@mui/material/IconButton";
 import AddIcon from "@mui/icons-material/Add";
@@ -83,6 +84,7 @@ export default function ScoreValueInput({
   helperText,
 }) {
   const theme = useTheme();
+  const { t } = useTranslation();
   const [draftValue, setDraftValue] = useState(value ?? "");
   const [isFocused, setIsFocused] = useState(false);
   const tone = getValueTone(draftValue, range, theme);
@@ -143,7 +145,10 @@ export default function ScoreValueInput({
       >
         <IconButton
           size="small"
-          aria-label="Decrease score value"
+          aria-label={t(
+            "attributeScoringSystems.scoreOptions.decreaseValue",
+            "Decrease score value"
+          )}
           disabled={!canDecrease}
           onMouseDown={(event) => event.preventDefault()}
           onClick={handleDecrease}
@@ -183,7 +188,10 @@ export default function ScoreValueInput({
           inputProps={{
             min: MIN_SCORE_VALUE,
             step: "any",
-            "aria-label": "Score value",
+            "aria-label": t(
+              "attributeScoringSystems.scoreOptions.scoreValue",
+              "Score value"
+            ),
           }}
           sx={{
             flex: 1,
@@ -214,7 +222,10 @@ export default function ScoreValueInput({
         />
         <IconButton
           size="small"
-          aria-label="Increase score value"
+          aria-label={t(
+            "attributeScoringSystems.scoreOptions.increaseValue",
+            "Increase score value"
+          )}
           onMouseDown={(event) => event.preventDefault()}
           onClick={handleIncrease}
           sx={{

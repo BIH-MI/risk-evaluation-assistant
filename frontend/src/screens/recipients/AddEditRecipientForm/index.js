@@ -1,6 +1,4 @@
 import React from "react";
-import PropTypes from "prop-types";
-import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 
 import OnBlurRAInput from "components/input/RAInput/OnBlurRAInput";
@@ -8,32 +6,8 @@ import RAUserAutocomplete from "components/input/RAUserAutocomplete";
 import RAButton from "components/input/RAButton";
 import RATypography from "components/display/RATypography";
 import RABox from "components/layout/RABox";
-import RAAlert from "components/feedback/RAAlert";
+import RAFloatingAlertStack from "components/feedback/RAFloatingAlertStack";
 import useRecipientForm from "./useRecipientForm";
-
-function FloatingLockAlert({ message, onClose }) {
-  const theme = useTheme();
-
-  if (!message) return null;
-
-  return (
-    <RABox
-      sx={{
-        position: "fixed",
-        bottom: theme.spacing(2),
-        right: theme.spacing(2),
-        width: 300,
-        zIndex: theme.zIndex.snackbar,
-      }}
-    >
-      <RAAlert color="error" dismissible onClose={onClose}>
-        <RATypography variant="body2" color="white">
-          {message}
-        </RATypography>
-      </RAAlert>
-    </RABox>
-  );
-}
 
 export default function AddEditRecipientForm() {
   const { t } = useTranslation();
@@ -119,26 +93,23 @@ export default function AddEditRecipientForm() {
               : t("recipients.form.createRecipient")}
           </RAButton>
         </RABox>
-
-        {submitError && (
-          <RAAlert color="error" sx={{ mt: 2, mx: "auto", maxWidth: 600 }}>
-            <RATypography variant="body2" color="white">
-              {submitError}
-            </RATypography>
-          </RAAlert>
-        )}
       </RABox>
 
-      <FloatingLockAlert message={lockError} onClose={clearLockError} />
+      <RAFloatingAlertStack
+        alerts={[
+          {
+            id: "lockError",
+            color: "error",
+            message: lockError,
+            onClose: clearLockError,
+          },
+          {
+            id: "submitError",
+            color: "error",
+            message: submitError,
+          },
+        ]}
+      />
     </>
   );
 }
-
-FloatingLockAlert.propTypes = {
-  message: PropTypes.string,
-  onClose: PropTypes.func.isRequired,
-};
-
-FloatingLockAlert.defaultProps = {
-  message: null,
-};

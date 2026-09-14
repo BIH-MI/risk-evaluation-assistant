@@ -1,5 +1,6 @@
 import React from "react";
 import PropTypes from "prop-types";
+import { useTranslation } from "react-i18next";
 import Tooltip from "@mui/material/Tooltip";
 import AddIcon from "@mui/icons-material/Add";
 
@@ -25,9 +26,23 @@ export default function ScoreDimensionSection({
   onUpdateValue,
   onRemove,
 }) {
+  const { t } = useTranslation();
   const optionCount = options.length;
   const hasReachedOptionLimit = optionCount >= MAX_SCORE_OPTIONS_PER_DIMENSION;
   const canRemoveOptions = optionCount > MIN_SCORE_OPTIONS_PER_DIMENSION;
+
+  // Reuses the dimension-name keys from datasetAssessments.attributesTable
+  // since these ordinal dimensions are labeled identically app-wide.
+  const dimensionLabel = t(
+    `datasetAssessments.attributesTable.${dimension.key}`,
+    dimension.label
+  );
+  const addOptionTooltipTitle = hasReachedOptionLimit
+    ? t("attributeScoringSystems.scoreOptions.maxOptionsReached", {
+        defaultValue: `Maximum of ${MAX_SCORE_OPTIONS_PER_DIMENSION} score options reached`,
+        max: MAX_SCORE_OPTIONS_PER_DIMENSION,
+      })
+    : t("attributeScoringSystems.scoreOptions.addOptionTooltip", "Add option");
 
   const getUsedLabels = (currentIndex) =>
     new Set(
@@ -47,15 +62,8 @@ export default function ScoreDimensionSection({
         gap={2}
         flexWrap="wrap"
       >
-        <RATypography variant="h6">{dimension.label}</RATypography>
-        <Tooltip
-          title={
-            hasReachedOptionLimit
-              ? `Maximum of ${MAX_SCORE_OPTIONS_PER_DIMENSION} score options reached`
-              : "Add option"
-          }
-          arrow
-        >
+        <RATypography variant="h6">{dimensionLabel}</RATypography>
+        <Tooltip title={addOptionTooltipTitle} arrow>
           <span>
             <RAButton
               type="button"
@@ -65,7 +73,10 @@ export default function ScoreDimensionSection({
               disabled={hasReachedOptionLimit}
               onClick={onAdd}
             >
-              Add Option
+              {t(
+                "attributeScoringSystems.scoreOptions.addOption",
+                "Add Option"
+              )}
             </RAButton>
           </span>
         </Tooltip>

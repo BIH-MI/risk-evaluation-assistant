@@ -16,11 +16,12 @@ export default function getQidDiscoveryConfigurationTableData(
   onEdit,
   onDuplicate,
   onSetDefault,
-  onArchive
+  onArchive,
+  t
 ) {
   const columns = [
     {
-      Header: "Display Name",
+      Header: t("qidDiscoveryConfiguration.table.displayName"),
       accessor: "displayName",
       width: "42%",
       align: "left",
@@ -29,7 +30,7 @@ export default function getQidDiscoveryConfigurationTableData(
       ),
     },
     {
-      Header: "Status",
+      Header: t("qidDiscoveryConfiguration.table.status"),
       accessor: "active",
       width: "20%",
       align: "center",
@@ -37,18 +38,26 @@ export default function getQidDiscoveryConfigurationTableData(
         <RABox display="flex" justifyContent="center" gap={0.75}>
           <Chip
             size="small"
-            label={row.original.active ? "Active" : "Archived"}
+            label={
+              row.original.active
+                ? t("qidDiscoveryConfiguration.table.statusActive")
+                : t("qidDiscoveryConfiguration.table.statusArchived")
+            }
             color={row.original.active ? "success" : "default"}
             variant={row.original.active ? "filled" : "outlined"}
           />
           {row.original.defaultConfiguration && (
-            <Chip size="small" label="Default" color="primary" />
+            <Chip
+              size="small"
+              label={t("qidDiscoveryConfiguration.table.statusDefault")}
+              color="primary"
+            />
           )}
         </RABox>
       ),
     },
     {
-      Header: "Last Updated",
+      Header: t("qidDiscoveryConfiguration.table.lastUpdated"),
       accessor: "lastModifiedDate",
       width: "28%",
       align: "center",
@@ -59,7 +68,7 @@ export default function getQidDiscoveryConfigurationTableData(
       ),
     },
     {
-      Header: "Actions",
+      Header: t("qidDiscoveryConfiguration.table.actions"),
       accessor: "actions",
       width: "10%",
       align: "center",
@@ -69,7 +78,10 @@ export default function getQidDiscoveryConfigurationTableData(
 
         return (
           <RABox display="flex" justifyContent="center" gap={1}>
-            <Tooltip title="Edit QID Discovery Configuration" arrow>
+            <Tooltip
+              title={t("qidDiscoveryConfiguration.table.editTooltip")}
+              arrow
+            >
               <span>
                 <EditIconButton
                   size="small"
@@ -77,7 +89,10 @@ export default function getQidDiscoveryConfigurationTableData(
                 />
               </span>
             </Tooltip>
-            <Tooltip title="Duplicate QID Discovery Configuration" arrow>
+            <Tooltip
+              title={t("qidDiscoveryConfiguration.table.duplicateTooltip")}
+              arrow
+            >
               <span>
                 <ForkIconButton
                   size="small"
@@ -85,19 +100,24 @@ export default function getQidDiscoveryConfigurationTableData(
                 />
               </span>
             </Tooltip>
-            <Tooltip title="Set as Default" arrow>
+            <Tooltip
+              title={t("qidDiscoveryConfiguration.table.setDefaultTooltip")}
+              arrow
+            >
               <span>
                 <DefaultIconButton
                   size="small"
                   disabled={
-                    !configuration.active ||
-                    configuration.defaultConfiguration
+                    !configuration.active || configuration.defaultConfiguration
                   }
                   onClick={() => onSetDefault(configuration)}
                 />
               </span>
             </Tooltip>
-            <Tooltip title="Archive QID Discovery Configuration" arrow>
+            <Tooltip
+              title={t("qidDiscoveryConfiguration.table.archiveTooltip")}
+              arrow
+            >
               <span>
                 <ArchiveIconButton
                   size="small"

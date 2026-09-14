@@ -1,3 +1,4 @@
+import i18n from "i18n";
 import { formatScoreRange } from "utils/AttributeScale";
 
 import {
@@ -260,9 +261,18 @@ export function validateDimensionScoreOptions(options) {
   const validEntries = [];
 
   if ((options || []).length < MIN_SCORE_OPTIONS_PER_DIMENSION) {
-    dimensionError = "At least two score options are required.";
+    dimensionError = i18n.t(
+      "attributeScoringSystems.scoreOptions.errors.minOptionsRequired",
+      "At least two score options are required."
+    );
   } else if ((options || []).length > MAX_SCORE_OPTIONS_PER_DIMENSION) {
-    dimensionError = `At most ${MAX_SCORE_OPTIONS_PER_DIMENSION} score options are allowed.`;
+    dimensionError = i18n.t(
+      "attributeScoringSystems.scoreOptions.errors.maxOptions",
+      {
+        defaultValue: `At most ${MAX_SCORE_OPTIONS_PER_DIMENSION} score options are allowed.`,
+        max: MAX_SCORE_OPTIONS_PER_DIMENSION,
+      }
+    );
   }
 
   (options || []).forEach((option, index) => {
@@ -273,24 +283,45 @@ export function validateDimensionScoreOptions(options) {
     let hasValidValue = false;
 
     if (!label) {
-      rowErrors[index].label = "Label is required.";
+      rowErrors[index].label = i18n.t(
+        "attributeScoringSystems.scoreOptions.errors.labelRequired",
+        "Label is required."
+      );
     } else if (!isSupportedScoreLabel(label)) {
-      rowErrors[index].label = "Select one of the predefined labels.";
+      rowErrors[index].label = i18n.t(
+        "attributeScoringSystems.scoreOptions.errors.labelNotPredefined",
+        "Select one of the predefined labels."
+      );
     } else if (seenLabels.has(labelKey)) {
-      rowErrors[index].label = "Label must be unique in this dimension.";
+      rowErrors[index].label = i18n.t(
+        "attributeScoringSystems.scoreOptions.errors.labelNotUnique",
+        "Label must be unique in this dimension."
+      );
     } else {
       seenLabels.add(labelKey);
       hasValidLabel = true;
     }
 
     if (value === null) {
-      rowErrors[index].value = "Score value is required.";
+      rowErrors[index].value = i18n.t(
+        "attributeScoringSystems.scoreOptions.errors.valueRequired",
+        "Score value is required."
+      );
     } else if (Number.isNaN(value)) {
-      rowErrors[index].value = "Value must be a valid number.";
+      rowErrors[index].value = i18n.t(
+        "attributeScoringSystems.scoreOptions.errors.valueInvalid",
+        "Value must be a valid number."
+      );
     } else if (value < MIN_SCORE_VALUE) {
-      rowErrors[index].value = "Score value cannot be negative.";
+      rowErrors[index].value = i18n.t(
+        "attributeScoringSystems.scoreOptions.errors.valueNegative",
+        "Score value cannot be negative."
+      );
     } else if (seenValues.has(String(value))) {
-      rowErrors[index].value = "Score value must be unique in this dimension.";
+      rowErrors[index].value = i18n.t(
+        "attributeScoringSystems.scoreOptions.errors.valueNotUnique",
+        "Score value must be unique in this dimension."
+      );
     } else {
       seenValues.add(String(value));
       hasValidValue = true;
@@ -330,7 +361,10 @@ export function validateScoringSystemForm(form, existingSystems = []) {
   const name = form.name.trim().toLowerCase();
 
   if (!name) {
-    errors.fields.name = "Name is required.";
+    errors.fields.name = i18n.t(
+      "attributeScoringSystems.errors.nameRequired",
+      "Name is required."
+    );
   } else if (
     existingSystems.some(
       (system) =>
@@ -340,11 +374,17 @@ export function validateScoringSystemForm(form, existingSystems = []) {
           .toLowerCase() === name
     )
   ) {
-    errors.fields.name = "Name must be unique.";
+    errors.fields.name = i18n.t(
+      "attributeScoringSystems.errors.nameNotUnique",
+      "Name must be unique."
+    );
   }
 
   if (form.defaultSystem && !form.active) {
-    errors.fields.defaultSystem = "The default scoring system must be active.";
+    errors.fields.defaultSystem = i18n.t(
+      "attributeScoringSystems.errors.defaultSystemNotActive",
+      "The default scoring system must be active."
+    );
   }
 
   ATTRIBUTE_DIMENSIONS.forEach((dimension) => {
@@ -367,27 +407,45 @@ export function validateScoringSystemForm(form, existingSystems = []) {
    * from R + A + D for this scoring system.
    */
   if (!Number.isFinite(identifiabilityThreshold)) {
-    errors.thresholds.identifiability = "Threshold must be a valid number.";
+    errors.thresholds.identifiability = i18n.t(
+      "attributeScoringSystems.errors.thresholdInvalid",
+      "Threshold must be a valid number."
+    );
   } else if (
     ranges.identifiability.isComplete &&
     (identifiabilityThreshold < ranges.identifiability.min ||
       identifiabilityThreshold > ranges.identifiability.max)
   ) {
-    errors.thresholds.identifiability = `Threshold must be within ${formatScoreRange(
-      ranges.identifiability
-    )}.`;
+    errors.thresholds.identifiability = i18n.t(
+      "attributeScoringSystems.errors.thresholdOutOfRange",
+      {
+        defaultValue: `Threshold must be within ${formatScoreRange(
+          ranges.identifiability
+        )}.`,
+        range: formatScoreRange(ranges.identifiability),
+      }
+    );
   }
 
   if (!Number.isFinite(sensitivityThreshold)) {
-    errors.thresholds.sensitivity = "Threshold must be a valid number.";
+    errors.thresholds.sensitivity = i18n.t(
+      "attributeScoringSystems.errors.thresholdInvalid",
+      "Threshold must be a valid number."
+    );
   } else if (
     ranges.sensitivity.isComplete &&
     (sensitivityThreshold < ranges.sensitivity.min ||
       sensitivityThreshold > ranges.sensitivity.max)
   ) {
-    errors.thresholds.sensitivity = `Threshold must be within ${formatScoreRange(
-      ranges.sensitivity
-    )}.`;
+    errors.thresholds.sensitivity = i18n.t(
+      "attributeScoringSystems.errors.thresholdOutOfRange",
+      {
+        defaultValue: `Threshold must be within ${formatScoreRange(
+          ranges.sensitivity
+        )}.`,
+        range: formatScoreRange(ranges.sensitivity),
+      }
+    );
   }
 
   return errors;

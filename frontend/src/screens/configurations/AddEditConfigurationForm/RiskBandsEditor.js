@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Table,
@@ -18,7 +18,6 @@ import RABox from "../../../components/layout/RABox";
 import RATypography from "../../../components/display/RATypography";
 import RAButton from "../../../components/input/RAButton";
 import OnBlurRAInput from "../../../components/input/RAInput/OnBlurRAInput";
-import RAAlert from "../../../components/feedback/RAAlert";
 
 import { updateRiskBandsForCategory } from "../../../store/configurations/configurationSlice";
 import AddCircleIcon from "@mui/icons-material/AddCircle";
@@ -69,7 +68,11 @@ const getPredefinedLabels = (categoryCode, count) => {
   }
 };
 
-export default function RiskBandsEditor({ categoryCode, isReadOnly }) {
+// `onError` reports validation problems to the caller instead of rendering its
+// own floating alert - this editor is nested inside AddEditConfigurationForm,
+// which already owns one bottom-right alert stack. A second, independently
+// positioned stack here would visually overlap the parent's.
+export default function RiskBandsEditor({ categoryCode, isReadOnly, onError }) {
   const dispatch = useDispatch();
   const { t } = useTranslation();
 
@@ -86,13 +89,6 @@ export default function RiskBandsEditor({ categoryCode, isReadOnly }) {
   );
 
   const bands = category?.riskBands || EMPTY_ARRAY;
-
-  // Local Toast State for Error Handling
-  const [toast, setToast] = useState({
-    open: false,
-    msg: "",
-    severity: "error",
-  });
 
   /**
    * Powerful Core Engine: Drives Max from Min & Sorts Automatically
@@ -177,15 +173,12 @@ export default function RiskBandsEditor({ categoryCode, isReadOnly }) {
         );
 
         if (isDuplicate) {
-          // Trigger the Toast
-          setToast({
-            open: true,
-            msg: t(
+          onError(
+            t(
               "configurations.riskBands.duplicateLabel",
               "Label name must be unique."
-            ),
-            severity: "error",
-          });
+            )
+          );
           // Reject and immediately erase the invalid name from the UI
           newBands[index].label = "";
         } else {
@@ -463,29 +456,6 @@ export default function RiskBandsEditor({ categoryCode, isReadOnly }) {
           >
             {t("configurations.riskBands.addBand")}
           </RAButton>
-        </RABox>
-      )}
-
-      {/* Floating Toast Notification */}
-      {toast.open && (
-        <RABox
-          sx={{
-            position: "fixed",
-            bottom: 20,
-            right: 20,
-            zIndex: 2000,
-            width: 350,
-          }}
-        >
-          <RAAlert
-            color={toast.severity}
-            dismissible
-            onClose={() => setToast({ ...toast, open: false })}
-          >
-            <RATypography variant="body2" color="white">
-              {toast.msg}
-            </RATypography>
-          </RAAlert>
         </RABox>
       )}
     </RABox>

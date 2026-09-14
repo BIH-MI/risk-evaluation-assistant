@@ -1,12 +1,10 @@
 import React from "react";
 import PropTypes from "prop-types";
+import { useTranslation } from "react-i18next";
 import { Grid } from "@mui/material";
 
 import RAInput from "components/input/RAInput";
 import FormSection from "./FormSection";
-
-const DESCRIPTION =
-  "Search targets determine when an already strong candidate no longer needs to be expanded into larger combinations. Both targets must be reached. These are search-control values, not Distinguishability assessment thresholds.";
 
 export default function SearchTargetsSection({
   search,
@@ -14,12 +12,17 @@ export default function SearchTargetsSection({
   showErrors,
   onChange,
 }) {
+  const { t } = useTranslation();
+
   return (
-    <FormSection title="Search Targets" description={DESCRIPTION}>
+    <FormSection
+      title={t("qidDiscoveryConfiguration.searchTargets.title")}
+      description={t("qidDiscoveryConfiguration.searchTargets.description")}
+    >
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}>
           <RAInput
-            label="Target Distinction"
+            label={t("qidDiscoveryConfiguration.fields.targetDistinction")}
             type="number"
             value={search.targetDistinction}
             onChange={(event) =>
@@ -31,13 +34,15 @@ export default function SearchTargetsSection({
             helperText={
               showErrors && errors.targetDistinction
                 ? errors.targetDistinction
-                : "Minimum Distinction target used when deciding whether a candidate should be expanded further."
+                : t(
+                    "qidDiscoveryConfiguration.searchTargets.targetDistinctionHelper"
+                  )
             }
           />
         </Grid>
         <Grid item xs={12} md={6}>
           <RAInput
-            label="Target Separation"
+            label={t("qidDiscoveryConfiguration.fields.targetSeparation")}
             type="number"
             value={search.targetSeparation}
             onChange={(event) =>
@@ -49,7 +54,9 @@ export default function SearchTargetsSection({
             helperText={
               showErrors && errors.targetSeparation
                 ? errors.targetSeparation
-                : "Minimum Separation target used together with Target Distinction when deciding whether a candidate should be expanded further."
+                : t(
+                    "qidDiscoveryConfiguration.searchTargets.targetSeparationHelper"
+                  )
             }
           />
         </Grid>

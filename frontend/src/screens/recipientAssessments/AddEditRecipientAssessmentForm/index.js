@@ -1,40 +1,14 @@
 import React from "react";
-import PropTypes from "prop-types";
 import { CircularProgress } from "@mui/material";
-import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 
-import RAAlert from "components/feedback/RAAlert";
 import RABox from "components/layout/RABox";
 import RAButton from "components/input/RAButton";
 import RATypography from "components/display/RATypography";
+import RAFloatingAlertStack from "components/feedback/RAFloatingAlertStack";
 import AssessmentDetailsSection from "./components/AssessmentDetailsSection";
 import QuestionnaireSection from "./components/QuestionnaireSection";
 import useRecipientAssessmentForm from "./useRecipientAssessmentForm";
-
-function FloatingAssessmentAlert({ message, onClose }) {
-  const theme = useTheme();
-
-  if (!message) return null;
-
-  return (
-    <RABox
-      sx={{
-        position: "fixed",
-        bottom: theme.spacing(2),
-        right: theme.spacing(2),
-        width: 300,
-        zIndex: theme.zIndex.snackbar,
-      }}
-    >
-      <RAAlert color="error" dismissible onClose={onClose}>
-        <RATypography variant="body2" color="inherit">
-          {message}
-        </RATypography>
-      </RAAlert>
-    </RABox>
-  );
-}
 
 function AssessmentLoadingState() {
   return (
@@ -117,19 +91,16 @@ export default function AddEditRecipientAssessmentForm() {
         </RAButton>
       </RABox>
 
-      <FloatingAssessmentAlert
-        message={formController.errorMessage}
-        onClose={formController.clearError}
+      <RAFloatingAlertStack
+        alerts={[
+          {
+            id: "errorMessage",
+            color: "error",
+            message: formController.errorMessage,
+            onClose: formController.clearError,
+          },
+        ]}
       />
     </>
   );
 }
-
-FloatingAssessmentAlert.propTypes = {
-  message: PropTypes.string,
-  onClose: PropTypes.func.isRequired,
-};
-
-FloatingAssessmentAlert.defaultProps = {
-  message: null,
-};

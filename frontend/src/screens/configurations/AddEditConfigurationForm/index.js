@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { useAuth } from "react-oidc-context";
@@ -23,7 +23,7 @@ import { getErrorMessage } from "../../../utils/errors";
 import RABox from "../../../components/layout/RABox";
 import RATypography from "../../../components/display/RATypography";
 import RAButton from "../../../components/input/RAButton";
-import RAAlert from "../../../components/feedback/RAAlert";
+import RAFloatingAlertStack from "../../../components/feedback/RAFloatingAlertStack";
 import RADialog from "../../../components/feedback/RADialog";
 import RAInput from "../../../components/input/RAInput";
 import {
@@ -96,6 +96,11 @@ export default function AddEditConfigurationForm() {
     severity: "success",
     key: Date.now(),
   });
+
+  const handleRiskBandsError = useCallback(
+    (message) => setToast({ open: true, msg: message, severity: "error" }),
+    []
+  );
 
   // Dialog States
   const [forkDialogOpen, setForkDialogOpen] = useState(false);
@@ -512,6 +517,7 @@ export default function AddEditConfigurationForm() {
               <RiskBandsEditor
                 categoryCode={activeWizardStep.code}
                 isReadOnly={isViewMode}
+                onError={handleRiskBandsError}
               />
             </RABox>
 
@@ -635,28 +641,16 @@ export default function AddEditConfigurationForm() {
         </RABox>
       </RADialog>
 
-      {/* Alerts */}
-      {toast.open && (
-        <RABox
-          sx={{
-            position: "fixed",
-            bottom: 20,
-            right: 20,
-            zIndex: 2000,
-            width: 350,
-          }}
-        >
-          <RAAlert
-            color={toast.severity}
-            dismissible
-            onClose={() => setToast({ ...toast, open: false })}
-          >
-            <RATypography variant="body2" color="white">
-              {toast.msg}
-            </RATypography>
-          </RAAlert>
-        </RABox>
-      )}
+      <RAFloatingAlertStack
+        alerts={[
+          {
+            id: "toast",
+            color: toast.severity,
+            message: toast.open ? toast.msg : "",
+            onClose: () => setToast((current) => ({ ...current, open: false })),
+          },
+        ]}
+      />
     </RABox>
   );
 }

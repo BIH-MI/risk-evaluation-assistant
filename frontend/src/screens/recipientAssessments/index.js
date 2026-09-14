@@ -2,14 +2,12 @@ import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "react-oidc-context";
 import { useDispatch, useSelector } from "react-redux";
-import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 
 import DataTable from "components/display/Tables/DataTable";
 import RADialog from "components/feedback/RADialog";
 import RABox from "components/layout/RABox";
-import RAAlert from "components/feedback/RAAlert";
-import RATypography from "components/display/RATypography";
+import RAFloatingAlertStack from "components/feedback/RAFloatingAlertStack";
 import { isAdminUser } from "utils/auth";
 
 import getRecipientAssessmentsTableData from "./getRecipientAssessmentsTableData";
@@ -31,7 +29,6 @@ export default function RecipientAssessments() {
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const theme = useTheme();
   const { t } = useTranslation();
 
   // Redux data (Extract error to display backend DB conflicts safely)
@@ -155,41 +152,34 @@ export default function RecipientAssessments() {
         {t("recipientAssessments.list.deleteWarning")}
       </RADialog>
 
-      {/* Floating Alerts and Status messages */}
-      <RABox
-        sx={{
-          position: "fixed",
-          bottom: theme.spacing(2),
-          right: theme.spacing(2),
-          zIndex: theme.zIndex.snackbar,
-          width: 300,
-        }}
-      >
-        {lockError && (
-          <RAAlert color="error" dismissible onClose={() => setLockError(null)}>
-            <RATypography variant="body2" color="white">
-              {lockError}
-            </RATypography>
-          </RAAlert>
-        )}
-        {status === "loading" && (
-          <RAAlert color="info">
-            <RATypography variant="body2" color="white">
-              {t("recipientAssessments.list.loading")}
-            </RATypography>{" "}
-          </RAAlert>
-        )}
-        {status === "failed" && (
-          <RAAlert color="error" dismissible>
-            <RATypography variant="body2" color="white">
-              {/* 4. Use dynamic DB conflict error string if present */}
-              {typeof errorMsg === "string"
-                ? errorMsg
-                : t("recipientAssessments.list.error")}
-            </RATypography>
-          </RAAlert>
-        )}
-      </RABox>
+      <RAFloatingAlertStack
+        alerts={[
+          {
+            id: "lockError",
+            color: "error",
+            message: lockError,
+            onClose: () => setLockError(null),
+          },
+          {
+            id: "loading",
+            color: "info",
+            dismissible: false,
+            message:
+              status === "loading" ? t("recipientAssessments.list.loading") : "",
+          },
+          {
+            id: "failed",
+            color: "error",
+            // Uses the dynamic DB conflict error string when present.
+            message:
+              status === "failed"
+                ? typeof errorMsg === "string"
+                  ? errorMsg
+                  : t("recipientAssessments.list.error")
+                : "",
+          },
+        ]}
+      />
     </RABox>
   );
 }

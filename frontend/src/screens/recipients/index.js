@@ -7,8 +7,7 @@ import { useTranslation } from "react-i18next";
 import DataTable from "components/display/Tables/DataTable";
 import RADialog from "components/feedback/RADialog";
 import RABox from "components/layout/RABox";
-import RAAlert from "components/feedback/RAAlert";
-import RATypography from "components/display/RATypography";
+import RAFloatingAlertStack from "components/feedback/RAFloatingAlertStack";
 import { isAdminUser } from "utils/auth";
 
 import {
@@ -167,39 +166,33 @@ export default function Recipients() {
         {t("recipients.list.deleteWarning")}
       </RADialog>
 
-      <RABox
-        sx={(theme) => ({
-          position: "fixed",
-          bottom: theme.spacing(2),
-          right: theme.spacing(2),
-          zIndex: theme.zIndex.snackbar,
-          width: 300,
-          marginBottom: theme.spacing(3),
-        })}
-      >
-        {lockError && (
-          <RAAlert color="error" dismissible onClose={() => setLockError(null)}>
-            <RATypography variant="body2" color="white">
-              {lockError}
-            </RATypography>
-          </RAAlert>
-        )}
-        {status === "loading" && (
-          <RAAlert color="info">
-            <RATypography variant="body2" color="white">
-              {t("recipients.list.loading")}
-            </RATypography>
-          </RAAlert>
-        )}
-        {status === "failed" && (
-          <RAAlert color="error" dismissible>
-            <RATypography variant="body2" color="white">
-              {/* 4. Display the Redux error message (like 409 DB Conflicts) */}
-              {typeof error === "string" ? error : t("recipients.list.error")}
-            </RATypography>
-          </RAAlert>
-        )}
-      </RABox>
+      <RAFloatingAlertStack
+        alerts={[
+          {
+            id: "lockError",
+            color: "error",
+            message: lockError,
+            onClose: () => setLockError(null),
+          },
+          {
+            id: "loading",
+            color: "info",
+            dismissible: false,
+            message: status === "loading" ? t("recipients.list.loading") : "",
+          },
+          {
+            id: "failed",
+            color: "error",
+            // Displays the Redux error message (e.g. 409 DB conflicts) when present.
+            message:
+              status === "failed"
+                ? typeof error === "string"
+                  ? error
+                  : t("recipients.list.error")
+                : "",
+          },
+        ]}
+      />
     </RABox>
   );
 }

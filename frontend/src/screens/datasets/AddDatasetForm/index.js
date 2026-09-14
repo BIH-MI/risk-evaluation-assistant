@@ -10,7 +10,7 @@ import RATypography from "components/display/RATypography";
 import OnBlurRAInput from "components/input/RAInput/OnBlurRAInput";
 import RAUserAutocomplete from "components/input/RAUserAutocomplete";
 import RAButton from "components/input/RAButton";
-import RAAlert from "components/feedback/RAAlert";
+import RAFloatingAlertStack from "components/feedback/RAFloatingAlertStack";
 import RAInput from "components/input/RAInput";
 import { MenuItem } from "@mui/material";
 
@@ -32,6 +32,8 @@ import {
   isDefaultExcludedIdentifierColumn,
   validateDirectIdentifierExclusions,
 } from "qidDiscovery/directIdentifierPolicy";
+
+const DATASET_NAME_ALREADY_EXISTS = "DATASET_NAME_ALREADY_EXISTS";
 
 let nextLocalTableId = 0;
 
@@ -66,11 +68,19 @@ export default function AddDatasetForm() {
   const [description, setDescription] = useState("");
   const [sharedUsers, setSharedUsers] = useState([]);
   const [tables, setTables] = useState([]);
-  const [errors, setErrors] = useState({ tables: "", tableName: "" });
+  const [errors, setErrors] = useState({
+    name: "",
+    tables: "",
+    tableName: "",
+  });
   const [warnings, setWarnings] = useState({ directIdentifier: "" });
-  const [qidDiscoveryConfigurations, setQidDiscoveryConfigurations] = useState([]);
-  const [selectedQidDiscoveryConfigurationId, setSelectedQidDiscoveryConfigurationId] =
-    useState("");
+  const [qidDiscoveryConfigurations, setQidDiscoveryConfigurations] = useState(
+    []
+  );
+  const [
+    selectedQidDiscoveryConfigurationId,
+    setSelectedQidDiscoveryConfigurationId,
+  ] = useState("");
   const [qidConfigurationsLoading, setQidConfigurationsLoading] =
     useState(false);
 
@@ -86,7 +96,8 @@ export default function AddDatasetForm() {
     () =>
       qidDiscoveryConfigurations.find(
         (configuration) =>
-          String(configuration.id) === String(selectedQidDiscoveryConfigurationId)
+          String(configuration.id) ===
+          String(selectedQidDiscoveryConfigurationId)
       ) || null,
     [qidDiscoveryConfigurations, selectedQidDiscoveryConfigurationId]
   );
@@ -98,7 +109,9 @@ export default function AddDatasetForm() {
    */
   const selectedQidDiscoveryConfigurationError = useMemo(() => {
     if (!selectedQidDiscoveryConfiguration) return "";
-    return getQidConfigurationValidationError(selectedQidDiscoveryConfiguration);
+    return getQidConfigurationValidationError(
+      selectedQidDiscoveryConfiguration
+    );
   }, [selectedQidDiscoveryConfiguration]);
 
   const { profileTable, refreshTable, disposeTableProfile } =
@@ -144,8 +157,7 @@ export default function AddDatasetForm() {
           setErrors((current) => ({
             ...current,
             tables:
-              error.message ||
-              "Failed to load QID discovery configurations.",
+              error.message || t("datasets.alerts.loadQidConfigurationsFailed"),
           }));
         }
       } finally {
@@ -158,14 +170,14 @@ export default function AddDatasetForm() {
     return () => {
       mounted = false;
     };
-  }, [token]);
+  }, [t, token]);
 
   const handleAddTable = useCallback(
     (file) => {
       if (!selectedQidDiscoveryConfiguration) {
         setErrors((e) => ({
           ...e,
-          tables: "Select an active QID Discovery Configuration before profiling.",
+          tables: t("datasets.alerts.qidConfigurationRequiredForProfiling"),
         }));
         return false;
       }
@@ -173,8 +185,7 @@ export default function AddDatasetForm() {
       if (selectedQidDiscoveryConfigurationError) {
         setErrors((e) => ({
           ...e,
-          tables:
-            "The selected QID Discovery Configuration is incomplete or invalid. Please contact an administrator.",
+          tables: t("datasets.alerts.qidConfigurationInvalid"),
         }));
         return false;
       }
@@ -248,6 +259,20 @@ export default function AddDatasetForm() {
       ];
     });
   }, [t]);
+
+  const clearNameError = useCallback(() => {
+    setErrors((current) =>
+      current.name ? { ...current, name: "" } : current
+    );
+  }, []);
+
+  const handleNameCommit = useCallback(
+    (value) => {
+      setName(value);
+      clearNameError();
+    },
+    [clearNameError]
+  );
 
   const handleAddColumn = useCallback(
     (tableId) => {
@@ -442,7 +467,7 @@ export default function AddDatasetForm() {
       if (!selectedQidDiscoveryConfiguration) {
         setErrors((e) => ({
           ...e,
-          tables: "Select an active QID Discovery Configuration before creating a dataset.",
+          tables: t("datasets.alerts.qidConfigurationRequiredForSubmit"),
         }));
         return;
       }
@@ -481,8 +506,7 @@ export default function AddDatasetForm() {
           newDataset: {
             name: name.trim(),
             description: description.trim(),
-            qidDiscoveryConfigurationId:
-              selectedQidDiscoveryConfiguration.id,
+            qidDiscoveryConfigurationId: selectedQidDiscoveryConfiguration.id,
             qidDiscoveryConfigurationVersionId:
               selectedQidDiscoveryConfiguration.versionId,
             sharedUsernames: sharedUsers.map((u) => u.username),
@@ -496,6 +520,15 @@ export default function AddDatasetForm() {
           navigate("/datasets");
         })
         .catch((err) => {
+          if (err?.code === DATASET_NAME_ALREADY_EXISTS) {
+            setErrors((e) => ({
+              ...e,
+              name: t("datasets.alerts.duplicateDatasetName"),
+              tables: "",
+            }));
+            return;
+          }
+
           setErrors((e) => ({
             ...e,
             tables: getErrorMessage(err, t("datasets.alerts.submissionFailed")),
@@ -547,7 +580,9 @@ export default function AddDatasetForm() {
         <OnBlurRAInput
           label={t("datasets.form.datasetNameLabel")}
           value={name}
-          onCommit={setName}
+          onCommit={handleNameCommit}
+          onInput={clearNameError}
+          error={Boolean(errors.name)}
           fullWidth
           required
         />
@@ -571,7 +606,7 @@ export default function AddDatasetForm() {
 
         <RAInput
           select
-          label="QID Discovery Configuration"
+          label={t("datasets.form.qidDiscoveryConfigurationLabel")}
           value={selectedQidDiscoveryConfigurationId}
           onChange={(event) =>
             setSelectedQidDiscoveryConfigurationId(event.target.value)
@@ -581,7 +616,7 @@ export default function AddDatasetForm() {
           error={Boolean(selectedQidDiscoveryConfigurationError)}
           helperText={
             selectedQidDiscoveryConfigurationError
-              ? "The selected QID Discovery Configuration is incomplete or invalid. Please contact an administrator."
+              ? t("datasets.alerts.qidConfigurationInvalid")
               : ""
           }
         >
@@ -592,7 +627,7 @@ export default function AddDatasetForm() {
                   {configuration.name}
                 </RATypography>
                 <RATypography variant="caption" color="text">
-                  {getQidSearchTypeLabel(configuration.search?.searchType)}
+                  {getQidSearchTypeLabel(t, configuration.search?.searchType)}
                 </RATypography>
               </RABox>
             </MenuItem>
@@ -603,7 +638,6 @@ export default function AddDatasetForm() {
           onParse={handleTableParse}
           onAddTable={handleAddTable}
           onManualAdd={handleAddManualTable}
-          error={errors.tables}
           setError={(msg) => setErrors((e) => ({ ...e, tables: msg }))}
           disabled={Boolean(selectedQidDiscoveryConfigurationError)}
         />
@@ -672,65 +706,35 @@ export default function AddDatasetForm() {
         </RAButton>
       </RABox>
 
-      {(errors.tables || errors.tableName || warnings.directIdentifier) && (
-        <RABox
-          sx={{
-            position: "fixed",
-            bottom: (theme) => theme.spacing(2),
-            right: (theme) => theme.spacing(2),
-            zIndex: (theme) => theme.zIndex.snackbar,
-            width: 300,
-            mb: (theme) => theme.spacing(3),
-          }}
-        >
-          {errors.tables && (
-            <RAAlert
-              color="error"
-              dismissible
-              onClose={() => setErrors((e) => ({ ...e, tables: "" }))}
-            >
-              <RATypography
-                variant="body2"
-                color="white"
-                sx={{ whiteSpace: "pre-line" }}
-              >
-                {errors.tables}
-              </RATypography>
-            </RAAlert>
-          )}
-          {errors.tableName && (
-            <RAAlert
-              color="error"
-              dismissible
-              onClose={() => setErrors((e) => ({ ...e, tableName: "" }))}
-            >
-              <RATypography variant="body2" color="white">
-                {errors.tableName}
-              </RATypography>
-            </RAAlert>
-          )}
-          {warnings.directIdentifier && (
-            <RAAlert
-              color="warning"
-              dismissible
-              onClose={() =>
-                setWarnings((current) => ({
-                  ...current,
-                  directIdentifier: "",
-                }))
-              }
-            >
-              <RATypography
-                variant="body2"
-                color="white"
-                sx={{ whiteSpace: "pre-line" }}
-              >
-                {warnings.directIdentifier}
-              </RATypography>
-            </RAAlert>
-          )}
-        </RABox>
-      )}
+      <RAFloatingAlertStack
+        alerts={[
+          {
+            id: "name",
+            color: "error",
+            message: errors.name,
+            onClose: clearNameError,
+          },
+          {
+            id: "tables",
+            color: "error",
+            message: errors.tables,
+            onClose: () => setErrors((e) => ({ ...e, tables: "" })),
+          },
+          {
+            id: "tableName",
+            color: "error",
+            message: errors.tableName,
+            onClose: () => setErrors((e) => ({ ...e, tableName: "" })),
+          },
+          {
+            id: "directIdentifier",
+            color: "warning",
+            message: warnings.directIdentifier,
+            onClose: () =>
+              setWarnings((current) => ({ ...current, directIdentifier: "" })),
+          },
+        ]}
+      />
     </RABox>
   );
 }

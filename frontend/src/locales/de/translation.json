@@ -61,13 +61,20 @@
       "lockFailed": "Jemand anderes bearbeitet diesen Datensatz!",
       "lockLost": "Verbindung zur Sperre verloren. Speichern nicht möglich.",
       "saveFailed": "Fehler beim Speichern des Datensatzes",
+      "duplicateDatasetName": "Es existiert bereits ein Datensatz mit diesem Namen.",
       "duplicateTable": "Name \"{{name}}\" wird bereits verwendet.",
       "duplicateCsv": "\"{{name}}\" kann nicht zweimal hinzugefügt werden.",
       "duplicateTableName": "Umbenennung in \"{{name}}\" nicht möglich: wird bereits verwendet.",
       "noTables": "Bitte fügen Sie mindestens eine Tabelle hinzu (CSV oder Manuell)",
       "submissionFailed": "Übermittlung fehlgeschlagen",
       "parseError": "Analysefehler: {{message}}",
-      "onlyCsv": "Alle Dateien müssen .csv sein"
+      "onlyCsv": "Alle Dateien müssen .csv sein",
+      "parsingInProgress": "Bitte warten Sie, bis alle CSV-Dateien fertig verarbeitet wurden.",
+      "profilingFailed": "CSV-Profiling fehlgeschlagen.",
+      "loadQidConfigurationsFailed": "Fehler beim Laden der QID-Discovery-Konfigurationen.",
+      "qidConfigurationRequiredForProfiling": "Wählen Sie vor dem Profiling eine aktive QID-Discovery-Konfiguration aus.",
+      "qidConfigurationRequiredForSubmit": "Wählen Sie vor dem Erstellen eines Datensatzes eine aktive QID-Discovery-Konfiguration aus.",
+      "qidConfigurationInvalid": "Die ausgewählte QID-Discovery-Konfiguration ist unvollständig oder ungültig. Bitte wenden Sie sich an einen Administrator."
     },
     "form": {
       "editDataset": "Datensatz bearbeiten",
@@ -81,7 +88,8 @@
       "saveChanges": "Änderungen speichern",
       "datasetNameLabel": "Datensatzname",
       "datasetDescriptionLabel": "Datensatzbeschreibung (optional)",
-      "searchUsersPlaceholder": "Nach Vor- oder Nachnamen suchen"
+      "searchUsersPlaceholder": "Nach Vor- oder Nachnamen suchen",
+      "qidDiscoveryConfigurationLabel": "QID-Discovery-Konfiguration"
     },
     "attributesTable": {
       "index": "#",
@@ -601,6 +609,159 @@
       "directIdentifier": "Direkter Identifikator",
       "quasiIdentifier": "Quasi-Identifikator",
       "sensitiveAttribute": "Sensibles Attribut"
+    }
+  },
+  "attributeScoringSystems": {
+    "scoreOptions": {
+      "displayLabel": "Anzeigebezeichnung",
+      "addOption": "Option hinzufügen",
+      "addOptionTooltip": "Option hinzufügen",
+      "maxOptionsReached": "Maximal {{max}} Bewertungsoptionen erreicht",
+      "deleteOption": "Option löschen",
+      "deleteOptionTooltip": "Löschen",
+      "decreaseValue": "Wert verringern",
+      "increaseValue": "Wert erhöhen",
+      "scoreValue": "Bewertungswert",
+      "labels": {
+        "low": "Niedrig",
+        "moderate": "Moderat",
+        "high": "Hoch",
+        "veryHigh": "Sehr hoch",
+        "critical": "Kritisch"
+      },
+      "errors": {
+        "minOptionsRequired": "Es sind mindestens zwei Bewertungsoptionen erforderlich.",
+        "maxOptions": "Es sind maximal {{max}} Bewertungsoptionen zulässig.",
+        "labelRequired": "Bezeichnung ist erforderlich.",
+        "labelNotPredefined": "Wählen Sie eine der vordefinierten Bezeichnungen aus.",
+        "labelNotUnique": "Die Bezeichnung muss innerhalb dieser Dimension eindeutig sein.",
+        "valueRequired": "Bewertungswert ist erforderlich.",
+        "valueInvalid": "Der Wert muss eine gültige Zahl sein.",
+        "valueNegative": "Der Bewertungswert darf nicht negativ sein.",
+        "valueNotUnique": "Der Bewertungswert muss innerhalb dieser Dimension eindeutig sein."
+      }
+    },
+    "errors": {
+      "nameRequired": "Name ist erforderlich.",
+      "nameNotUnique": "Der Name muss eindeutig sein.",
+      "defaultSystemNotActive": "Das Standard-Bewertungssystem muss aktiv sein.",
+      "thresholdInvalid": "Der Schwellenwert muss eine gültige Zahl sein.",
+      "thresholdOutOfRange": "Der Schwellenwert muss innerhalb von {{range}} liegen."
+    }
+  },
+  "qidDiscoveryConfiguration": {
+    "list": {
+      "searchPlaceholder": "QID-Discovery-Konfigurationen durchsuchen...",
+      "loading": "QID-Discovery-Konfigurationen werden geladen..."
+    },
+    "dialog": {
+      "archiveTitle": "QID-Discovery-Konfiguration archivieren",
+      "cancel": "Abbrechen",
+      "archive": "Archivieren",
+      "archiveWarning": "{{name}} archivieren? Bestehende Datensätze behalten ihre gespeicherte QID-Discovery-Konfigurationsversion, aber diese Konfiguration steht für neue Profiling-Sitzungen nicht mehr zur Auswahl."
+    },
+    "alerts": {
+      "adminOnly": "Nur Administratoren können QID-Discovery-Konfigurationen verwalten.",
+      "loadConfigurationsFailed": "Fehler beim Laden der QID-Discovery-Konfigurationen.",
+      "loadConfigurationFailed": "Fehler beim Laden der QID-Discovery-Konfiguration.",
+      "duplicateConfigurationFailed": "Fehler beim Duplizieren der QID-Discovery-Konfiguration.",
+      "setDefaultConfigurationFailed": "Fehler beim Festlegen der Standard-QID-Discovery-Konfiguration.",
+      "archiveConfigurationFailed": "Fehler beim Archivieren der QID-Discovery-Konfiguration.",
+      "saveConfigurationFailed": "Fehler beim Speichern der QID-Discovery-Konfiguration."
+    },
+    "table": {
+      "displayName": "Anzeigename",
+      "status": "Status",
+      "statusActive": "Aktiv",
+      "statusArchived": "Archiviert",
+      "statusDefault": "Standard",
+      "lastUpdated": "Zuletzt aktualisiert",
+      "actions": "Aktionen",
+      "editTooltip": "QID-Discovery-Konfiguration bearbeiten",
+      "duplicateTooltip": "QID-Discovery-Konfiguration duplizieren",
+      "setDefaultTooltip": "Als Standard festlegen",
+      "archiveTooltip": "QID-Discovery-Konfiguration archivieren"
+    },
+    "form": {
+      "editTitle": "QID Discovery bearbeiten",
+      "createTitle": "QID Discovery erstellen",
+      "saving": "Speichern...",
+      "save": "Speichern"
+    },
+    "configurationDetails": {
+      "title": "Konfigurationsdetails"
+    },
+    "fields": {
+      "name": "Name",
+      "description": "Beschreibung",
+      "version": "Version",
+      "active": "Aktiv",
+      "default": "Standard",
+      "searchType": "QID-Suchtyp",
+      "exactSearchMaxCandidateCount": "Maximale Kandidatenanzahl für die exakte Suche",
+      "maxCombinationSize": "Maximale Kombinationsgröße",
+      "beamWidth": "Beam-Breite",
+      "minImprovement": "Minimale Verbesserung",
+      "stagnationDepthLimit": "Stagnationstiefen-Grenzwert",
+      "targetDistinction": "Ziel-Distinction",
+      "targetSeparation": "Ziel-Separation",
+      "distinctionWeight": "Distinction-Gewichtung",
+      "separationWeight": "Separation-Gewichtung",
+      "attributeCountPenalty": "Attributanzahl-Strafwert",
+      "maxPersistedCombinations": "Maximal gespeicherte Kombinationen"
+    },
+    "searchTypes": {
+      "automatic": "Automatisch",
+      "exact": "Exakte stufenweise Suche",
+      "beam": "Beam-Suche"
+    },
+    "searchStrategy": {
+      "title": "Suchstrategie",
+      "automaticDescription": "REA wählt die Suchstrategie automatisch anhand der Anzahl geeigneter Kandidatenattribute. Bis zur konfigurierten Kandidatengrenze wird die exakte stufenweise Suche verwendet; größere Kandidatenmengen nutzen die Beam-Suche.",
+      "exactDescription": "Die exakte stufenweise Suche untersucht systematisch geeignete Attributkombinationen bis zur konfigurierten maximalen Kombinationsgröße. Sie bietet eine vollständigere Exploration, kann bei großen Kandidatenmengen jedoch rechenintensiv werden.",
+      "beamDescription": "Die Beam-Suche verwendet eine heuristische Suche, die bei jeder Tiefe nur die bestbewerteten Kandidatenkombinationen beibehält. Sie ist bei großen Kandidatenmengen skalierbarer, wertet aber nicht jede mögliche Kombination aus.",
+      "exactSearchMaxCandidateCountHelper": "Maximale Anzahl geeigneter Kandidatenattribute für die exakte stufenweise Suche im automatischen Modus.",
+      "maxCombinationSizeHelper": "Maximale Anzahl von Attributen, die in einer durchsuchten QID-Kombination erlaubt sind."
+    },
+    "beamSearch": {
+      "title": "Beam-Suche",
+      "automaticDescription": "Diese Einstellungen werden verwendet, wenn die automatische Suchauswahl für eine größere Kandidatenmenge die Beam-Suche wählt.",
+      "beamDescription": "Die Beam-Suche behält bei jeder Suchtiefe nur die bestbewerteten Kandidatenkombinationen. Ein größerer Beam untersucht mehr Alternativen, erfordert aber mehr Rechenaufwand.",
+      "beamWidthHelper": "Maximale Anzahl bewerteter Kandidatenkombinationen, die bei jeder Suchtiefe zur weiteren Expansion beibehalten werden.",
+      "minImprovementHelper": "Minimale Erhöhung des besten Suchsignals, die zwischen aufeinanderfolgenden Tiefen als bedeutsam gilt.",
+      "stagnationDepthLimitHelper": "Anzahl aufeinanderfolgender Suchtiefen ohne ausreichende Verbesserung, bevor die Beam-Suche stoppt."
+    },
+    "searchTargets": {
+      "title": "Suchziele",
+      "description": "Suchziele legen fest, wann ein bereits starker Kandidat nicht mehr zu größeren Kombinationen erweitert werden muss. Beide Ziele müssen erreicht werden. Dies sind Suchsteuerungswerte, keine Distinguishability-Bewertungsschwellenwerte.",
+      "targetDistinctionHelper": "Minimales Distinction-Ziel, das bei der Entscheidung verwendet wird, ob ein Kandidat weiter erweitert werden soll.",
+      "targetSeparationHelper": "Minimales Separation-Ziel, das zusammen mit dem Ziel-Distinction bei der Entscheidung verwendet wird, ob ein Kandidat weiter erweitert werden soll."
+    },
+    "candidateRanking": {
+      "title": "Kandidatenranking",
+      "automaticDescription": "Das Ranking ordnet Kandidatenkombinationen und bestimmt, wenn die Beam-Suche gewählt ist, welche Kandidaten für eine weitere Expansion verfügbar bleiben.",
+      "exactDescription": "Das Ranking ordnet gefundene Kombinationen und beeinflusst, welche Ergebnisse beibehalten werden. Es bestimmt nicht, welche Kombinationen die exakte Suche auswertet.",
+      "beamDescription": "Das Ranking bestimmt, welche Kandidatenkombinationen im Beam verbleiben, und beeinflusst dadurch direkt, welche Suchzweige untersucht werden.",
+      "distinctionWeightHelper": "Relativer Beitrag von Distinction zum Kandidatenranking-Score.",
+      "separationWeightHelper": "Relativer Beitrag von Separation zum Kandidatenranking-Score.",
+      "attributeCountPenaltyHelper": "Strafwert für größere Kombinationen, sodass kleinere Kombinationen bei ansonsten ähnlicher Bewertung bevorzugt werden."
+    },
+    "resultRetention": {
+      "title": "Ergebnisaufbewahrung",
+      "description": "Legt fest, wie viele der gefundenen aggregierten QID-Kombinationen nach Abschluss der Suche aufbewahrt werden.",
+      "maxPersistedCombinationsHelper": "Maximale Anzahl aggregierter QID-Kombinationsergebnisse, die nach der Suche aufbewahrt werden. Dies begrenzt nicht, wie viele Kombinationen während der Suche ausgewertet werden können."
+    },
+    "errors": {
+      "nameRequired": "Name ist erforderlich.",
+      "nameNotUnique": "Es existiert bereits eine QID-Discovery-Konfiguration mit diesem Namen.",
+      "defaultNotActive": "Die Standard-QID-Discovery-Konfiguration muss aktiv sein.",
+      "searchTypeRequired": "QID-Suchtyp ist erforderlich.",
+      "fieldRequired": "{{field}} ist erforderlich.",
+      "fieldInvalidNumber": "{{field}} muss eine gültige Zahl sein.",
+      "fieldNotInteger": "{{field}} muss eine ganze Zahl sein.",
+      "fieldBelowMin": "{{field}} muss mindestens {{min}} betragen.",
+      "fieldAboveMax": "{{field}} darf höchstens {{max}} betragen.",
+      "weightsCannotBothBeZero": "{{distinctionField}} und {{separationField}} dürfen nicht beide 0 sein."
     }
   },
   "documentation": {

@@ -1,13 +1,15 @@
 // src/utils/CSVDropzone.js
 import React, { useCallback } from "react";
-import { Box, FormControl, FormHelperText, Typography } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import { useDropzone } from "react-dropzone";
 import { useTranslation } from "react-i18next";
 import RAButton from "components/input/RAButton";
 
+// CSV validation/parsing errors are reported upward via `setError` and shown
+// exclusively in the bottom-right floating alert stack (see AddDatasetForm) -
+// this component must not also render them inline underneath the dropzone.
 export function CSVDropzone({
   onParse,
-  error,
   setError,
   onAddTable,
   onManualAdd,
@@ -84,12 +86,6 @@ export function CSVDropzone({
       >
         {t("datasets.add.addManualTable")}
       </RAButton>
-
-      {error && (
-        <FormControl error>
-          <FormHelperText>{error}</FormHelperText>
-        </FormControl>
-      )}
     </Box>
   );
 }

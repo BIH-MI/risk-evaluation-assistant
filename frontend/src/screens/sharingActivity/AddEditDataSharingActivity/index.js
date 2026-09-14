@@ -1,6 +1,5 @@
 import React from "react";
 import { Checkbox, FormControlLabel } from "@mui/material";
-import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 
 import RABox from "components/layout/RABox";
@@ -9,7 +8,7 @@ import OnBlurRAInput from "components/input/RAInput/OnBlurRAInput";
 import RASelect from "components/input/RASelect";
 import RAUserAutocomplete from "components/input/RAUserAutocomplete";
 import RAButton from "components/input/RAButton";
-import RAAlert from "components/feedback/RAAlert";
+import RAFloatingAlertStack from "components/feedback/RAFloatingAlertStack";
 import DatasetTablesAssessment from "components/display/Tables/DataTable/CustomDataTableComponents/DatasetTablesAssessment";
 import { useDataSharingActivityForm } from "./useDataSharingActivityForm";
 
@@ -30,7 +29,6 @@ const selectSx = {
  * assessment for this specific activity.
  */
 export default function AddEditDataSharingActivity() {
-  const theme = useTheme();
   const { t } = useTranslation();
   const {
     isEdit,
@@ -45,7 +43,6 @@ export default function AddEditDataSharingActivity() {
     tables,
     sharedUsers,
     errorMessage,
-    nameError,
     lockError,
     isReadOnly,
     isSubmitDisabled,
@@ -96,7 +93,6 @@ export default function AddEditDataSharingActivity() {
           onCommit={handleNameCommit}
           fullWidth
           required
-          error={nameError}
           disabled={isReadOnly}
         />
 
@@ -205,55 +201,39 @@ export default function AddEditDataSharingActivity() {
         </RAButton>
       </RABox>
 
-      <RABox
-        sx={{
-          position: "fixed",
-          bottom: theme.spacing(2),
-          right: theme.spacing(2),
-          zIndex: theme.zIndex.snackbar,
-          width: 300,
-          marginBottom: theme.spacing(3),
-          display: "flex",
-          flexDirection: "column",
-          gap: 1,
-        }}
-      >
-        {lockError && (
-          <RAAlert color="error" dismissible onClose={() => setLockError(null)}>
-            <RATypography variant="body2" color="white">
-              {lockError}
-            </RATypography>
-          </RAAlert>
-        )}
-
-        {errorMessage && (
-          <RAAlert
-            color="error"
-            dismissible
-            onClose={() => setErrorMessage("")}
-          >
-            <RATypography variant="body2" color="white">
-              {errorMessage}
-            </RATypography>
-          </RAAlert>
-        )}
-
-        {status === "loading" && (
-          <RAAlert color="info">
-            <RATypography variant="body2" color="white">
-              {t("dataSharingActivities.alerts.loading")}
-            </RATypography>
-          </RAAlert>
-        )}
-
-        {status === "failed" && !errorMessage && (
-          <RAAlert color="error" dismissible>
-            <RATypography variant="body2" color="white">
-              {t("dataSharingActivities.alerts.error")}
-            </RATypography>
-          </RAAlert>
-        )}
-      </RABox>
+      <RAFloatingAlertStack
+        alerts={[
+          {
+            id: "lockError",
+            color: "error",
+            message: lockError,
+            onClose: () => setLockError(null),
+          },
+          {
+            id: "errorMessage",
+            color: "error",
+            message: errorMessage,
+            onClose: () => setErrorMessage(""),
+          },
+          {
+            id: "loading",
+            color: "info",
+            dismissible: false,
+            message:
+              status === "loading"
+                ? t("dataSharingActivities.alerts.loading")
+                : "",
+          },
+          {
+            id: "statusFailed",
+            color: "error",
+            message:
+              status === "failed" && !errorMessage
+                ? t("dataSharingActivities.alerts.error")
+                : "",
+          },
+        ]}
+      />
     </>
   );
 }

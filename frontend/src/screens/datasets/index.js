@@ -2,13 +2,11 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "react-oidc-context";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 
 import DataTable from "components/display/Tables/DataTable";
 import RADialog from "components/feedback/RADialog";
-import RAAlert from "components/feedback/RAAlert";
-import RATypography from "components/display/RATypography";
+import RAFloatingAlertStack from "components/feedback/RAFloatingAlertStack";
 import RABox from "components/layout/RABox";
 import { isAdminUser } from "utils/auth";
 import getDatasetsTableData from "./getDatasetsTableData";
@@ -28,7 +26,6 @@ export default function Datasets() {
   const me = user?.profile?.preferred_username;
 
   const isAdmin = isAdminUser(user);
-  const theme = useTheme();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [toDeleteId, setToDeleteId] = useState(null);
@@ -157,46 +154,35 @@ export default function Datasets() {
         {t("datasets.dialog.deleteWarning")}
       </RADialog>
 
-      <RABox
-        sx={{
-          position: "fixed",
-          bottom: theme.spacing(2),
-          right: theme.spacing(2),
-          zIndex: theme.zIndex.snackbar,
-          width: 300,
-          marginBottom: theme.spacing(3),
-        }}
-      >
-        {lockError && (
-          <RAAlert color="error" dismissible onClose={() => setLockError(null)}>
-            <RATypography variant="body2" color="white">
-              {lockError}
-            </RATypography>
-          </RAAlert>
-        )}
-
-        {status === "loading" && (
-          <RAAlert color="info">
-            <RATypography variant="body2" color="white">
-              {t("datasets.alerts.loading")}
-            </RATypography>
-          </RAAlert>
-        )}
-
-        {/* FIX: Properly render the error payload or a generic fallback */}
-        {status === "failed" && (
-          <RAAlert color="error" dismissible>
-            <RATypography variant="body2" color="white">
-              {typeof errorMsg === "string"
-                ? errorMsg
-                : t(
-                    "datasets.alerts.error",
-                    "Action failed. The dataset is locked or has existing assessments."
-                  )}
-            </RATypography>
-          </RAAlert>
-        )}
-      </RABox>
+      <RAFloatingAlertStack
+        alerts={[
+          {
+            id: "lockError",
+            color: "error",
+            message: lockError,
+            onClose: () => setLockError(null),
+          },
+          {
+            id: "loading",
+            color: "info",
+            dismissible: false,
+            message: status === "loading" ? t("datasets.alerts.loading") : "",
+          },
+          {
+            id: "failed",
+            color: "error",
+            message:
+              status === "failed"
+                ? typeof errorMsg === "string"
+                  ? errorMsg
+                  : t(
+                      "datasets.alerts.error",
+                      "Action failed. The dataset is locked or has existing assessments."
+                    )
+                : "",
+          },
+        ]}
+      />
     </RABox>
   );
 }

@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useMaterialUIController } from "context";
 import ReportDocument from "./components/ReportDocument";
 import ReportExportActions from "./components/ReportExportActions";
-import ReportErrorToast from "./components/shared/ReportErrorToast";
+import RAFloatingAlertStack from "components/feedback/RAFloatingAlertStack";
 import {
   PDF_EXPORT_RENDER_DELAY_MS,
   buildReportPdfFilename,
@@ -143,7 +143,16 @@ export default function DataSharingReportPage() {
         onDownloadExcel={handleDownloadExcel}
       />
 
-      <ReportErrorToast message={reportError} onClose={clearReportError} />
+      <RAFloatingAlertStack
+        alerts={[
+          {
+            id: "reportError",
+            color: "error",
+            message: reportError,
+            onClose: clearReportError,
+          },
+        ]}
+      />
     </>
   );
 }

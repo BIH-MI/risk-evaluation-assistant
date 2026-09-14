@@ -1,11 +1,11 @@
 import React from "react";
 import { CircularProgress, Divider } from "@mui/material";
-import { useTheme } from "@mui/material/styles";
 
 import RAAlert from "components/feedback/RAAlert";
 import RABox from "components/layout/RABox";
 import RAButton from "components/input/RAButton";
 import RATypography from "components/display/RATypography";
+import RAFloatingAlertStack from "components/feedback/RAFloatingAlertStack";
 
 import { ATTRIBUTE_DIMENSIONS } from "./attributeScoringSystemConstants";
 import ConfigurationDetailsSection from "./components/ConfigurationDetailsSection";
@@ -14,7 +14,6 @@ import ThresholdsSection from "./components/ThresholdsSection";
 import useAttributeScoringSystemForm from "./useAttributeScoringSystemForm";
 
 export default function AddEditAttributeScoringSystem() {
-  const theme = useTheme();
   const formController = useAttributeScoringSystemForm();
 
   if (!formController.isAdmin) {
@@ -111,27 +110,16 @@ export default function AddEditAttributeScoringSystem() {
         </RAButton>
       </RABox>
 
-      {formController.errorMessage && (
-        <RABox
-          sx={{
-            position: "fixed",
-            bottom: theme.spacing(2),
-            right: theme.spacing(2),
-            zIndex: theme.zIndex.snackbar,
-            width: 360,
-          }}
-        >
-          <RAAlert
-            color="error"
-            dismissible
-            onClose={formController.clearError}
-          >
-            <RATypography variant="body2" color="white">
-              {formController.errorMessage}
-            </RATypography>
-          </RAAlert>
-        </RABox>
-      )}
+      <RAFloatingAlertStack
+        alerts={[
+          {
+            id: "errorMessage",
+            color: "error",
+            message: formController.errorMessage,
+            onClose: formController.clearError,
+          },
+        ]}
+      />
     </RABox>
   );
 }

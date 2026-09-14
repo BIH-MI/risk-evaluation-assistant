@@ -36,7 +36,8 @@ export function normalizeQidConfigurationToForm(configuration) {
     description: configuration.description || "",
     active: Boolean(configuration.active),
     defaultConfiguration: Boolean(configuration.defaultConfiguration),
-    versionNumber: configuration.versionNumber || configuration.currentVersion || 1,
+    versionNumber:
+      configuration.versionNumber || configuration.currentVersion || 1,
     search: {
       ...empty.search,
       searchType: search.searchType || empty.search.searchType,
@@ -82,51 +83,77 @@ const toNumber = (value) => {
   return Number.isFinite(number) ? number : Number.NaN;
 };
 
-function addNumberError(errors, key, value, label, { integer, min, max } = {}) {
+function addNumberError(
+  t,
+  errors,
+  key,
+  value,
+  fieldLabelKey,
+  { integer, min, max } = {}
+) {
   const number = toNumber(value);
+  const field = t(fieldLabelKey);
 
   if (number === null) {
-    errors[key] = `${label} is required.`;
+    errors[key] = t("qidDiscoveryConfiguration.errors.fieldRequired", {
+      field,
+    });
     return;
   }
   if (Number.isNaN(number)) {
-    errors[key] = `${label} must be a valid number.`;
+    errors[key] = t("qidDiscoveryConfiguration.errors.fieldInvalidNumber", {
+      field,
+    });
     return;
   }
   if (integer && !Number.isInteger(number)) {
-    errors[key] = `${label} must be an integer.`;
+    errors[key] = t("qidDiscoveryConfiguration.errors.fieldNotInteger", {
+      field,
+    });
     return;
   }
   if (min !== undefined && number < min) {
-    errors[key] = `${label} must be at least ${min}.`;
+    errors[key] = t("qidDiscoveryConfiguration.errors.fieldBelowMin", {
+      field,
+      min,
+    });
     return;
   }
   if (max !== undefined && number > max) {
-    errors[key] = `${label} must be at most ${max}.`;
+    errors[key] = t("qidDiscoveryConfiguration.errors.fieldAboveMax", {
+      field,
+      max,
+    });
   }
 }
 
-export function validateQidConfigurationForm(form, existingConfigurations = []) {
+export function validateQidConfigurationForm(
+  t,
+  form,
+  existingConfigurations = []
+) {
   const fields = {};
   const search = {};
 
   if (!form.name.trim()) {
-    fields.name = "Name is required.";
+    fields.name = t("qidDiscoveryConfiguration.errors.nameRequired");
   } else {
     const duplicateName = existingConfigurations.some(
       (configuration) =>
         configuration.id !== form.id &&
-        String(configuration.name || "").trim().toLowerCase() ===
-          form.name.trim().toLowerCase()
+        String(configuration.name || "")
+          .trim()
+          .toLowerCase() === form.name.trim().toLowerCase()
     );
     if (duplicateName) {
-      fields.name = "A QID discovery configuration with this name already exists.";
+      fields.name = t("qidDiscoveryConfiguration.errors.nameNotUnique");
     }
   }
 
   if (form.defaultConfiguration && !form.active) {
-    fields.defaultConfiguration =
-      "The default QID discovery configuration must be active.";
+    fields.defaultConfiguration = t(
+      "qidDiscoveryConfiguration.errors.defaultNotActive"
+    );
   }
 
   const searchType = form.search.searchType;
@@ -134,32 +161,38 @@ export function validateQidConfigurationForm(form, existingConfigurations = []) 
   const usesBeam = isAutomatic || searchType === "BEAM";
 
   if (!["AUTOMATIC", "EXACT", "BEAM"].includes(searchType)) {
-    search.searchType = "QID Search Type is required.";
+    search.searchType = t(
+      "qidDiscoveryConfiguration.errors.searchTypeRequired"
+    );
   }
 
   if (isAutomatic) {
     addNumberError(
+      t,
       search,
       "exactSearchMaxCandidateCount",
       form.search.exactSearchMaxCandidateCount,
-      "Exact Search Maximum Candidate Count",
+      "qidDiscoveryConfiguration.fields.exactSearchMaxCandidateCount",
       { integer: true, min: 1 }
     );
   }
 
   addNumberError(
+    t,
     search,
     "maxCombinationSize",
     form.search.maxCombinationSize,
-    "Maximum Combination Size",
+    "qidDiscoveryConfiguration.fields.maxCombinationSize",
     { integer: true, min: 1 }
   );
 
   ["beamWidth", "stagnationDepthLimit"].forEach((key) => {
     if (!usesBeam) return;
-    const label =
-      key === "beamWidth" ? "Beam Width" : "Stagnation Depth Limit";
-    addNumberError(search, key, form.search[key], label, {
+    const fieldLabelKey =
+      key === "beamWidth"
+        ? "qidDiscoveryConfiguration.fields.beamWidth"
+        : "qidDiscoveryConfiguration.fields.stagnationDepthLimit";
+    addNumberError(t, search, key, form.search[key], fieldLabelKey, {
       integer: true,
       min: 1,
     });
@@ -167,40 +200,45 @@ export function validateQidConfigurationForm(form, existingConfigurations = []) 
 
   if (usesBeam) {
     addNumberError(
+      t,
       search,
       "minImprovement",
       form.search.minImprovement,
-      "Minimum Improvement",
+      "qidDiscoveryConfiguration.fields.minImprovement",
       { min: 0 }
     );
   }
 
   addNumberError(
+    t,
     search,
     "targetDistinction",
     form.search.targetDistinction,
-    "Target Distinction",
+    "qidDiscoveryConfiguration.fields.targetDistinction",
     { min: 0, max: 1 }
   );
   addNumberError(
+    t,
     search,
     "targetSeparation",
     form.search.targetSeparation,
-    "Target Separation",
+    "qidDiscoveryConfiguration.fields.targetSeparation",
     { min: 0, max: 1 }
   );
   addNumberError(
+    t,
     search,
     "distinctionWeight",
     form.search.distinctionWeight,
-    "Distinction Weight",
+    "qidDiscoveryConfiguration.fields.distinctionWeight",
     { min: 0 }
   );
   addNumberError(
+    t,
     search,
     "separationWeight",
     form.search.separationWeight,
-    "Separation Weight",
+    "qidDiscoveryConfiguration.fields.separationWeight",
     { min: 0 }
   );
 
@@ -211,22 +249,31 @@ export function validateQidConfigurationForm(form, existingConfigurations = []) 
     Number.isFinite(separationWeight) &&
     distinctionWeight + separationWeight <= 0
   ) {
-    search.separationWeight =
-      "Distinction Weight and Separation Weight cannot both be 0.";
+    search.separationWeight = t(
+      "qidDiscoveryConfiguration.errors.weightsCannotBothBeZero",
+      {
+        distinctionField: t(
+          "qidDiscoveryConfiguration.fields.distinctionWeight"
+        ),
+        separationField: t("qidDiscoveryConfiguration.fields.separationWeight"),
+      }
+    );
   }
 
   addNumberError(
+    t,
     search,
     "attributeCountPenalty",
     form.search.attributeCountPenalty,
-    "Attribute Count Penalty",
+    "qidDiscoveryConfiguration.fields.attributeCountPenalty",
     { min: 0 }
   );
   addNumberError(
+    t,
     search,
     "maxPersistedCombinations",
     form.search.maxPersistedCombinations,
-    "Maximum Retained Combinations",
+    "qidDiscoveryConfiguration.fields.maxPersistedCombinations",
     { integer: true, min: 1 }
   );
 

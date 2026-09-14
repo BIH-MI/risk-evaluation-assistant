@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import {
   archiveQidDiscoveryConfigurationApi,
@@ -8,6 +9,7 @@ import {
 } from "api/qidDiscoveryConfigurations";
 
 export default function useQidDiscoveryConfiguration(token) {
+  const { t } = useTranslation();
   const [configurations, setConfigurations] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -21,12 +23,13 @@ export default function useQidDiscoveryConfiguration(token) {
       setConfigurations(Array.isArray(data) ? data : []);
     } catch (error) {
       setErrorMsg(
-        error.message || "Failed to load QID discovery configurations."
+        error.message ||
+          t("qidDiscoveryConfiguration.alerts.loadConfigurationsFailed")
       );
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [t, token]);
 
   useEffect(() => {
     loadConfigurations();
@@ -40,11 +43,12 @@ export default function useQidDiscoveryConfiguration(token) {
         await loadConfigurations();
       } catch (error) {
         setErrorMsg(
-          error.message || "Failed to duplicate QID discovery configuration."
+          error.message ||
+            t("qidDiscoveryConfiguration.alerts.duplicateConfigurationFailed")
         );
       }
     },
-    [loadConfigurations, token]
+    [loadConfigurations, t, token]
   );
 
   const setDefaultConfiguration = useCallback(
@@ -55,11 +59,12 @@ export default function useQidDiscoveryConfiguration(token) {
         await loadConfigurations();
       } catch (error) {
         setErrorMsg(
-          error.message || "Failed to set default QID discovery configuration."
+          error.message ||
+            t("qidDiscoveryConfiguration.alerts.setDefaultConfigurationFailed")
         );
       }
     },
-    [loadConfigurations, token]
+    [loadConfigurations, t, token]
   );
 
   const archiveConfiguration = useCallback(
@@ -70,11 +75,12 @@ export default function useQidDiscoveryConfiguration(token) {
         await loadConfigurations();
       } catch (error) {
         setErrorMsg(
-          error.message || "Failed to archive QID discovery configuration."
+          error.message ||
+            t("qidDiscoveryConfiguration.alerts.archiveConfigurationFailed")
         );
       }
     },
-    [loadConfigurations, token]
+    [loadConfigurations, t, token]
   );
 
   return {

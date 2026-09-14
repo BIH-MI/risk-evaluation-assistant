@@ -8,13 +8,12 @@ import React, {
 import { useParams, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { useAuth } from "react-oidc-context";
-import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 
 import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
 import RAButton from "components/input/RAButton";
-import RAAlert from "components/feedback/RAAlert";
+import RAFloatingAlertStack from "components/feedback/RAFloatingAlertStack";
 import { LEGACY_ATTRIBUTE_SCORING_SYSTEM } from "utils/AttributeScale";
 import { fetchAttributeScoringSystemsApi } from "api/attributeScoringSystems";
 import AssessmentSetupSection from "./components/AssessmentSetupSection";
@@ -40,7 +39,6 @@ import { getErrorMessage } from "utils/errors";
 const EMPTY_ARRAY = [];
 
 export default function AddEditDatasetAssessmentForm() {
-  const theme = useTheme();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -551,23 +549,16 @@ export default function AddEditDatasetAssessmentForm() {
         </RAButton>
       </RABox>
 
-      {lockError && (
-        <RABox
-          sx={{
-            position: "fixed",
-            bottom: theme.spacing(2),
-            right: theme.spacing(2),
-            width: 300,
-            zIndex: theme.zIndex.snackbar,
-          }}
-        >
-          <RAAlert color="error" dismissible onClose={() => setLockError(null)}>
-            <RATypography variant="body2" color="white">
-              {lockError}
-            </RATypography>
-          </RAAlert>
-        </RABox>
-      )}
+      <RAFloatingAlertStack
+        alerts={[
+          {
+            id: "lockError",
+            color: "error",
+            message: lockError,
+            onClose: () => setLockError(null),
+          },
+        ]}
+      />
     </>
   );
 }

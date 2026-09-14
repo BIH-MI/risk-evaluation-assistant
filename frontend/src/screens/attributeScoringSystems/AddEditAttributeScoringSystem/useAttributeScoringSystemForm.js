@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "react-oidc-context";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
 
 import {
@@ -35,6 +36,8 @@ const LIST_ROUTE = "/configuration/attribute-scoring-systems";
 export default function useAttributeScoringSystemForm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { i18n } = useTranslation();
+  const currentLanguage = i18n.language?.split("-")[0] || "en";
   const { user } = useAuth();
   const token = user?.access_token;
   const isAdmin = isAdminUser(user);
@@ -93,9 +96,14 @@ export default function useAttributeScoringSystemForm() {
     };
   }, [isAdmin, loadEditorData, token]);
 
+  // currentLanguage isn't read directly here, but validateScoringSystemForm
+  // translates its messages via the i18n singleton, so it must stay a
+  // dependency to re-run validation (and refresh already-shown errors) on
+  // language switch.
   const validationErrors = useMemo(
     () => validateScoringSystemForm(form, systems),
-    [form, systems]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [form, systems, currentLanguage]
   );
   const hasErrors = hasScoringSystemFormErrors(validationErrors);
 

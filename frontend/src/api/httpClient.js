@@ -9,9 +9,13 @@ export const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:8080";
 export async function handleApiError(res, defaultMsg) {
   const resClone = res.clone();
   let message = defaultMsg;
+  let code;
 
   try {
     const errorData = await res.json();
+    if (typeof errorData?.code === "string") {
+      code = errorData.code;
+    }
     if (errorData?.message) {
       message = errorData.message;
     } else if (typeof errorData?.error === "string") {
@@ -28,5 +32,8 @@ export async function handleApiError(res, defaultMsg) {
     }
   }
 
-  throw new Error(message);
+  const error = new Error(message);
+  error.code = code;
+  error.status = res.status;
+  throw error;
 }

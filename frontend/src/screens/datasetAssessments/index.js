@@ -7,9 +7,7 @@ import { useTranslation } from "react-i18next";
 import DataTable from "components/display/Tables/DataTable";
 import RADialog from "components/feedback/RADialog";
 import RABox from "components/layout/RABox";
-import RAAlert from "components/feedback/RAAlert";
-import RATypography from "components/display/RATypography";
-import { useTheme } from "@mui/material/styles";
+import RAFloatingAlertStack from "components/feedback/RAFloatingAlertStack";
 import { isAdminUser } from "utils/auth";
 
 import getDatasetAssessmentsTableData from "./getDatasetAssessmentsTableData";
@@ -32,7 +30,6 @@ export default function DatasetAssessments() {
   const me = user?.profile?.preferred_username;
 
   const isAdmin = isAdminUser(user);
-  const theme = useTheme();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState({
@@ -155,41 +152,34 @@ export default function DatasetAssessments() {
         {t("datasetAssessments.list.deleteWarning")}
       </RADialog>
 
-      <RABox
-        sx={{
-          position: "fixed",
-          bottom: theme.spacing(2),
-          right: theme.spacing(2),
-          zIndex: theme.zIndex.snackbar,
-          width: 300,
-        }}
-      >
-        {lockError && (
-          <RAAlert color="error" dismissible onClose={() => setLockError(null)}>
-            <RATypography variant="body2" color="white">
-              {lockError}
-            </RATypography>
-          </RAAlert>
-        )}
-
-        {status === "loading" && (
-          <RAAlert color="info">
-            <RATypography variant="body2" color="white">
-              {t("datasetAssessments.list.loading")}
-            </RATypography>
-          </RAAlert>
-        )}
-        {status === "failed" && (
-          <RAAlert color="error" dismissible>
-            <RATypography variant="subtitle2" color="white">
-              {/* 5. FIX: Print the actual backend error if present */}
-              {typeof errorMsg === "string"
-                ? errorMsg
-                : t("datasetAssessments.list.error")}
-            </RATypography>
-          </RAAlert>
-        )}
-      </RABox>
+      <RAFloatingAlertStack
+        alerts={[
+          {
+            id: "lockError",
+            color: "error",
+            message: lockError,
+            onClose: () => setLockError(null),
+          },
+          {
+            id: "loading",
+            color: "info",
+            dismissible: false,
+            message:
+              status === "loading" ? t("datasetAssessments.list.loading") : "",
+          },
+          {
+            id: "failed",
+            color: "error",
+            // Prints the actual backend error when present.
+            message:
+              status === "failed"
+                ? typeof errorMsg === "string"
+                  ? errorMsg
+                  : t("datasetAssessments.list.error")
+                : "",
+          },
+        ]}
+      />
     </RABox>
   );
 }

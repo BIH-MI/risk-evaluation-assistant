@@ -27,6 +27,20 @@ export const SCORE_LABEL_RANK = Object.freeze(
 
 export const PREDEFINED_SCORE_LABELS = SCORE_LABEL_ORDER;
 
+/**
+ * Translation keys for the predefined score labels, keyed by the label's
+ * internal/persisted English value. The English value itself stays the
+ * source of truth for storage, ordering and uniqueness checks — only the
+ * rendered text is localized.
+ */
+export const SCORE_LABEL_TRANSLATION_KEYS = Object.freeze({
+  Low: "attributeScoringSystems.scoreOptions.labels.low",
+  Moderate: "attributeScoringSystems.scoreOptions.labels.moderate",
+  High: "attributeScoringSystems.scoreOptions.labels.high",
+  "Very High": "attributeScoringSystems.scoreOptions.labels.veryHigh",
+  Critical: "attributeScoringSystems.scoreOptions.labels.critical",
+});
+
 export const MIN_SCORE_OPTIONS_PER_DIMENSION = 2;
 
 export const MAX_SCORE_OPTIONS_PER_DIMENSION = SCORE_LABEL_ORDER.length;

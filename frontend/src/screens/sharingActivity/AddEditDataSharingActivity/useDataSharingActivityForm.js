@@ -82,7 +82,6 @@ export function useDataSharingActivityForm() {
   const [sharedUsernames, setSharedUsernames] = useState([]);
   const [sharedUsers, setSharedUsers] = useState([]);
   const [errorMessage, setErrorMessage] = useState("");
-  const [nameError, setNameError] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lockError, setLockError] = useState(null);
 
@@ -342,7 +341,6 @@ export function useDataSharingActivityForm() {
 
   const handleNameCommit = useCallback((value) => {
     setName(value);
-    if (value.trim()) setNameError(false);
   }, []);
 
   const handleDescriptionCommit = useCallback((value) => {
@@ -499,7 +497,6 @@ export function useDataSharingActivityForm() {
       if (isSubmitting || (isEdit && !existingActivity)) return;
 
       if (!formValidation.hasName) {
-        setNameError(true);
         setErrorMessage(t("dataSharingActivities.form.nameRequired"));
         return;
       }
@@ -639,7 +636,6 @@ export function useDataSharingActivityForm() {
     tables,
     sharedUsers,
     errorMessage,
-    nameError,
     lockError,
     isReadOnly,
     isSubmitDisabled,

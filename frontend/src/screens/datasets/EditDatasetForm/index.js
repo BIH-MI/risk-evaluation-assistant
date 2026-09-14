@@ -8,7 +8,6 @@ import React, {
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "react-oidc-context";
 import { useDispatch, useSelector } from "react-redux";
-import { useTheme } from "@mui/material/styles";
 import { IconButton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { useTranslation } from "react-i18next";
@@ -19,7 +18,7 @@ import OnBlurRAInput from "../../../components/input/RAInput/OnBlurRAInput";
 import RATypography from "../../../components/display/RATypography";
 import DataTable from "../../../components/display/Tables/DataTable";
 import RAUserAutocomplete from "../../../components/input/RAUserAutocomplete";
-import RAAlert from "../../../components/feedback/RAAlert";
+import RAFloatingAlertStack from "../../../components/feedback/RAFloatingAlertStack";
 
 import { useUsersApi } from "../../../api/users";
 import { useDatasetFormTableConfig } from "./useDatasetFormTableConfig";
@@ -41,7 +40,6 @@ import {
 } from "qidDiscovery/directIdentifierPolicy";
 
 export default function EditDatasetForm() {
-  const theme = useTheme();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { datasetId: datasetIdParam } = useParams();
@@ -506,83 +504,37 @@ export default function EditDatasetForm() {
           </RAButton>
         </RABox>
 
-        {(errors.tables || errors.tableName || warnings.directIdentifier) && (
-          <RABox
-            sx={{
-              position: "fixed",
-              bottom: 16,
-              right: 16,
-              width: 300,
-              zIndex: theme.zIndex.snackbar,
-            }}
-          >
-            {errors.tables && (
-              <RAAlert
-                color="error"
-                dismissible
-                onClose={() => setErrors((e) => ({ ...e, tables: "" }))}
-              >
-                <RATypography
-                  variant="body2"
-                  color="white"
-                  sx={{ whiteSpace: "pre-line" }}
-                >
-                  {errors.tables}
-                </RATypography>
-              </RAAlert>
-            )}
-            {errors.tableName && (
-              <RAAlert
-                color="error"
-                dismissible
-                onClose={() => setErrors((e) => ({ ...e, tableName: "" }))}
-              >
-                <RATypography variant="body2" color="white">
-                  {errors.tableName}
-                </RATypography>
-              </RAAlert>
-            )}
-            {warnings.directIdentifier && (
-              <RAAlert
-                color="warning"
-                dismissible
-                onClose={() =>
-                  setWarnings((current) => ({
-                    ...current,
-                    directIdentifier: "",
-                  }))
-                }
-              >
-                <RATypography
-                  variant="body2"
-                  color="white"
-                  sx={{ whiteSpace: "pre-line" }}
-                >
-                  {warnings.directIdentifier}
-                </RATypography>
-              </RAAlert>
-            )}
-          </RABox>
-        )}
       </RABox>
 
-      {lockError && (
-        <RABox
-          sx={{
-            position: "fixed",
-            bottom: theme.spacing(2),
-            right: theme.spacing(2),
-            width: 300,
-            zIndex: theme.zIndex.snackbar,
-          }}
-        >
-          <RAAlert color="error" dismissible onClose={() => setLockError(null)}>
-            <RATypography variant="body2" color="white">
-              {lockError}
-            </RATypography>
-          </RAAlert>
-        </RABox>
-      )}
+      <RAFloatingAlertStack
+        alerts={[
+          {
+            id: "lockError",
+            color: "error",
+            message: lockError,
+            onClose: () => setLockError(null),
+          },
+          {
+            id: "tables",
+            color: "error",
+            message: errors.tables,
+            onClose: () => setErrors((e) => ({ ...e, tables: "" })),
+          },
+          {
+            id: "tableName",
+            color: "error",
+            message: errors.tableName,
+            onClose: () => setErrors((e) => ({ ...e, tableName: "" })),
+          },
+          {
+            id: "directIdentifier",
+            color: "warning",
+            message: warnings.directIdentifier,
+            onClose: () =>
+              setWarnings((current) => ({ ...current, directIdentifier: "" })),
+          },
+        ]}
+      />
     </>
   );
 }

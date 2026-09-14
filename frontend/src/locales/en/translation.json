@@ -56,13 +56,20 @@
       "lockFailed": "Someone else is editing this dataset!",
       "lockLost": "Lost lock connectivity. Cannot save.",
       "saveFailed": "Failed to save dataset",
+      "duplicateDatasetName": "A dataset with this name already exists.",
       "duplicateTable": "Name \"{{name}}\" already in use.",
       "duplicateCsv": "Cannot add \"{{name}}\" twice.",
       "duplicateTableName": "Cannot rename to \"{{name}}\": already in use.",
       "noTables": "Please add at least one table (CSV or Manual)",
       "submissionFailed": "Submission failed",
       "parseError": "Parse error: {{message}}",
-      "onlyCsv": "All files must be .csv"
+      "onlyCsv": "All files must be .csv",
+      "parsingInProgress": "Please wait until all CSV files finish parsing.",
+      "profilingFailed": "CSV profiling failed.",
+      "loadQidConfigurationsFailed": "Failed to load QID discovery configurations.",
+      "qidConfigurationRequiredForProfiling": "Select an active QID Discovery Configuration before profiling.",
+      "qidConfigurationRequiredForSubmit": "Select an active QID Discovery Configuration before creating a dataset.",
+      "qidConfigurationInvalid": "The selected QID Discovery Configuration is incomplete or invalid. Please contact an administrator."
     },
     "form": {
       "editDataset": "Edit Dataset",
@@ -76,7 +83,8 @@
       "saveChanges": "Save Changes",
       "datasetNameLabel": "Dataset Name",
       "datasetDescriptionLabel": "Dataset Description (optional)",
-      "searchUsersPlaceholder": "Search by first or last name"
+      "searchUsersPlaceholder": "Search by first or last name",
+      "qidDiscoveryConfigurationLabel": "QID Discovery Configuration"
     },
     "attributesTable": {
       "index": "#",
@@ -571,6 +579,159 @@
       "directIdentifier": "Direct Identifier",
       "quasiIdentifier": "Quasi Identifier",
       "sensitiveAttribute": "Sensitive Attribute"
+    }
+  },
+  "attributeScoringSystems": {
+    "scoreOptions": {
+      "displayLabel": "Display label",
+      "addOption": "Add Option",
+      "addOptionTooltip": "Add option",
+      "maxOptionsReached": "Maximum of {{max}} score options reached",
+      "deleteOption": "Delete option",
+      "deleteOptionTooltip": "Delete",
+      "decreaseValue": "Decrease score value",
+      "increaseValue": "Increase score value",
+      "scoreValue": "Score value",
+      "labels": {
+        "low": "Low",
+        "moderate": "Moderate",
+        "high": "High",
+        "veryHigh": "Very High",
+        "critical": "Critical"
+      },
+      "errors": {
+        "minOptionsRequired": "At least two score options are required.",
+        "maxOptions": "At most {{max}} score options are allowed.",
+        "labelRequired": "Label is required.",
+        "labelNotPredefined": "Select one of the predefined labels.",
+        "labelNotUnique": "Label must be unique in this dimension.",
+        "valueRequired": "Score value is required.",
+        "valueInvalid": "Value must be a valid number.",
+        "valueNegative": "Score value cannot be negative.",
+        "valueNotUnique": "Score value must be unique in this dimension."
+      }
+    },
+    "errors": {
+      "nameRequired": "Name is required.",
+      "nameNotUnique": "Name must be unique.",
+      "defaultSystemNotActive": "The default scoring system must be active.",
+      "thresholdInvalid": "Threshold must be a valid number.",
+      "thresholdOutOfRange": "Threshold must be within {{range}}."
+    }
+  },
+  "qidDiscoveryConfiguration": {
+    "list": {
+      "searchPlaceholder": "Search QID discovery configurations...",
+      "loading": "Loading QID discovery configurations..."
+    },
+    "dialog": {
+      "archiveTitle": "Archive QID Discovery Configuration",
+      "cancel": "Cancel",
+      "archive": "Archive",
+      "archiveWarning": "Archive {{name}}? Existing datasets will keep their saved QID discovery configuration version, but this configuration will no longer be selectable for new profiling sessions."
+    },
+    "alerts": {
+      "adminOnly": "Only administrators can manage QID discovery configurations.",
+      "loadConfigurationsFailed": "Failed to load QID discovery configurations.",
+      "loadConfigurationFailed": "Failed to load QID discovery configuration.",
+      "duplicateConfigurationFailed": "Failed to duplicate QID discovery configuration.",
+      "setDefaultConfigurationFailed": "Failed to set default QID discovery configuration.",
+      "archiveConfigurationFailed": "Failed to archive QID discovery configuration.",
+      "saveConfigurationFailed": "Failed to save QID discovery configuration."
+    },
+    "table": {
+      "displayName": "Display Name",
+      "status": "Status",
+      "statusActive": "Active",
+      "statusArchived": "Archived",
+      "statusDefault": "Default",
+      "lastUpdated": "Last Updated",
+      "actions": "Actions",
+      "editTooltip": "Edit QID Discovery Configuration",
+      "duplicateTooltip": "Duplicate QID Discovery Configuration",
+      "setDefaultTooltip": "Set as Default",
+      "archiveTooltip": "Archive QID Discovery Configuration"
+    },
+    "form": {
+      "editTitle": "Edit QID Discovery",
+      "createTitle": "Create QID Discovery",
+      "saving": "Saving...",
+      "save": "Save"
+    },
+    "configurationDetails": {
+      "title": "Configuration Details"
+    },
+    "fields": {
+      "name": "Name",
+      "description": "Description",
+      "version": "Version",
+      "active": "Active",
+      "default": "Default",
+      "searchType": "QID Search Type",
+      "exactSearchMaxCandidateCount": "Exact Search Maximum Candidate Count",
+      "maxCombinationSize": "Maximum Combination Size",
+      "beamWidth": "Beam Width",
+      "minImprovement": "Minimum Improvement",
+      "stagnationDepthLimit": "Stagnation Depth Limit",
+      "targetDistinction": "Target Distinction",
+      "targetSeparation": "Target Separation",
+      "distinctionWeight": "Distinction Weight",
+      "separationWeight": "Separation Weight",
+      "attributeCountPenalty": "Attribute Count Penalty",
+      "maxPersistedCombinations": "Maximum Retained Combinations"
+    },
+    "searchTypes": {
+      "automatic": "Automatic",
+      "exact": "Exact Level-Wise Search",
+      "beam": "Beam Search"
+    },
+    "searchStrategy": {
+      "title": "Search Strategy",
+      "automaticDescription": "REA automatically selects the search strategy based on the number of eligible candidate attributes. Exact Level-Wise Search is used up to the configured candidate limit; larger candidate sets use Beam Search.",
+      "exactDescription": "Exact Level-Wise Search systematically explores eligible attribute combinations up to the configured maximum combination size. It provides more complete exploration but can become computationally expensive for large candidate sets.",
+      "beamDescription": "Beam Search uses a heuristic search that retains only the highest-ranked candidate combinations at each depth. It is more scalable for large candidate sets but does not evaluate every possible combination.",
+      "exactSearchMaxCandidateCountHelper": "Maximum number of eligible candidate attributes for Exact Level-Wise Search in Automatic mode.",
+      "maxCombinationSizeHelper": "Maximum number of attributes allowed in a searched QID combination."
+    },
+    "beamSearch": {
+      "title": "Beam Search",
+      "automaticDescription": "These settings are used when Automatic search selection chooses Beam Search for a larger candidate set.",
+      "beamDescription": "Beam Search keeps only the highest-ranked candidate combinations at each search depth. A larger beam explores more alternatives but requires more computation.",
+      "beamWidthHelper": "Maximum number of ranked candidate combinations retained for expansion at each search depth.",
+      "minImprovementHelper": "Minimum increase in the best search signal considered meaningful between successive depths.",
+      "stagnationDepthLimitHelper": "Number of consecutive search depths without sufficient improvement before Beam Search stops."
+    },
+    "searchTargets": {
+      "title": "Search Targets",
+      "description": "Search targets determine when an already strong candidate no longer needs to be expanded into larger combinations. Both targets must be reached. These are search-control values, not Distinguishability assessment thresholds.",
+      "targetDistinctionHelper": "Minimum Distinction target used when deciding whether a candidate should be expanded further.",
+      "targetSeparationHelper": "Minimum Separation target used together with Target Distinction when deciding whether a candidate should be expanded further."
+    },
+    "candidateRanking": {
+      "title": "Candidate Ranking",
+      "automaticDescription": "Ranking orders candidate combinations and, when Beam Search is selected, determines which candidates remain available for further expansion.",
+      "exactDescription": "Ranking orders discovered combinations and influences which results are retained. It does not determine which combinations Exact Search evaluates.",
+      "beamDescription": "Ranking determines which candidate combinations remain in the beam and therefore directly influences which search branches are explored.",
+      "distinctionWeightHelper": "Relative contribution of Distinction to the candidate ranking score.",
+      "separationWeightHelper": "Relative contribution of Separation to the candidate ranking score.",
+      "attributeCountPenaltyHelper": "Penalty applied to larger combinations so smaller combinations are preferred when otherwise similarly ranked."
+    },
+    "resultRetention": {
+      "title": "Result Retention",
+      "description": "Controls how many of the discovered aggregate QID combinations are kept after the search completes.",
+      "maxPersistedCombinationsHelper": "Maximum number of aggregate QID combination results retained after discovery. This does not limit how many combinations may be evaluated during the search."
+    },
+    "errors": {
+      "nameRequired": "Name is required.",
+      "nameNotUnique": "A QID discovery configuration with this name already exists.",
+      "defaultNotActive": "The default QID discovery configuration must be active.",
+      "searchTypeRequired": "QID Search Type is required.",
+      "fieldRequired": "{{field}} is required.",
+      "fieldInvalidNumber": "{{field}} must be a valid number.",
+      "fieldNotInteger": "{{field}} must be an integer.",
+      "fieldBelowMin": "{{field}} must be at least {{min}}.",
+      "fieldAboveMax": "{{field}} must be at most {{max}}.",
+      "weightsCannotBothBeZero": "{{distinctionField}} and {{separationField}} cannot both be 0."
     }
   }
 }

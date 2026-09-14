@@ -2,12 +2,11 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "react-oidc-context";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { useTheme } from "@mui/material/styles";
 import { Trans, useTranslation } from "react-i18next";
 
 import DataTable from "components/display/Tables/DataTable";
 import RADialog from "components/feedback/RADialog";
-import RAAlert from "components/feedback/RAAlert";
+import RAFloatingAlertStack from "components/feedback/RAFloatingAlertStack";
 import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
 import RAInput from "components/input/RAInput";
@@ -30,7 +29,6 @@ export default function Configurations() {
   const { user } = useAuth();
   const isAdmin = isAdminUser(user);
   const token = user?.access_token;
-  const theme = useTheme();
 
   const status = useSelector((state) => state.configurations.status);
   const rawItems = useSelector((state) => state.configurations.items);
@@ -198,31 +196,25 @@ export default function Configurations() {
         </RATypography>
       </RADialog>
 
-      {/* Alerts */}
-      <RABox
-        sx={{
-          position: "fixed",
-          bottom: theme.spacing(2),
-          right: theme.spacing(2),
-          zIndex: theme.zIndex.snackbar,
-          width: 350,
-        }}
-      >
-        {errorMsg && (
-          <RAAlert color="error" dismissible onClose={() => setErrorMsg(null)}>
-            <RATypography variant="body2" color="white">
-              {errorMsg}
-            </RATypography>
-          </RAAlert>
-        )}
-        {status === "loading" && (
-          <RAAlert color="info">
-            <RATypography variant="body2" color="white">
-              {t("configurations.alerts.loading", "Loading configurations...")}
-            </RATypography>
-          </RAAlert>
-        )}
-      </RABox>
+      <RAFloatingAlertStack
+        alerts={[
+          {
+            id: "errorMsg",
+            color: "error",
+            message: errorMsg,
+            onClose: () => setErrorMsg(null),
+          },
+          {
+            id: "loading",
+            color: "info",
+            dismissible: false,
+            message:
+              status === "loading"
+                ? t("configurations.alerts.loading", "Loading configurations...")
+                : "",
+          },
+        ]}
+      />
     </RABox>
   );
 }

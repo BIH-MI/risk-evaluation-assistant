@@ -6,6 +6,11 @@ import {
   updateDataset,
 } from "./datasetsThunks";
 
+const getRejectedMessage = (action) => {
+  if (typeof action.payload === "string") return action.payload;
+  return action.payload?.message || action.error.message;
+};
+
 const datasetsSlice = createSlice({
   name: "datasets",
   initialState: {
@@ -27,7 +32,7 @@ const datasetsSlice = createSlice({
       })
       .addCase(fetchDatasets.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.payload || action.error.message;
+        state.error = getRejectedMessage(action);
       })
 
       // Handling the addDataset actions
@@ -41,7 +46,7 @@ const datasetsSlice = createSlice({
       })
       .addCase(addDataset.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.payload || action.error.message;
+        state.error = getRejectedMessage(action);
       })
 
       // Handling the deleteDataset actions
@@ -57,7 +62,7 @@ const datasetsSlice = createSlice({
       })
       .addCase(deleteDataset.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.payload || action.error.message;
+        state.error = getRejectedMessage(action);
       })
 
       // Handling the updateDataset actions
@@ -76,7 +81,7 @@ const datasetsSlice = createSlice({
       })
       .addCase(updateDataset.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.payload || action.error.message;
+        state.error = getRejectedMessage(action);
       });
   },
 });

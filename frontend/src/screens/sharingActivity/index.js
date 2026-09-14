@@ -2,14 +2,12 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "react-oidc-context";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 
 import DataTable from "components/display/Tables/DataTable";
 import RADialog from "components/feedback/RADialog";
 import RABox from "components/layout/RABox";
-import RAAlert from "components/feedback/RAAlert";
-import RATypography from "components/display/RATypography";
+import RAFloatingAlertStack from "components/feedback/RAFloatingAlertStack";
 import { isAdminUser } from "utils/auth";
 
 import getDataSharingActivitiesTableData from "./getDataSharingActivitiesTableData";
@@ -24,7 +22,6 @@ import { fetchRecipientAssessments } from "../../store/recipientAssessments/reci
 import { useLockTracker } from "hooks/locks/useLockTracker";
 
 export default function DataSharingActivities() {
-  const theme = useTheme();
   const { user } = useAuth();
   const token = user?.access_token;
   const me = user?.profile?.preferred_username;
@@ -183,63 +180,34 @@ export default function DataSharingActivities() {
         {t("dataSharingActivities.list.deleteWarning")}
       </RADialog>
 
-      {/* Lock error */}
-      {lockError && (
-        <RABox
-          sx={{
-            position: "fixed",
-            bottom: theme.spacing(2),
-            right: theme.spacing(2),
-            zIndex: theme.zIndex.snackbar,
-            width: 300,
-          }}
-        >
-          <RAAlert color="error" dismissible onClose={() => setLockError(null)}>
-            <RATypography variant="body2" color="white">
-              {lockError}
-            </RATypography>
-          </RAAlert>
-        </RABox>
-      )}
-
-      {/* Loading / fetch errors */}
-      {status === "loading" && (
-        <RABox
-          sx={{
-            position: "fixed",
-            bottom: theme.spacing(2),
-            right: theme.spacing(2),
-            zIndex: theme.zIndex.snackbar,
-            width: 300,
-          }}
-        >
-          <RAAlert color="info">
-            <RATypography variant="body2" color="white">
-              {t("dataSharingActivities.list.loading")}
-            </RATypography>
-          </RAAlert>
-        </RABox>
-      )}
-      {status === "failed" && (
-        <RABox
-          sx={{
-            position: "fixed",
-            bottom: theme.spacing(2),
-            right: theme.spacing(2),
-            zIndex: theme.zIndex.snackbar,
-            width: 300,
-          }}
-        >
-          <RAAlert color="error" dismissible>
-            <RATypography variant="body2" color="white">
-              {/* 4. Display the Redux error message for DB conflicts */}
-              {typeof error === "string"
-                ? error
-                : t("dataSharingActivities.list.error")}
-            </RATypography>
-          </RAAlert>
-        </RABox>
-      )}
+      <RAFloatingAlertStack
+        alerts={[
+          {
+            id: "lockError",
+            color: "error",
+            message: lockError,
+            onClose: () => setLockError(null),
+          },
+          {
+            id: "loading",
+            color: "info",
+            dismissible: false,
+            message:
+              status === "loading" ? t("dataSharingActivities.list.loading") : "",
+          },
+          {
+            id: "failed",
+            color: "error",
+            // Displays the Redux error message for DB conflicts when present.
+            message:
+              status === "failed"
+                ? typeof error === "string"
+                  ? error
+                  : t("dataSharingActivities.list.error")
+                : "",
+          },
+        ]}
+      />
     </RABox>
   );
 }

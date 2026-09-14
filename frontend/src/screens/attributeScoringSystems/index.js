@@ -1,10 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "react-oidc-context";
 import { useNavigate } from "react-router-dom";
-import { useTheme } from "@mui/material/styles";
 
 import DataTable from "components/display/Tables/DataTable";
-import RAAlert from "components/feedback/RAAlert";
+import RAFloatingAlertStack from "components/feedback/RAFloatingAlertStack";
 import RADialog from "components/feedback/RADialog";
 import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
@@ -23,7 +22,6 @@ export default function AttributeScoringSystems() {
   const navigate = useNavigate();
   const token = user?.access_token;
   const isAdmin = isAdminUser(user);
-  const theme = useTheme();
 
   const [systems, setSystems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -143,30 +141,22 @@ export default function AttributeScoringSystems() {
         </RATypography>
       </RADialog>
 
-      <RABox
-        sx={{
-          position: "fixed",
-          bottom: theme.spacing(2),
-          right: theme.spacing(2),
-          zIndex: theme.zIndex.snackbar,
-          width: 360,
-        }}
-      >
-        {loading && (
-          <RAAlert color="info">
-            <RATypography variant="body2" color="white">
-              Loading scoring systems...
-            </RATypography>
-          </RAAlert>
-        )}
-        {errorMsg && (
-          <RAAlert color="error" dismissible onClose={() => setErrorMsg("")}>
-            <RATypography variant="body2" color="white">
-              {errorMsg}
-            </RATypography>
-          </RAAlert>
-        )}
-      </RABox>
+      <RAFloatingAlertStack
+        alerts={[
+          {
+            id: "loading",
+            color: "info",
+            dismissible: false,
+            message: loading ? "Loading scoring systems..." : "",
+          },
+          {
+            id: "errorMsg",
+            color: "error",
+            message: errorMsg,
+            onClose: () => setErrorMsg(""),
+          },
+        ]}
+      />
     </RABox>
   );
 }

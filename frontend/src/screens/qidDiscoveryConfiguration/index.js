@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from "react";
 import { useAuth } from "react-oidc-context";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { useTheme } from "@mui/material/styles";
 
 import DataTable from "components/display/Tables/DataTable";
 import RAAlert from "components/feedback/RAAlert";
+import RAFloatingAlertStack from "components/feedback/RAFloatingAlertStack";
 import RADialog from "components/feedback/RADialog";
 import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
@@ -15,8 +16,8 @@ import useQidDiscoveryConfiguration from "./useQidDiscoveryConfiguration";
 
 export default function QidDiscoveryConfiguration() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
-  const theme = useTheme();
   const token = user?.access_token;
   const isAdmin = isAdminUser(user);
   const [archiveTarget, setArchiveTarget] = useState(null);
@@ -47,13 +48,15 @@ export default function QidDiscoveryConfiguration() {
           navigate(`/configuration/qid-discovery/${configuration.id}/edit`),
         duplicateConfiguration,
         setDefaultConfiguration,
-        setArchiveTarget
+        setArchiveTarget,
+        t
       ),
     [
       duplicateConfiguration,
       navigate,
       setDefaultConfiguration,
       sortedConfigurations,
+      t,
     ]
   );
 
@@ -62,7 +65,7 @@ export default function QidDiscoveryConfiguration() {
       <RABox p={3}>
         <RAAlert color="warning">
           <RATypography variant="body2" color="white">
-            Only administrators can manage QID discovery configurations.
+            {t("qidDiscoveryConfiguration.alerts.adminOnly")}
           </RATypography>
         </RAAlert>
       </RABox>
@@ -77,54 +80,48 @@ export default function QidDiscoveryConfiguration() {
           canSearch
           canAdd
           searchColumnKey="displayName"
-          searchPlaceholder="Search QID discovery configurations..."
+          searchPlaceholder={t(
+            "qidDiscoveryConfiguration.list.searchPlaceholder"
+          )}
           onAddClick={() => navigate("/configuration/qid-discovery/new")}
         />
       </RABox>
 
       <RADialog
         open={Boolean(archiveTarget)}
-        title="Archive QID Discovery Configuration"
+        title={t("qidDiscoveryConfiguration.dialog.archiveTitle")}
         onClose={() => setArchiveTarget(null)}
         onConfirm={async () => {
           if (!archiveTarget) return;
           await archiveConfiguration(archiveTarget);
           setArchiveTarget(null);
         }}
-        cancelText="Cancel"
-        confirmText="Archive"
+        cancelText={t("qidDiscoveryConfiguration.dialog.cancel")}
+        confirmText={t("qidDiscoveryConfiguration.dialog.archive")}
       >
         <RATypography variant="body2">
-          Archive {archiveTarget?.name}? Existing datasets will keep their saved
-          QID discovery configuration version, but this configuration will no
-          longer be selectable for new profiling sessions.
+          {t("qidDiscoveryConfiguration.dialog.archiveWarning", {
+            name: archiveTarget?.name,
+          })}
         </RATypography>
       </RADialog>
 
-      <RABox
-        sx={{
-          position: "fixed",
-          bottom: theme.spacing(2),
-          right: theme.spacing(2),
-          zIndex: theme.zIndex.snackbar,
-          width: 380,
-        }}
-      >
-        {loading && (
-          <RAAlert color="info">
-            <RATypography variant="body2" color="white">
-              Loading QID discovery configurations...
-            </RATypography>
-          </RAAlert>
-        )}
-        {errorMsg && (
-          <RAAlert color="error" dismissible onClose={() => setErrorMsg("")}>
-            <RATypography variant="body2" color="white">
-              {errorMsg}
-            </RATypography>
-          </RAAlert>
-        )}
-      </RABox>
+      <RAFloatingAlertStack
+        alerts={[
+          {
+            id: "loading",
+            color: "info",
+            dismissible: false,
+            message: loading ? t("qidDiscoveryConfiguration.list.loading") : "",
+          },
+          {
+            id: "errorMsg",
+            color: "error",
+            message: errorMsg,
+            onClose: () => setErrorMsg(""),
+          },
+        ]}
+      />
     </RABox>
   );
 }

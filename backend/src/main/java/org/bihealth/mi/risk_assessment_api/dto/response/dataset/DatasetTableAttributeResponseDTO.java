@@ -45,6 +45,10 @@ public class DatasetTableAttributeResponseDTO {
     private String replicabilityMethod;
     private String replicabilityUnavailableReason;
 
+    private String directIdentifierEvidenceSource;
+    private String directIdentifierConcept;
+    private String directIdentifierConfidence;
+
     /**
      * Constructor to map a DatasetTableAttribute entity to this DTO.
      *
@@ -74,5 +78,8 @@ public class DatasetTableAttributeResponseDTO {
         this.replicabilityComparisonCount = entity.getReplicabilityComparisonCount();
         this.replicabilityMethod = entity.getReplicabilityMethod();
         this.replicabilityUnavailableReason = entity.getReplicabilityUnavailableReason();
+        this.directIdentifierEvidenceSource = entity.getDirectIdentifierEvidenceSource();
+        this.directIdentifierConcept = entity.getDirectIdentifierConcept();
+        this.directIdentifierConfidence = entity.getDirectIdentifierConfidence();
     }
 }

@@ -107,6 +107,7 @@ async function profileTableSynchronously(
     qidCombinations: profile.qidCombinations,
     qidSearchMode: profile.qidSearchMode,
     subjectKeySourceField: profile.subjectKeySourceField,
+    subjectKeyAutoDetected: profile.subjectKeyAutoDetected,
     suggestedSubjectKeySourceFields: profile.suggestedSubjectKeySourceFields,
     repeatedMeasurementSummary: profile.repeatedMeasurementSummary,
     profilingSession: {
@@ -131,7 +132,7 @@ export async function profileUploadedTable(file, options = {}) {
   const {
     previewRowLimit = CSV_PREVIEW_ROW_LIMIT,
     qidDiscoveryConfiguration,
-    subjectKeySourceField = null,
+    subjectKeySourceField,
   } = options;
 
   if (!qidDiscoveryConfiguration?.search) {
@@ -140,8 +141,10 @@ export async function profileUploadedTable(file, options = {}) {
 
   const qidOptions = {
     qidDiscoverySearchConfiguration: qidDiscoveryConfiguration.search,
-    subjectKeySourceField,
   };
+  if (subjectKeySourceField) {
+    qidOptions.subjectKeySourceField = subjectKeySourceField;
+  }
   const worker = getQidWorker();
 
   if (worker) {
@@ -199,6 +202,7 @@ export async function refreshUploadedTableProfile(
       qidCombinations: [],
       qidSearchMode: "none",
       subjectKeySourceField: qidOptions.subjectKeySourceField || null,
+      subjectKeyAutoDetected: false,
       suggestedSubjectKeySourceFields: [],
       repeatedMeasurementSummary: null,
     };

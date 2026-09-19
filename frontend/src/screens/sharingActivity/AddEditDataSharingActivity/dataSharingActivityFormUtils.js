@@ -122,11 +122,14 @@ export function mapAssessmentAttributeToFormState({
   datasetId,
   sourceAssessmentId,
   datasetAttributeDataTypeLookup,
+  datasetAttributeDisplayEvidenceLookup = new Map(),
   assessmentAttributeLookup,
   isActivityOverride = false,
   scoringSystem = LEGACY_ATTRIBUTE_SCORING_SYSTEM,
 }) {
   const datasetAttributeId = resolveDatasetAttributeId(attribute);
+  const displayEvidence =
+    datasetAttributeDisplayEvidenceLookup.get(String(datasetAttributeId)) || {};
   const tableAssessmentAttributeId = resolveTableAssessmentAttributeId({
     attribute,
     datasetAttributeId,
@@ -177,6 +180,12 @@ export function mapAssessmentAttributeToFormState({
           "distinguishability",
           { allowNull: false, scoringSystem }
         ),
+    directIdentifierEvidenceSource:
+      displayEvidence.directIdentifierEvidenceSource ?? null,
+    directIdentifierConcept: displayEvidence.directIdentifierConcept ?? null,
+    directIdentifierConfidence:
+      displayEvidence.directIdentifierConfidence ?? null,
+    candidateQidCombinations: displayEvidence.candidateQidCombinations || [],
   };
 }
 
@@ -185,6 +194,7 @@ export function mapAssessmentTableToFormState({
   datasetId,
   sourceAssessmentId,
   datasetAttributeDataTypeLookup,
+  datasetAttributeDisplayEvidenceLookup,
   assessmentAttributeLookup,
   isActivityOverride = false,
   scoringSystem = LEGACY_ATTRIBUTE_SCORING_SYSTEM,
@@ -200,6 +210,7 @@ export function mapAssessmentTableToFormState({
         datasetId,
         sourceAssessmentId,
         datasetAttributeDataTypeLookup,
+        datasetAttributeDisplayEvidenceLookup,
         assessmentAttributeLookup,
         isActivityOverride,
         scoringSystem,
@@ -223,6 +234,7 @@ export function mapAssessmentTablesToFormState(
     datasetId,
     sourceAssessmentId,
     datasetAttributeDataTypeLookup,
+    datasetAttributeDisplayEvidenceLookup = new Map(),
     assessmentAttributeLookup,
     isActivityOverride = false,
     scoringSystem = LEGACY_ATTRIBUTE_SCORING_SYSTEM,
@@ -236,6 +248,7 @@ export function mapAssessmentTablesToFormState(
       datasetId,
       sourceAssessmentId,
       datasetAttributeDataTypeLookup,
+      datasetAttributeDisplayEvidenceLookup,
       assessmentAttributeLookup,
       isActivityOverride,
       scoringSystem,
@@ -248,6 +261,7 @@ export function reconcileTableReferences({
   datasetId,
   datasetAssessmentId,
   datasetAttributeDataTypeLookup,
+  datasetAttributeDisplayEvidenceLookup = new Map(),
   assessmentAttributeLookup,
 }) {
   let changed = false;
@@ -285,6 +299,30 @@ export function reconcileTableReferences({
         if (tableAssessmentAttributeId) {
           updates.attributeId = tableAssessmentAttributeId;
           updates.tableAssessmentAttributeId = tableAssessmentAttributeId;
+        }
+      }
+
+      const displayEvidence =
+        datasetAttributeDisplayEvidenceLookup.get(
+          String(attribute.datasetAttributeId)
+        ) || null;
+
+      if (displayEvidence) {
+        [
+          "directIdentifierEvidenceSource",
+          "directIdentifierConcept",
+          "directIdentifierConfidence",
+        ].forEach((field) => {
+          const nextValue = displayEvidence[field] ?? null;
+          if ((attribute[field] ?? null) !== nextValue) {
+            updates[field] = nextValue;
+          }
+        });
+
+        const candidateQidCombinations =
+          displayEvidence.candidateQidCombinations || [];
+        if (attribute.candidateQidCombinations !== candidateQidCombinations) {
+          updates.candidateQidCombinations = candidateQidCombinations;
         }
       }
 

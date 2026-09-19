@@ -2,6 +2,7 @@ import { profileAndEncodeColumn } from "./profileAndEncodeColumn";
 import { applyDirectIdentifierEvidenceDefaults } from "../directIdentifierPolicy";
 import { buildDirectIdentifierEvidenceForCurrentFieldName } from "./directIdentifierEvidence";
 import {
+  buildSubjectGrouping,
   getReplicabilityEvidenceForSourceField,
   refreshReplicabilityEvidence,
   suggestSubjectKeySourceFields,
@@ -27,6 +28,36 @@ function getSourceField(column, rows) {
   if (column.hasObservedData === true) return column.field;
   if (rows?.length && hasOwn(rows[0] || {}, column.field)) return column.field;
   return null;
+}
+
+function resolveInitialSubjectKeySourceField(profilingSource, options = {}) {
+  if (options.subjectKeySourceField) {
+    return {
+      subjectKeySourceField: options.subjectKeySourceField,
+      subjectKeyAutoDetected: false,
+    };
+  }
+
+  const suggestedFields = profilingSource.suggestedSubjectKeySourceFields || [];
+  if (suggestedFields.length !== 1) {
+    return {
+      subjectKeySourceField: null,
+      subjectKeyAutoDetected: false,
+    };
+  }
+
+  const [suggestedField] = suggestedFields;
+  const grouping = buildSubjectGrouping(profilingSource, suggestedField);
+
+  return grouping.hasRepeatedMeasurements
+    ? {
+        subjectKeySourceField: suggestedField,
+        subjectKeyAutoDetected: true,
+      }
+    : {
+        subjectKeySourceField: null,
+        subjectKeyAutoDetected: false,
+      };
 }
 
 /**
@@ -76,14 +107,19 @@ export function buildProfilingSource(rows = [], columnMeta = [], options = {}) {
       options.directIdentifier
     ),
     subjectKeySourceField: null,
+    subjectKeyAutoDetected: false,
     repeatedMeasurementSummary: null,
     replicabilityCache: null,
     combinationCache: null,
   };
 
+  const { subjectKeySourceField, subjectKeyAutoDetected } =
+    resolveInitialSubjectKeySourceField(profilingSource, options);
+  profilingSource.subjectKeyAutoDetected = subjectKeyAutoDetected;
+
   refreshReplicabilityEvidence(
     profilingSource,
-    options.subjectKeySourceField || null,
+    subjectKeySourceField,
     options.replicability
   );
 
@@ -101,6 +137,9 @@ export function updateSubjectKeySourceField(
   subjectKeySourceField,
   options = {}
 ) {
+  if (!options.preserveSubjectKeyAutoDetected) {
+    profilingSource.subjectKeyAutoDetected = false;
+  }
   refreshReplicabilityEvidence(
     profilingSource,
     subjectKeySourceField || null,

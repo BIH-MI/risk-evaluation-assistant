@@ -50,6 +50,10 @@ public class DatasetTableAttributeRequestDTO {
     private String replicabilityMethod;
     private String replicabilityUnavailableReason;
 
+    private String directIdentifierEvidenceSource;
+    private String directIdentifierConcept;
+    private String directIdentifierConfidence;
+
     /**
      * Converts this DTO into a new, non-persisted DatasetTableAttribute entity.
      *
@@ -63,6 +67,7 @@ public class DatasetTableAttributeRequestDTO {
         attr.setDataType(DataType.valueOf(dataType));
         attr.setExcluded(Boolean.TRUE.equals(excluded));
         applyStatisticsTo(attr);
+        applyDirectIdentifierEvidenceSummaryTo(attr);
         return attr;
     }
 
@@ -108,5 +113,11 @@ public class DatasetTableAttributeRequestDTO {
         attr.setReplicabilityComparisonCount(replicabilityComparisonCount);
         attr.setReplicabilityMethod(replicabilityMethod);
         attr.setReplicabilityUnavailableReason(replicabilityUnavailableReason);
+    }
+
+    public void applyDirectIdentifierEvidenceSummaryTo(DatasetTableAttribute attr) {
+        attr.setDirectIdentifierEvidenceSource(directIdentifierEvidenceSource);
+        attr.setDirectIdentifierConcept(directIdentifierConcept);
+        attr.setDirectIdentifierConfidence(directIdentifierConfidence);
     }
 }

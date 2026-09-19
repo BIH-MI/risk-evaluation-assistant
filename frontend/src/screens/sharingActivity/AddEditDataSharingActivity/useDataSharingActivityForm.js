@@ -24,6 +24,7 @@ import {
 } from "store/dataSharingActivities/dataSharingActivitiesThunks";
 import { buildAttributeEvidence } from "screens/datasetAssessments/AddEditDatasetAssessmentForm/evidence/buildAttributeEvidence";
 import { findPreviousAssessmentsForDataset } from "screens/datasetAssessments/AddEditDatasetAssessmentForm/evidence/previousAssessmentEvidence";
+import { buildDatasetAttributeDisplayEvidence } from "screens/datasetAssessments/evidence/datasetAttributeDisplayEvidence";
 import { LEGACY_ATTRIBUTE_SCORING_SYSTEM } from "utils/AttributeScale";
 import { getErrorMessage } from "utils/errors";
 import {
@@ -104,6 +105,19 @@ export function useDataSharingActivityForm() {
       null,
     [datasetId, datasets]
   );
+  const datasetAttributeDisplayEvidenceLookup = useMemo(() => {
+    const lookup = new Map();
+
+    (selectedDataset?.tables || []).forEach((table) => {
+      buildDatasetAttributeDisplayEvidence(table).forEach(
+        (displayEvidence, attributeId) => {
+          lookup.set(attributeId, displayEvidence);
+        }
+      );
+    });
+
+    return lookup;
+  }, [selectedDataset]);
   const selectedDatasetAssessment = useMemo(
     () =>
       allDatasetAssessments.find(
@@ -157,6 +171,7 @@ export function useDataSharingActivityForm() {
           datasetId: datasetAssessment.datasetId,
           sourceAssessmentId: datasetAssessment.id,
           datasetAttributeDataTypeLookup,
+          datasetAttributeDisplayEvidenceLookup,
           assessmentAttributeLookup,
           isActivityOverride: false,
           scoringSystem:
@@ -165,7 +180,11 @@ export function useDataSharingActivityForm() {
         }
       );
     },
-    [assessmentAttributeLookup, datasetAttributeDataTypeLookup]
+    [
+      assessmentAttributeLookup,
+      datasetAttributeDataTypeLookup,
+      datasetAttributeDisplayEvidenceLookup,
+    ]
   );
 
   const mapActivityOverrideTables = useCallback(
@@ -174,13 +193,18 @@ export function useDataSharingActivityForm() {
         datasetId: activity.datasetId,
         sourceAssessmentId: activity.datasetAssessmentId,
         datasetAttributeDataTypeLookup,
+        datasetAttributeDisplayEvidenceLookup,
         assessmentAttributeLookup,
         isActivityOverride: true,
         scoringSystem:
           datasetAssessment?.attributeScoringSystem ||
           LEGACY_ATTRIBUTE_SCORING_SYSTEM,
       }),
-    [assessmentAttributeLookup, datasetAttributeDataTypeLookup]
+    [
+      assessmentAttributeLookup,
+      datasetAttributeDataTypeLookup,
+      datasetAttributeDisplayEvidenceLookup,
+    ]
   );
 
   const onLockFailed = useCallback(() => {
@@ -306,12 +330,14 @@ export function useDataSharingActivityForm() {
         datasetId,
         datasetAssessmentId,
         datasetAttributeDataTypeLookup,
+        datasetAttributeDisplayEvidenceLookup,
         assessmentAttributeLookup,
       })
     );
   }, [
     assessmentAttributeLookup,
     datasetAttributeDataTypeLookup,
+    datasetAttributeDisplayEvidenceLookup,
     datasetAssessmentId,
     datasetId,
   ]);

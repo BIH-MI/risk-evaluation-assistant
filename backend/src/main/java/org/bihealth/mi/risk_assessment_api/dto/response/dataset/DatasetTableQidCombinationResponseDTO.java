@@ -31,6 +31,8 @@ public class DatasetTableQidCombinationResponseDTO {
     private Long minimumEquivalenceClassSize;
     private Double medianEquivalenceClassSize;
     private Long maximumEquivalenceClassSize;
+    private Boolean targetSatisfied;
+    private Boolean minimalQualifying;
 
     public DatasetTableQidCombinationResponseDTO(DatasetTableQidCombination entity) {
         List<DatasetTableAttribute> sortedAttributes = entity.getAttributes().stream()
@@ -55,5 +57,7 @@ public class DatasetTableQidCombinationResponseDTO {
         this.minimumEquivalenceClassSize = entity.getMinimumEquivalenceClassSize();
         this.medianEquivalenceClassSize = entity.getMedianEquivalenceClassSize();
         this.maximumEquivalenceClassSize = entity.getMaximumEquivalenceClassSize();
+        this.targetSatisfied = entity.getTargetSatisfied();
+        this.minimalQualifying = entity.getMinimalQualifying();
     }
 }

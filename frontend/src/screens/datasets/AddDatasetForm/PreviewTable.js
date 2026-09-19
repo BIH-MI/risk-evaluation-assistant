@@ -1,11 +1,12 @@
 // src/screens/datasets/AddDatasetForm/PreviewTable.js
 import React, { useEffect, useMemo, useState } from "react";
-import { CircularProgress, IconButton } from "@mui/material";
+import { CircularProgress, IconButton, MenuItem } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import DeleteIcon from "@mui/icons-material/DeleteOutline";
 import { useTranslation } from "react-i18next";
 import DataTable from "components/display/Tables/DataTable";
 import RABox from "components/layout/RABox";
+import RAButton from "components/input/RAButton";
 import {
   MemoNameCell,
   MemoDataTypeCell,
@@ -25,15 +26,63 @@ export const PreviewTable = React.memo(function PreviewTable({
   onExcludedChange,
   onAddColumn,
   onDeleteColumn,
+  onSubjectKeyChange,
 }) {
   const { t } = useTranslation();
   const [bufferName, setBufferName] = useState(file.name);
+  const [showSubjectKeySelect, setShowSubjectKeySelect] = useState(false);
 
   useEffect(() => {
     setBufferName(file.name);
   }, [file.name]);
 
   const { columnMeta = [], data = [] } = file;
+  const suggestedSubjectKeys = useMemo(
+    () => new Set(file.suggestedSubjectKeySourceFields || []),
+    [file.suggestedSubjectKeySourceFields]
+  );
+  const subjectKeyOptions = useMemo(() => {
+    const seen = new Set();
+
+    return columnMeta
+      .map((column, index) => ({
+        sourceField: getColumnIdentity(column),
+        index,
+      }))
+      .filter(({ sourceField }) => {
+        if (!sourceField || seen.has(sourceField)) return false;
+        seen.add(sourceField);
+        return true;
+      })
+      .map((option) => ({
+        ...option,
+        suggested: suggestedSubjectKeys.has(option.sourceField),
+      }))
+      .sort((a, b) => {
+        if (a.suggested !== b.suggested) return a.suggested ? -1 : 1;
+        return a.index - b.index;
+      });
+  }, [columnMeta, suggestedSubjectKeys]);
+  const selectedSubjectKey = file.subjectKeySourceField || "";
+  const subjectKeyStatus = useMemo(() => {
+    if (file.isProfiling) return "Replicability key: updating...";
+    if (!selectedSubjectKey) return "Replicability key: not set";
+
+    const summary = file.repeatedMeasurementSummary;
+    const autoDetected = file.subjectKeyAutoDetected ? " (auto-detected)" : "";
+
+    if (summary?.hasRepeatedMeasurements) {
+      return `Replicability key: ${selectedSubjectKey}${autoDetected} · ${summary.subjectsWithRepeatedMeasurements}/${summary.subjectCount} repeated`;
+    }
+
+    return `Replicability key: ${selectedSubjectKey}${autoDetected} · no repeated observations`;
+  }, [
+    file.isProfiling,
+    file.repeatedMeasurementSummary,
+    file.subjectKeyAutoDetected,
+    selectedSubjectKey,
+  ]);
+
   const topValuesMap = useMemo(() => {
     const map = {};
     const sampleData = data.slice(0, 500);
@@ -198,7 +247,6 @@ export const PreviewTable = React.memo(function PreviewTable({
         display="flex"
         alignItems="center"
         justifyContent="space-between"
-        flexWrap="wrap"
         gap={2}
         mb={1}
       >
@@ -228,6 +276,47 @@ export const PreviewTable = React.memo(function PreviewTable({
         >
           <CloseIcon fontSize="small" />
         </IconButton>
+      </RABox>
+
+      <RABox display="flex" alignItems="center" flexWrap="wrap" gap={1} mb={1}>
+        <RATypography variant="caption" color="text">
+          {subjectKeyStatus}
+        </RATypography>
+        <RAButton
+          type="button"
+          variant="text"
+          size="small"
+          disabled={file.isParsing || file.isProfiling}
+          onClick={() => setShowSubjectKeySelect((current) => !current)}
+          sx={{ minWidth: 0, px: 1, py: 0.25 }}
+        >
+          {selectedSubjectKey ? "Change" : "Set"}
+        </RAButton>
+        {showSubjectKeySelect && (
+          <RAInput
+            select
+            value={selectedSubjectKey}
+            onChange={(event) => {
+              onSubjectKeyChange(
+                file._localTableId,
+                event.target.value || null
+              );
+              setShowSubjectKeySelect(false);
+            }}
+            disabled={file.isParsing || file.isProfiling}
+            size="small"
+            sx={{ minWidth: 220 }}
+            variant="standard"
+            SelectProps={{ displayEmpty: true }}
+          >
+            <MenuItem value="">None</MenuItem>
+            {subjectKeyOptions.map(({ sourceField, suggested }) => (
+              <MenuItem key={sourceField} value={sourceField}>
+                {suggested ? `${sourceField} (suggested)` : sourceField}
+              </MenuItem>
+            ))}
+          </RAInput>
+        )}
       </RABox>
 
       <DataTable

@@ -159,6 +159,7 @@ export function useDatasetTableProfiling({ tables, setTables, setErrors, t }) {
                   qidCombinations: [],
                   qidSearchMode: "none",
                   subjectKeySourceField: nextSubjectKeySourceField,
+                  subjectKeyAutoDetected: false,
                 }
               : currentTable
           )
@@ -176,6 +177,7 @@ export function useDatasetTableProfiling({ tables, setTables, setErrors, t }) {
                 ...currentTable,
                 columnMeta: pendingColumnMeta,
                 subjectKeySourceField: nextSubjectKeySourceField,
+                subjectKeyAutoDetected: false,
                 isProfiling: true,
                 _qidRefreshRequestId: requestId,
               }
@@ -199,6 +201,7 @@ export function useDatasetTableProfiling({ tables, setTables, setErrors, t }) {
                     qidCombinations: profile.qidCombinations,
                     qidSearchMode: profile.qidSearchMode,
                     subjectKeySourceField: profile.subjectKeySourceField,
+                    subjectKeyAutoDetected: profile.subjectKeyAutoDetected,
                     suggestedSubjectKeySourceFields:
                       profile.suggestedSubjectKeySourceFields,
                     repeatedMeasurementSummary:

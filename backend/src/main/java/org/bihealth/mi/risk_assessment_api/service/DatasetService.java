@@ -158,6 +158,7 @@ public class DatasetService {
                         if (ad.hasAnyStatistics()) {
                             ad.applyStatisticsTo(existingAttr);
                         }
+                        ad.applyDirectIdentifierEvidenceSummaryTo(existingAttr);
                     } else {
                         // Add a new column under the existing table.
                         tbl.getAttributes().add(ad.toEntity(tbl));

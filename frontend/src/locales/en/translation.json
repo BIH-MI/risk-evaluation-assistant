@@ -185,7 +185,17 @@
       "scoringSystem": "Scoring system",
       "incompatibleAssessment": "Different scoring system; evidence only.",
       "semantic": "Semantic",
-      "semanticAvailable": "Evidence available"
+      "semanticAvailable": "Evidence available",
+      "directIdentifierEvidence": "Direct Identifier Evidence",
+      "candidateQidEvidence": "Candidate QID Evidence",
+      "candidateCombination": "Candidate combination",
+      "evidenceSource": "Source",
+      "attributeName": "Attribute name",
+      "valuePattern": "Value pattern",
+      "attributeNameAndValuePattern": "Attribute name + value pattern",
+      "highConfidence": "High confidence",
+      "lowConfidence": "Low confidence",
+      "noAutomaticDirectIdentifierEvidence": "No automatic Direct Identifier evidence recorded."
     },
     "table": {
       "datasetName": "Dataset Name",

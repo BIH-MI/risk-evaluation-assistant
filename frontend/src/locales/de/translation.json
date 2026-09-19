@@ -190,7 +190,17 @@
       "scoringSystem": "Bewertungssystem",
       "incompatibleAssessment": "Anderes Bewertungssystem; nur als Evidenz.",
       "semantic": "Semantisch",
-      "semanticAvailable": "Evidenz verfügbar"
+      "semanticAvailable": "Evidenz verfügbar",
+      "directIdentifierEvidence": "Evidenz für direkten Identifikator",
+      "candidateQidEvidence": "Kandidaten-QID-Evidenz",
+      "candidateCombination": "Kandidatenkombination",
+      "evidenceSource": "Quelle",
+      "attributeName": "Attributname",
+      "valuePattern": "Wertemuster",
+      "attributeNameAndValuePattern": "Attributname + Wertemuster",
+      "highConfidence": "Hohe Konfidenz",
+      "lowConfidence": "Niedrige Konfidenz",
+      "noAutomaticDirectIdentifierEvidence": "Keine automatische Evidenz für direkte Identifikatoren gespeichert."
     },
     "table": {
       "datasetName": "Datensatzname",

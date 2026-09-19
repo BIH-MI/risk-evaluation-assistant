@@ -10,10 +10,7 @@ import { CombinationCache } from "./search/combinationCache";
 import { resolveQidSearchMode } from "./configuration/resolveQidSearchMode";
 import { validateQidDiscoverySearchConfiguration } from "./configuration/validateQidDiscoverySearchConfiguration";
 import { runExactLevelWiseSearch } from "./search/exactLevelWiseSearch";
-import {
-  compareSearchResults,
-  isTargetSatisfied,
-} from "./search/ranking";
+import { compareSearchResults, isTargetSatisfied } from "./search/ranking";
 
 export const CSV_PREVIEW_ROW_LIMIT = 10000;
 
@@ -50,6 +47,10 @@ export function selectPersistedCombinations(evaluatedResults, options) {
     (result) =>
       !qualifying.some((possibleSubset) => hasSubset(result, possibleSubset))
   );
+  const qualifyingKeys = new Set(qualifying.map((result) => result.key));
+  const minimalQualifyingKeys = new Set(
+    minimalQualifying.map((result) => result.key)
+  );
   const selected = new Map();
 
   [
@@ -72,6 +73,8 @@ export function selectPersistedCombinations(evaluatedResults, options) {
     minimumEquivalenceClassSize: result.minimumEquivalenceClassSize,
     medianEquivalenceClassSize: result.medianEquivalenceClassSize,
     maximumEquivalenceClassSize: result.maximumEquivalenceClassSize,
+    targetSatisfied: qualifyingKeys.has(result.key),
+    minimalQualifying: minimalQualifyingKeys.has(result.key),
   }));
 }
 
@@ -145,6 +148,7 @@ export function profileTableFromSource(
       qidCombinations: [],
       qidSearchMode: "none",
       subjectKeySourceField: null,
+      subjectKeyAutoDetected: false,
       suggestedSubjectKeySourceFields: [],
       repeatedMeasurementSummary: null,
     };
@@ -160,7 +164,10 @@ export function profileTableFromSource(
     updateSubjectKeySourceField(
       profilingSource,
       profilingSource.subjectKeySourceField,
-      options
+      {
+        ...options,
+        preserveSubjectKeyAutoDetected: true,
+      }
     );
   }
 
@@ -184,6 +191,7 @@ export function profileTableFromSource(
     qidCombinations,
     qidSearchMode: mode,
     subjectKeySourceField: profilingSource.subjectKeySourceField,
+    subjectKeyAutoDetected: Boolean(profilingSource.subjectKeyAutoDetected),
     suggestedSubjectKeySourceFields:
       profilingSource.suggestedSubjectKeySourceFields || [],
     repeatedMeasurementSummary: profilingSource.repeatedMeasurementSummary,

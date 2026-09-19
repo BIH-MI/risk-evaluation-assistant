@@ -69,4 +69,10 @@ public class DatasetTableQidCombination {
 
     @Column(name = "maximum_equivalence_class_size")
     private Long maximumEquivalenceClassSize;
+
+    @Column(name = "target_satisfied")
+    private Boolean targetSatisfied;
+
+    @Column(name = "minimal_qualifying")
+    private Boolean minimalQualifying;
 }

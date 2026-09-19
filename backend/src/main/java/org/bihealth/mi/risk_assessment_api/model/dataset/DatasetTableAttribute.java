@@ -107,6 +107,15 @@ public class DatasetTableAttribute {
     @Column(name = "replicability_unavailable_reason")
     private String replicabilityUnavailableReason;
 
+    @Column(name = "direct_identifier_evidence_source")
+    private String directIdentifierEvidenceSource;
+
+    @Column(name = "direct_identifier_concept")
+    private String directIdentifierConcept;
+
+    @Column(name = "direct_identifier_confidence")
+    private String directIdentifierConfidence;
+
     /**
      * Required by JPA.
      */

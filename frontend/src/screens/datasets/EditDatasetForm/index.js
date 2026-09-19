@@ -126,12 +126,22 @@ export default function EditDatasetForm() {
     [directIdentifierValidation, t]
   );
 
+  const hasPersistedDirectIdentifierSummary = useCallback(
+    (attribute) =>
+      attribute.directIdentifierEvidenceSource !== undefined ||
+      attribute.directIdentifierConcept !== undefined ||
+      attribute.directIdentifierConfidence !== undefined,
+    []
+  );
+
   const attachSchemaDirectIdentifierEvidence = useCallback(
     (attribute) =>
       attribute.directIdentifierEvidence
         ? applyDirectIdentifierEvidenceDefaults(attribute)
+        : hasPersistedDirectIdentifierSummary(attribute)
+        ? attribute
         : applySchemaDirectIdentifierEvidence(attribute),
-    []
+    [hasPersistedDirectIdentifierSummary]
   );
 
   useEffect(() => {

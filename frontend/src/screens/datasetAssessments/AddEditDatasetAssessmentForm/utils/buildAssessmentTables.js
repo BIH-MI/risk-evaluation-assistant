@@ -2,6 +2,7 @@ import {
   getDefaultAttributeScaleMetrics,
   normalizeAttributeScaleValue,
 } from "utils/AttributeScale";
+import { buildDatasetAttributeDisplayEvidence } from "screens/datasetAssessments/evidence/datasetAttributeDisplayEvidence";
 
 const isExcludedAttribute = (attribute) =>
   Boolean(attribute?.excluded ?? attribute?.isExcluded);
@@ -19,7 +20,11 @@ const normalizeSavedValue = (value, field, scoringSystem) =>
  * Excluded dataset attributes represent Direct Identifiers at assessment time.
  * They remain visible for transparency but do not receive R/A/D/S scores.
  */
-function buildCreateAttributeRow(attribute, scoringSystem) {
+function buildCreateAttributeRow(
+  attribute,
+  scoringSystem,
+  displayEvidence
+) {
   const excluded = isExcludedAttribute(attribute);
 
   return {
@@ -37,10 +42,16 @@ function buildCreateAttributeRow(attribute, scoringSystem) {
       : getDefaultAttributeScaleMetrics(scoringSystem)),
     isDirectIdentifier: excluded ? true : false,
     isExcluded: excluded,
+    ...displayEvidence,
   };
 }
 
-function buildEditAttributeRow(attribute, savedAttribute, scoringSystem) {
+function buildEditAttributeRow(
+  attribute,
+  savedAttribute,
+  scoringSystem,
+  displayEvidence
+) {
   const excluded = isExcludedAttribute(attribute);
 
   return {
@@ -80,6 +91,7 @@ function buildEditAttributeRow(attribute, savedAttribute, scoringSystem) {
       ? true
       : getDirectIdentifierValue(savedAttribute),
     isExcluded: excluded,
+    ...displayEvidence,
   };
 }
 
@@ -108,6 +120,8 @@ export function buildAssessmentTables({
         attribute,
       ])
     );
+    const displayEvidenceByAttributeId =
+      buildDatasetAttributeDisplayEvidence(table);
 
     return {
       id: savedTable?.id ?? null,
@@ -118,9 +132,14 @@ export function buildAssessmentTables({
           ? buildEditAttributeRow(
               attribute,
               savedAttributesById.get(String(attribute.id)),
-              scoringSystem
+              scoringSystem,
+              displayEvidenceByAttributeId.get(String(attribute.id)) || {}
             )
-          : buildCreateAttributeRow(attribute, scoringSystem)
+          : buildCreateAttributeRow(
+              attribute,
+              scoringSystem,
+              displayEvidenceByAttributeId.get(String(attribute.id)) || {}
+            )
       ),
     };
   });

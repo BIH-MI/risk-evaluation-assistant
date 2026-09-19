@@ -30,6 +30,8 @@ public class DatasetTableQidCombinationRequestDTO {
     private Long minimumEquivalenceClassSize;
     private Double medianEquivalenceClassSize;
     private Long maximumEquivalenceClassSize;
+    private Boolean targetSatisfied;
+    private Boolean minimalQualifying;
 
     public DatasetTableQidCombination toEntity(
             DatasetTable table,
@@ -61,6 +63,8 @@ public class DatasetTableQidCombinationRequestDTO {
         combination.setMinimumEquivalenceClassSize(minimumEquivalenceClassSize);
         combination.setMedianEquivalenceClassSize(medianEquivalenceClassSize);
         combination.setMaximumEquivalenceClassSize(maximumEquivalenceClassSize);
+        combination.setTargetSatisfied(targetSatisfied);
+        combination.setMinimalQualifying(minimalQualifying);
 
         return combination;
     }

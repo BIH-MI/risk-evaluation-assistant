@@ -80,6 +80,7 @@ async function profileTable({
     qidCombinations: profile.qidCombinations,
     qidSearchMode: profile.qidSearchMode,
     subjectKeySourceField: profile.subjectKeySourceField,
+    subjectKeyAutoDetected: profile.subjectKeyAutoDetected,
     suggestedSubjectKeySourceFields: profile.suggestedSubjectKeySourceFields,
     repeatedMeasurementSummary: profile.repeatedMeasurementSummary,
     profilingSession: {

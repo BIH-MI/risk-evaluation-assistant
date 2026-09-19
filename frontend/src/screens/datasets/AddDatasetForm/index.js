@@ -114,7 +114,7 @@ export default function AddDatasetForm() {
     );
   }, [selectedQidDiscoveryConfiguration]);
 
-  const { profileTable, refreshTable, disposeTableProfile } =
+  const { profileTable, refreshTable, changeSubjectKey, disposeTableProfile } =
     useDatasetTableProfiling({
       tables,
       setTables,
@@ -234,6 +234,13 @@ export default function AddDatasetForm() {
       profileTable(file, tableId, selectedQidDiscoveryConfiguration);
     },
     [profileTable, selectedQidDiscoveryConfiguration]
+  );
+
+  const handleSubjectKeyChange = useCallback(
+    (tableId, sourceField) => {
+      changeSubjectKey(tableId, sourceField || null);
+    },
+    [changeSubjectKey]
   );
 
   const handleAddManualTable = useCallback(() => {
@@ -692,6 +699,7 @@ export default function AddDatasetForm() {
             onExcludedChange={handleExcludedChange}
             onAddColumn={handleAddColumn}
             onDeleteColumn={handleDeleteColumn}
+            onSubjectKeyChange={handleSubjectKeyChange}
           />
         ))}
 

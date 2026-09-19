@@ -42,6 +42,17 @@ export const QID_COMBINATION_STATISTIC_FIELDS = [
   "maximumEquivalenceClassSize",
 ];
 
+export const QID_COMBINATION_EVIDENCE_FIELDS = [
+  "targetSatisfied",
+  "minimalQualifying",
+];
+
+export const DIRECT_IDENTIFIER_SUMMARY_FIELDS = [
+  "directIdentifierEvidenceSource",
+  "directIdentifierConcept",
+  "directIdentifierConfidence",
+];
+
 // `empirical` is only present once a subject key with repeated measurements
 // is selected; `undefined` here leaves the flattened fields absent from the
 // payload rather than persisting a misleading `null`.
@@ -54,6 +65,57 @@ function flattenEmpiricalReplicability(empirical) {
     replicabilityComparisonCount: empirical.comparisonCount,
     replicabilityMethod: empirical.method,
     replicabilityUnavailableReason: empirical.reason ?? null,
+  };
+}
+
+function hasPersistedValuePatternEvidence(source) {
+  return (
+    source === "VALUE_PATTERN" || source === "FIELD_NAME_AND_VALUE_PATTERN"
+  );
+}
+
+function buildDirectIdentifierSummary(evidence, existingSummary = {}) {
+  if (!evidence) return undefined;
+
+  const sources = evidence.sources || [];
+  const hasFieldNameEvidence = sources.some((source) =>
+    source.startsWith("field-name:")
+  );
+  const hasLiveValuePatternEvidence = sources.some((source) =>
+    source.startsWith("value-pattern:")
+  );
+  const hasPersistedValuePatternSummary =
+    (evidence.schemaOnly &&
+      hasPersistedValuePatternEvidence(
+        existingSummary.directIdentifierEvidenceSource
+      ));
+  const hasValuePatternEvidence =
+    hasLiveValuePatternEvidence || hasPersistedValuePatternSummary;
+  const directIdentifierEvidenceSource =
+    hasFieldNameEvidence && hasValuePatternEvidence
+      ? "FIELD_NAME_AND_VALUE_PATTERN"
+      : hasFieldNameEvidence
+      ? "FIELD_NAME"
+      : hasValuePatternEvidence
+      ? "VALUE_PATTERN"
+      : null;
+  const hasAutomaticEvidence =
+    Boolean(directIdentifierEvidenceSource) || Boolean(evidence.concept);
+
+  return {
+    directIdentifierEvidenceSource,
+    directIdentifierConcept:
+      evidence.concept ??
+      (hasValuePatternEvidence
+        ? existingSummary.directIdentifierConcept ?? null
+        : null),
+    directIdentifierConfidence: hasAutomaticEvidence
+      ? hasPersistedValuePatternSummary && !hasFieldNameEvidence
+        ? existingSummary.directIdentifierConfidence ?? evidence.confidence ?? null
+        : evidence.confidence ??
+          existingSummary.directIdentifierConfidence ??
+          null
+      : null,
   };
 }
 
@@ -82,6 +144,21 @@ export function toDatasetAttributePayload(attribute) {
     }
   );
 
+  const directIdentifierSummary = buildDirectIdentifierSummary(
+    attribute.directIdentifierEvidence,
+    attribute
+  );
+
+  if (directIdentifierSummary) {
+    Object.assign(payload, directIdentifierSummary);
+  } else {
+    DIRECT_IDENTIFIER_SUMMARY_FIELDS.forEach((field) => {
+      if (attribute[field] !== undefined) {
+        payload[field] = attribute[field];
+      }
+    });
+  }
+
   return payload;
 }
 
@@ -100,6 +177,12 @@ export function toDatasetQidCombinationPayload(combination) {
   }
 
   QID_COMBINATION_STATISTIC_FIELDS.forEach((field) => {
+    if (combination[field] !== undefined) {
+      payload[field] = combination[field];
+    }
+  });
+
+  QID_COMBINATION_EVIDENCE_FIELDS.forEach((field) => {
     if (combination[field] !== undefined) {
       payload[field] = combination[field];
     }

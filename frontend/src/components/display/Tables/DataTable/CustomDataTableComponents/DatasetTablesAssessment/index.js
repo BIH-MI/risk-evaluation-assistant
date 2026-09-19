@@ -22,6 +22,12 @@ const lightTableFooterSx = ({ borders }) => ({
   bgcolor: "background.paper",
 });
 
+const datasetAssessmentEntriesPerPage = Object.freeze({
+  defaultValue: "all",
+  entries: [10, 15, 20, 25],
+  allowAll: true,
+});
+
 function DatasetTablesAssessment({
   tables,
   setTables,
@@ -76,6 +82,7 @@ function DatasetTablesAssessment({
                   columns: columnsByTable[tbl.tableId],
                   rows: tbl.attributes,
                 }}
+                entriesPerPage={datasetAssessmentEntriesPerPage}
                 searchColumnKey="name"
                 searchPlaceholder={t(
                   "datasetAssessments.attributesTable.searchAttributes"

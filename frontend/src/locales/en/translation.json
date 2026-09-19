@@ -1,4 +1,7 @@
 {
+  "common": {
+    "all": "All"
+  },
   "navigation": {
     "datasets": "Datasets",
     "addDataset": "Add Dataset",

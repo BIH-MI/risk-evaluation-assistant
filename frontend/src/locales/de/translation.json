@@ -1,5 +1,6 @@
 {
   "common": {
+    "all": "Alle",
     "previous": "Zurück",
     "next": "Weiter",
     "sessionExpiredError": "Ihre Sitzung ist möglicherweise abgelaufen oder es ist ein Fehler aufgetreten. Bitte öffnen Sie die App in einem neuen Tab, um sich erneut anzumelden."

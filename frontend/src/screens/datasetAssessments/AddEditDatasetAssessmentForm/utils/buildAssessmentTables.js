@@ -95,6 +95,40 @@ function buildEditAttributeRow(
   };
 }
 
+export function groupAssessmentAttributes(attributes = []) {
+  const directIdentifiers = [];
+  const candidateQids = [];
+  const remaining = [];
+
+  attributes.forEach((attribute, originalIndex) => {
+    const row = {
+      ...attribute,
+      _originalOrder: originalIndex,
+    };
+
+    if (row.isExcluded || row.isDirectIdentifier) {
+      directIdentifiers.push(row);
+      return;
+    }
+
+    if (
+      Array.isArray(row.candidateQidCombinations) &&
+      row.candidateQidCombinations.length > 0
+    ) {
+      candidateQids.push(row);
+      return;
+    }
+
+    remaining.push(row);
+  });
+
+  return [
+    ...directIdentifiers,
+    ...candidateQids,
+    ...remaining,
+  ].map(({ _originalOrder, ...attribute }) => attribute);
+}
+
 export function buildAssessmentTables({
   dataset,
   assessment,
@@ -122,25 +156,26 @@ export function buildAssessmentTables({
     );
     const displayEvidenceByAttributeId =
       buildDatasetAttributeDisplayEvidence(table);
+    const assessmentAttributes = (table.attributes || []).map((attribute) =>
+      isEditMode
+        ? buildEditAttributeRow(
+            attribute,
+            savedAttributesById.get(String(attribute.id)),
+            scoringSystem,
+            displayEvidenceByAttributeId.get(String(attribute.id)) || {}
+          )
+        : buildCreateAttributeRow(
+            attribute,
+            scoringSystem,
+            displayEvidenceByAttributeId.get(String(attribute.id)) || {}
+          )
+    );
 
     return {
       id: savedTable?.id ?? null,
       tableId: table.id,
       tableName: table.name,
-      attributes: (table.attributes || []).map((attribute) =>
-        isEditMode
-          ? buildEditAttributeRow(
-              attribute,
-              savedAttributesById.get(String(attribute.id)),
-              scoringSystem,
-              displayEvidenceByAttributeId.get(String(attribute.id)) || {}
-            )
-          : buildCreateAttributeRow(
-              attribute,
-              scoringSystem,
-              displayEvidenceByAttributeId.get(String(attribute.id)) || {}
-            )
-      ),
+      attributes: groupAssessmentAttributes(assessmentAttributes),
     };
   });
 }

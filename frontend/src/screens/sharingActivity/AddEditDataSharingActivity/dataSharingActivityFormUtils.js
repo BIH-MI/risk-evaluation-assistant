@@ -8,6 +8,7 @@ import {
   LEGACY_ATTRIBUTE_SCORING_SYSTEM,
   normalizeAttributeScaleValue,
 } from "utils/AttributeScale";
+import { groupAssessmentAttributes } from "screens/datasetAssessments/AddEditDatasetAssessmentForm/utils/buildAssessmentTables";
 
 export function resolveDatasetAttributeId(attribute) {
   return (
@@ -199,23 +200,25 @@ export function mapAssessmentTableToFormState({
   isActivityOverride = false,
   scoringSystem = LEGACY_ATTRIBUTE_SCORING_SYSTEM,
 }) {
+  const attributes = (tableAssessment.attributes || []).map((attribute) =>
+    mapAssessmentAttributeToFormState({
+      attribute,
+      datasetId,
+      sourceAssessmentId,
+      datasetAttributeDataTypeLookup,
+      datasetAttributeDisplayEvidenceLookup,
+      assessmentAttributeLookup,
+      isActivityOverride,
+      scoringSystem,
+    })
+  );
+
   return {
     id: isActivityOverride ? tableAssessment.id || null : null,
     tableId: resolveEditableTableId(tableAssessment, isActivityOverride),
     datasetTableId: resolveDatasetTableId(tableAssessment, isActivityOverride),
     tableName: tableAssessment.tableName || tableAssessment.table?.name,
-    attributes: (tableAssessment.attributes || []).map((attribute) =>
-      mapAssessmentAttributeToFormState({
-        attribute,
-        datasetId,
-        sourceAssessmentId,
-        datasetAttributeDataTypeLookup,
-        datasetAttributeDisplayEvidenceLookup,
-        assessmentAttributeLookup,
-        isActivityOverride,
-        scoringSystem,
-      })
-    ),
+    attributes: groupAssessmentAttributes(attributes),
   };
 }
 
@@ -266,9 +269,9 @@ export function reconcileTableReferences({
 }) {
   let changed = false;
 
-  const nextTables = (tables || []).map((table) => ({
-    ...table,
-    attributes: (table.attributes || []).map((attribute) => {
+  const nextTables = (tables || []).map((table) => {
+    let tableChanged = false;
+    const attributes = (table.attributes || []).map((attribute) => {
       const updates = {};
 
       if (!attribute.dataType) {
@@ -330,10 +333,18 @@ export function reconcileTableReferences({
         return attribute;
       }
 
+      tableChanged = true;
       changed = true;
       return { ...attribute, ...updates };
-    }),
-  }));
+    });
+
+    if (!tableChanged) return table;
+
+    return {
+      ...table,
+      attributes: groupAssessmentAttributes(attributes),
+    };
+  });
 
   return changed ? nextTables : tables;
 }

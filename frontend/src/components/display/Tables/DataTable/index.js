@@ -9,6 +9,7 @@ import {
 import { useMaterialUIController } from "context";
 import PropTypes from "prop-types";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   useAsyncDebounce,
   useFilters,
@@ -23,6 +24,8 @@ import RAPagination from "../../../navigation/RAPagination";
 import DataTableBodyCell from "./DataTableBodyCell";
 import DataTableHeadCell from "./DataTableHeadCell";
 
+const ALL_ENTRIES_VALUE = "all";
+const DEFAULT_ENTRIES = ["10", "15", "20", "25"];
 
 function DataTable({
   entriesPerPage,
@@ -42,23 +45,43 @@ function DataTable({
   footerSx,
 }) {
 
+  const { t } = useTranslation();
   const [controller] = useMaterialUIController();
   const { sidenavColor } = controller;
 
-  const entriesPerPageConfig = entriesPerPage || {};
-  const defaultValue = entriesPerPageConfig.defaultValue || 10;
+  const entriesPerPageConfig =
+    entriesPerPage && typeof entriesPerPage === "object"
+      ? entriesPerPage
+      : {};
+  const defaultValue = entriesPerPageConfig.defaultValue ?? 10;
   const entries = entriesPerPageConfig.entries
     ? entriesPerPageConfig.entries.map((el) => el.toString())
-    : ["10", "15", "20", "25"];
+    : DEFAULT_ENTRIES;
+  const entriesOptions = entriesPerPageConfig.allowAll
+    ? [ALL_ENTRIES_VALUE, ...entries]
+    : entries;
+  const [entriesSelection, setEntriesSelection] = useState(
+    defaultValue === ALL_ENTRIES_VALUE
+      ? ALL_ENTRIES_VALUE
+      : String(defaultValue)
+  );
 
   const columns = useMemo(() => table.columns, [table.columns]);
   const data = useMemo(() => table.rows, [table.rows]);
+  const initialPageSize =
+    defaultValue === ALL_ENTRIES_VALUE
+      ? Math.max(data.length, 1)
+      : Number(defaultValue);
+  const safeInitialPageSize =
+    Number.isFinite(initialPageSize) && initialPageSize > 0
+      ? initialPageSize
+      : 10;
 
   const tableInstance = useTable(
     {
       columns,
       data,
-      initialState: { pageIndex: 0 },
+      initialState: { pageIndex: 0, pageSize: safeInitialPageSize },
       autoResetPage: false,
       autoResetSortBy: false,
       autoResetFilters: false,
@@ -83,12 +106,48 @@ function DataTable({
     previousPage,
     setPageSize,
     setFilter,
-    state: { pageIndex, pageSize },
+    state: { pageIndex },
   } = tableInstance;
 
-  useEffect(() => setPageSize(defaultValue), [defaultValue, setPageSize]);
+  useEffect(() => {
+    setEntriesSelection(
+      defaultValue === ALL_ENTRIES_VALUE
+        ? ALL_ENTRIES_VALUE
+        : String(defaultValue)
+    );
+  }, [defaultValue]);
 
-  const setEntriesPerPage = (value) => setPageSize(value);
+  useEffect(() => {
+    if (entriesSelection === ALL_ENTRIES_VALUE) {
+      setPageSize(Math.max(rows.length, 1));
+      return;
+    }
+
+    const nextPageSize = Number(entriesSelection);
+    if (Number.isFinite(nextPageSize) && nextPageSize > 0) {
+      setPageSize(nextPageSize);
+    }
+  }, [entriesSelection, rows.length, setPageSize]);
+
+  const setEntriesPerPage = (value) => {
+    const nextValue = String(value);
+
+    setEntriesSelection(nextValue);
+    gotoPage(0);
+
+    if (nextValue === ALL_ENTRIES_VALUE) {
+      setPageSize(Math.max(rows.length, 1));
+      return;
+    }
+
+    const nextPageSize = Number(nextValue);
+    if (Number.isFinite(nextPageSize) && nextPageSize > 0) {
+      setPageSize(nextPageSize);
+    }
+  };
+
+  const getEntriesOptionLabel = (option) =>
+    option === ALL_ENTRIES_VALUE ? t("common.all", "All") : option;
 
   const [search, setSearch] = useState("");
   const onSearchChange = useAsyncDebounce((value) => {
@@ -215,9 +274,10 @@ function DataTable({
             <RABox display="flex" alignItems="center" mb={{ xs: 2, sm: 0 }}>
               <Autocomplete
                 disableClearable
-                value={pageSize.toString()}
-                options={entries}
-                onChange={(e, val) => setEntriesPerPage(parseInt(val, 10))}
+                value={entriesSelection}
+                options={entriesOptions}
+                getOptionLabel={getEntriesOptionLabel}
+                onChange={(e, val) => setEntriesPerPage(val)}
                 size="small"
                 sx={{ width: "5rem" }}
                 renderInput={(params) => <RAInput {...params} />}
@@ -285,8 +345,12 @@ DataTable.defaultProps = {
 DataTable.propTypes = {
   entriesPerPage: PropTypes.oneOfType([
     PropTypes.shape({
-      defaultValue: PropTypes.number,
+      defaultValue: PropTypes.oneOfType([
+        PropTypes.number,
+        PropTypes.oneOf([ALL_ENTRIES_VALUE]),
+      ]),
       entries: PropTypes.arrayOf(PropTypes.number),
+      allowAll: PropTypes.bool,
     }),
     PropTypes.bool,
   ]),

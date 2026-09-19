@@ -12,12 +12,14 @@ import { sxSelect } from './styles';
 
 const ScaleOption = React.memo(({ option }) => {
     const label = option?.label || '';
+    const icon = option?.icon;
+
     return (
         <RABox display="flex" alignItems="center" gap={0.75} width="100%" minWidth={0}>
-            {option?.icon && (
+            {icon && (
                 <RABox
                     component="img"
-                    src={option.icon}
+                    src={icon}
                     alt={label || `level-${option.value}`}
                     sx={{ width: 22, height: 22, objectFit: 'contain' }}
                 />
@@ -31,8 +33,9 @@ const ScaleOption = React.memo(({ option }) => {
 
 const ScaleSelectedValue = React.memo(({ option }) => {
     const label = option?.label || '';
+    const icon = option?.icon;
 
-    if (!option?.icon) {
+    if (!icon) {
         return (
             <RATypography variant="caption" fontWeight="medium" noWrap>
                 {label || option?.value}
@@ -44,7 +47,7 @@ const ScaleSelectedValue = React.memo(({ option }) => {
         <RABox display="flex" alignItems="center" justifyContent="flex-start" gap={0.75} width="100%" minWidth={0}>
             <RABox
                 component="img"
-                src={option.icon}
+                src={icon}
                 alt={label || `level-${option.value}`}
                 sx={{ width: 22, height: 22, objectFit: 'contain', display: 'block', flexShrink: 0 }}
             />
@@ -69,7 +72,14 @@ export function ScaleCell({
     options,
 }) {
     const scaleOptions = useMemo(
-        () => options || getOptionsForAttributeField(field, scoringSystem),
+        () => {
+            if (options) {
+                return getOptionsForAttributeField(field, {
+                    scoreOptions: { [field]: options },
+                });
+            }
+            return getOptionsForAttributeField(field, scoringSystem);
+        },
         [field, options, scoringSystem]
     );
     const selectableOptions = useMemo(
@@ -118,7 +128,11 @@ export function ScaleCell({
                 sx={sxSelect}
                 disabled={disabled}
                 SelectProps={{
-                  renderValue: () => <ScaleSelectedValue option={selectedOption} />,
+                  renderValue: () => (
+                    <ScaleSelectedValue
+                      option={selectedOption}
+                    />
+                  ),
                   MenuProps: {
                     PaperProps: {
                       sx: {
@@ -142,7 +156,9 @@ export function ScaleCell({
             >
                 {selectableOptions.map(option => (
                     <MenuItem key={option.value} value={option.value}>
-                        <ScaleOption option={option} />
+                        <ScaleOption
+                          option={option}
+                        />
                     </MenuItem>
                 ))}
             </RAInput>

@@ -1,8 +1,11 @@
-import lowIcon from "assets/images/icons/measurements/low.png";
-import moderateIcon from "assets/images/icons/measurements/moderate.png";
-import highIcon from "assets/images/icons/measurements/high.png";
-import veryHighIcon from "assets/images/icons/measurements/veryHigh.png";
-import criticalIcon from "assets/images/icons/measurements/critical.png";
+import defaultLowIcon from "../assets/images/icons/measurements/default/low.png";
+import defaultModerateIcon from "../assets/images/icons/measurements/default/moderate.png";
+import defaultHighIcon from "../assets/images/icons/measurements/default/high.png";
+import extendedLowIcon from "../assets/images/icons/measurements/extended/low.png";
+import extendedModerateIcon from "../assets/images/icons/measurements/extended/moderate.png";
+import extendedHighIcon from "../assets/images/icons/measurements/extended/high.png";
+import extendedVeryHighIcon from "../assets/images/icons/measurements/extended/veryHigh.png";
+import extendedCriticalIcon from "../assets/images/icons/measurements/extended/critical.png";
 
 export const ATTRIBUTE_SCALE_FIELDS = Object.freeze([
   "sensitivity",
@@ -11,10 +14,48 @@ export const ATTRIBUTE_SCALE_FIELDS = Object.freeze([
   "distinguishability",
 ]);
 
+const DEFAULT_MEASUREMENT_ICONS_BY_LABEL = Object.freeze({
+  low: defaultLowIcon,
+  moderate: defaultModerateIcon,
+  high: defaultHighIcon,
+});
+
+const EXTENDED_MEASUREMENT_ICONS_BY_LABEL = Object.freeze({
+  low: extendedLowIcon,
+  moderate: extendedModerateIcon,
+  high: extendedHighIcon,
+  "very high": extendedVeryHighIcon,
+  veryhigh: extendedVeryHighIcon,
+  critical: extendedCriticalIcon,
+});
+
+const normalizeMeasurementLabel = (label) =>
+  String(label || "").trim().toLowerCase();
+
+const compactMeasurementLabel = (label) =>
+  normalizeMeasurementLabel(label).replace(/[\s_-]/g, "");
+
+export function getMeasurementIconVariant(options = []) {
+  return Array.isArray(options) && options.length > 3
+    ? "extended"
+    : "default";
+}
+
+export function getMeasurementIcon({ dimensionOptions = [], label }) {
+  const normalizedLabel = normalizeMeasurementLabel(label);
+  const compactLabel = compactMeasurementLabel(label);
+  const icons =
+    getMeasurementIconVariant(dimensionOptions) === "extended"
+      ? EXTENDED_MEASUREMENT_ICONS_BY_LABEL
+      : DEFAULT_MEASUREMENT_ICONS_BY_LABEL;
+
+  return icons[normalizedLabel] || icons[compactLabel] || null;
+}
+
 export const ATTRIBUTE_SCALE_OPTIONS = Object.freeze([
-  { value: 1, label: "Low", icon: lowIcon },
-  { value: 2, label: "Moderate", icon: moderateIcon },
-  { value: 3, label: "High", icon: highIcon },
+  { value: 1, label: "Low", icon: defaultLowIcon },
+  { value: 2, label: "Moderate", icon: defaultModerateIcon },
+  { value: 3, label: "High", icon: defaultHighIcon },
 ]);
 
 export const ATTRIBUTE_SCALE_DEFAULTS = Object.freeze({
@@ -69,28 +110,14 @@ export const LEGACY_ATTRIBUTE_SCORING_SYSTEM = Object.freeze({
   }),
 });
 
-const OPTION_ICON_BY_LABEL = {
-  low: lowIcon,
-  moderate: moderateIcon,
-  high: highIcon,
-  "very high": veryHighIcon,
-  veryhigh: veryHighIcon,
-  critical: criticalIcon,
-};
-
-function normalizeOption(option, index) {
+function normalizeOption(option, index, dimensionOptions) {
   const label = option?.label || "";
-  const normalizedLabel = label.toLowerCase().trim();
   return {
     ...option,
     value: Number(option?.value),
     label,
     displayOrder: option?.displayOrder ?? index + 1,
-    icon:
-      option?.icon ||
-      OPTION_ICON_BY_LABEL[normalizedLabel] ||
-      OPTION_ICON_BY_LABEL[normalizedLabel.replace(/[\s_-]/g, "")] ||
-      null,
+    icon: getMeasurementIcon({ dimensionOptions, label }),
   };
 }
 
@@ -101,7 +128,9 @@ export function getOptionsForAttributeField(field, scoringSystem) {
     : ATTRIBUTE_SCALE_OPTIONS;
 
   return selectedOptions
-    .map(normalizeOption)
+    .map((option, index) =>
+      normalizeOption(option, index, selectedOptions)
+    )
     .filter((option) => Number.isFinite(option.value))
     .sort((a, b) => {
       const orderDiff = (a.displayOrder ?? 0) - (b.displayOrder ?? 0);

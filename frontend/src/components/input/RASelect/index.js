@@ -31,7 +31,7 @@ export default function RASelect({
 }
 
 RASelect.propTypes = {
-    label: PropTypes.string.isRequired,
+    label: PropTypes.node.isRequired,
     value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     onChange: PropTypes.func.isRequired,
     options: PropTypes.arrayOf(

@@ -10,6 +10,9 @@ public final class NamedResourceConstraints {
 
     public static final String DATASETS_NORMALIZED_NAME = "uk_datasets_normalized_name";
     public static final String RECIPIENTS_NORMALIZED_NAME = "uk_recipients_normalized_name";
+    public static final String PROJECTS_NORMALIZED_NAME = "uk_projects_normalized_name";
+    public static final String PROJECT_TEMPLATES_NORMALIZED_NAME = "uk_project_templates_normalized_name";
+    public static final String PROJECT_TEMPLATES_SYSTEM_KEY = "uk_project_templates_system_key";
     public static final String DATA_SHARING_ACTIVITIES_NORMALIZED_NAME = "uk_data_sharing_activities_normalized_name";
     public static final String RISK_CONFIGURATIONS_NORMALIZED_NAME = "uk_risk_configurations_normalized_name";
     public static final String QID_DISCOVERY_CONFIGURATIONS_NORMALIZED_NAME = "uk_qid_discovery_configurations_normalized_name";
@@ -18,6 +21,9 @@ public final class NamedResourceConstraints {
     private static final List<ConstraintMatch> CONSTRAINTS = List.of(
             new ConstraintMatch(DATASETS_NORMALIZED_NAME, "dataset", "DATASET_NAME_ALREADY_EXISTS"),
             new ConstraintMatch(RECIPIENTS_NORMALIZED_NAME, "recipient", "ENTITY_NAME_ALREADY_EXISTS"),
+            new ConstraintMatch(PROJECTS_NORMALIZED_NAME, "project", "ENTITY_NAME_ALREADY_EXISTS"),
+            new ConstraintMatch(PROJECT_TEMPLATES_NORMALIZED_NAME, "project template", "ENTITY_NAME_ALREADY_EXISTS"),
+            new ConstraintMatch(PROJECT_TEMPLATES_SYSTEM_KEY, "project template", "ENTITY_NAME_ALREADY_EXISTS"),
             new ConstraintMatch(DATA_SHARING_ACTIVITIES_NORMALIZED_NAME, "data sharing activity", "ENTITY_NAME_ALREADY_EXISTS"),
             new ConstraintMatch(RISK_CONFIGURATIONS_NORMALIZED_NAME, "configuration", "ENTITY_NAME_ALREADY_EXISTS"),
             new ConstraintMatch(QID_DISCOVERY_CONFIGURATIONS_NORMALIZED_NAME, "QID discovery configuration", "ENTITY_NAME_ALREADY_EXISTS"),

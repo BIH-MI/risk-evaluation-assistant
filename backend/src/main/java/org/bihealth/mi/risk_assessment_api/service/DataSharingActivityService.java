@@ -14,6 +14,7 @@ import org.bihealth.mi.risk_assessment_api.model.assessment.activity.DataSharing
 import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetAssessment;
 import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetTableAssessmentAttribute;
 import org.bihealth.mi.risk_assessment_api.model.assessment.recipient.RecipientAssessment;
+import org.bihealth.mi.risk_assessment_api.model.project.Project;
 import org.bihealth.mi.risk_assessment_api.model.scoring.AttributeScoringDimension;
 import org.bihealth.mi.risk_assessment_api.model.scoring.AttributeScoringSystemVersion;
 import org.bihealth.mi.risk_assessment_api.repository.activity.DataSharingActivityRepository;
@@ -52,6 +53,7 @@ public class DataSharingActivityService {
     private final DatasetTableAssessmentAttributeRepository datasetTableAssessmentAttributeRepo;
     private final RecipientAssessmentRepository recipientAssessmentRepo;
     private final AttributeScoringSystemService attributeScoringSystemService;
+    private final ProjectService projectService;
 
     /**
      * Returns activities visible to a user.
@@ -109,8 +111,11 @@ public class DataSharingActivityService {
         RecipientAssessment ra = recipientAssessmentRepo.findById(dto.getRecipientAssessmentId())
                 .orElseThrow(() -> new EntityNotFoundException("Recipient Assessment not found"));
 
+        Project project = resolveRequiredProject(dto.getProjectId(), username, isAdmin);
+        projectService.validateActivityMembership(project, da, ra, username, isAdmin);
+
         DataSharingActivity act = dto.toEntity(
-                username, da, ra, datasetTableAssessmentRepo, datasetTableAssessmentAttributeRepo
+                username, da, ra, project, datasetTableAssessmentRepo, datasetTableAssessmentAttributeRepo
         );
         act.setName(name);
         normalizeActivityAttributeScores(act, ensureAttributeScoringVersion(da));
@@ -149,11 +154,15 @@ public class DataSharingActivityService {
                 .flatMap(recipientAssessmentRepo::findById)
                 .orElse(existing.getRecipientAssessment());
 
+        Project project = resolveRequiredProject(dto.getProjectId(), username, isAdmin);
+        projectService.validateActivityMembership(project, da, ra, username, isAdmin);
+
         if (da != null && ra != null) {
             ensureAttributeScoringVersion(da);
             existing.setDatasetAssessment(da);
             existing.setRecipientAssessment(ra);
         }
+        existing.setProject(project);
 
         // Sync table overrides by the referenced DatasetTableAssessment ID.
         // Incoming rows are upserted; omitted rows are removed by replacing the collection.
@@ -340,6 +349,13 @@ public class DataSharingActivityService {
             throw new IllegalArgumentException("Data sharing activity name is required.");
         }
         return name;
+    }
+
+    private Project resolveRequiredProject(Long projectId, String username, boolean isAdmin) {
+        if (projectId == null) {
+            throw new IllegalArgumentException("Project is required for Data Sharing Activities.");
+        }
+        return projectService.getAccessibleProjectEntity(projectId, username, isAdmin);
     }
 
     private void ensureActivityNameAvailable(String name, Long excludeId) {

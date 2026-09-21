@@ -383,22 +383,24 @@
     },
     {
       "categoryCode": "CONTROLS",
+      "code": "SPHN_CIT_01_LEGAL_AGREEMENT",
       "text": "[CIT-01] Is there a legal agreement between the data provider(s) and the data recipient(s) that regulates the conditions under which data are disclosed?",
       "textTranslations": { "de": "[CIT-01] Gibt es eine rechtliche Vereinbarung zwischen dem/den Datenanbieter(n) und dem/den Datenempfänger(n), welche die Bedingungen regelt, unter denen Daten offengelegt werden?" },
       "weight": 10.0,
       "options": [
-        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+        { "code": "YES", "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "code": "NO", "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
       ]
     },
     {
       "categoryCode": "CONTROLS",
+      "code": "SPHN_CIT_02_NO_THIRD_PARTY_DISCLOSURE",
       "text": "[CIT-02] Does the legal agreement forbid the recipient(s) from disclosing the data to third parties?",
       "textTranslations": { "de": "[CIT-02] Verbietet die rechtliche Vereinbarung dem/den Empfänger(n), die Daten an Dritte weiterzugeben?" },
       "weight": 10.0,
       "options": [
-        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+        { "code": "YES", "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "code": "NO", "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
       ]
     },
     {
@@ -433,35 +435,38 @@
     },
     {
       "categoryCode": "CONTROLS",
+      "code": "SPHN_CIT_06_CONFIDENTIALITY_OBLIGATIONS",
       "text": "[CIT-06] Are the recipient's staff members personally bound by a duty of confidentiality?",
       "textTranslations": { "de": "[CIT-06] Sind die Mitarbeiter des Empfängers persönlich an eine Schweigepflicht gebunden?" },
       "weight": 10.0,
       "options": [
-        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+        { "code": "YES", "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "code": "NO", "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
       ]
     },
     {
       "categoryCode": "CONTROLS",
+      "code": "SPHN_CIT_07_SECURITY_PRIVACY_POLICIES",
       "text": "[CIT-07] Are there IT security and privacy policies in effect at the data recipient site?",
       "textTranslations": { "de": "[CIT-07] Sind am Standort des Datenempfängers IT-Sicherheits- und Datenschutzrichtlinien in Kraft?" },
       "weight": 10.0,
       "options": [
-        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+        { "code": "YES", "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "code": "NO", "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
       ]
     },
     {
       "categoryCode": "CONTROLS",
+      "code": "SPHN_CIT_08_APPROVED_INFRASTRUCTURE",
       "text": "[CIT-08] Where does the project data will be stored and processed?",
       "textTranslations": { "de": "[CIT-08] Wo werden die Projektdaten gespeichert und verarbeitet?" },
       "weight": 10.0,
       "options": [
-        { "text": "On the hospital IT infrastructure of the data recipient", "textTranslations": { "de": "Auf der Krankenhaus-IT-Infrastruktur des Datenempfängers" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "On computer(s) controlled by the hospital IT department of the data recipient", "textTranslations": { "de": "Auf Computer(n), die von der Krankenhaus-IT-Abteilung des Datenempfängers kontrolliert werden" }, "score": 8.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
-        { "text": "On an external IT infrastructure that complies with BioMedIT Information Security Policy", "textTranslations": { "de": "Auf einer externen IT-Infrastruktur, die der BioMedIT-Informationssicherheitsrichtlinie entspricht" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "On an external IT infrastructure that DOES NOT comply with BioMedIT Information Security Policy (e.g., public cloud)", "textTranslations": { "de": "Auf einer externen IT-Infrastruktur, die NICHT der BioMedIT-Informationssicherheitsrichtlinie entspricht (z. B. Public Cloud)" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
-        { "text": "On PRIVATE computer (e.g., desktop, laptop, etc.)", "textTranslations": { "de": "Auf einem PRIVATEN Computer (z. B. Desktop, Laptop usw.)" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+        { "code": "RECIPIENT_HOSPITAL_INFRASTRUCTURE", "text": "On the hospital IT infrastructure of the data recipient", "textTranslations": { "de": "Auf der Krankenhaus-IT-Infrastruktur des Datenempfängers" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "code": "RECIPIENT_HOSPITAL_CONTROLLED_COMPUTERS", "text": "On computer(s) controlled by the hospital IT department of the data recipient", "textTranslations": { "de": "Auf Computer(n), die von der Krankenhaus-IT-Abteilung des Datenempfängers kontrolliert werden" }, "score": 8.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "code": "EXTERNAL_BIOMEDIT_COMPLIANT_INFRASTRUCTURE", "text": "On an external IT infrastructure that complies with BioMedIT Information Security Policy", "textTranslations": { "de": "Auf einer externen IT-Infrastruktur, die der BioMedIT-Informationssicherheitsrichtlinie entspricht" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "code": "EXTERNAL_NONCOMPLIANT_INFRASTRUCTURE", "text": "On an external IT infrastructure that DOES NOT comply with BioMedIT Information Security Policy (e.g., public cloud)", "textTranslations": { "de": "Auf einer externen IT-Infrastruktur, die NICHT der BioMedIT-Informationssicherheitsrichtlinie entspricht (z. B. Public Cloud)" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
+        { "code": "PRIVATE_COMPUTER", "text": "On PRIVATE computer (e.g., desktop, laptop, etc.)", "textTranslations": { "de": "Auf einem PRIVATEN Computer (z. B. Desktop, Laptop usw.)" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
       ]
     },
     {
@@ -476,12 +481,13 @@
     },
     {
       "categoryCode": "CONTROLS",
+      "code": "SPHN_CIT_10_PROCESSING_AGREEMENT",
       "text": "[CIT-10] If external, is there a legal processing agreement with the external provider of the infrastructure?",
       "textTranslations": { "de": "[CIT-10] Falls extern, gibt es einen Vertrag zur Auftragsverarbeitung mit dem externen Anbieter der Infrastruktur?" },
       "weight": 10.0,
       "options": [
-        { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
+        { "code": "YES", "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
+        { "code": "NO", "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
       ]
     }
   ],

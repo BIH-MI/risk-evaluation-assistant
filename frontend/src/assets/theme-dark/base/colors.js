@@ -3,14 +3,20 @@
  */
 
 const colors = {
+  mode: "dark",
+
   background: {
     default: "#1a2035",
+    paper: "#202940",
     sidenav: "#1f283e",
     card: "#202940",
   },
 
   text: {
     main: "#ffffffcc",
+    primary: "#ffffffcc",
+    secondary: "#ffffff99",
+    disabled: "#ffffff61",
     focus: "#ffffffcc",
   },
 

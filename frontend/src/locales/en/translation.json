@@ -24,6 +24,7 @@
     "assessment": "Assessment",
     "attributeScoringSystems": "Attribute System",
     "qidDiscovery": "QID Discovery",
+    "mitigationCatalogue": "Mitigation Catalogue",
     "documentation": "Documentation",
     "projectTemplates": "Project Templates"
   },

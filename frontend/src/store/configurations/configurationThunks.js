@@ -150,6 +150,7 @@ export const updateConfiguration = createAsyncThunk(
                   ...optRest
                 }) => ({
                   ...optRest,
+                  code,
                   textTranslations: optTrans || {},
                   riskLevel: Number(optRest.score ?? optRest.riskLevel ?? 0),
                   isHighRiskTrigger: Boolean(optRest.isHighRiskTrigger),

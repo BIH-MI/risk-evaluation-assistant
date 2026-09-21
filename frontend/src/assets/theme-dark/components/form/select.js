@@ -2,14 +2,19 @@ import colors from "assets/theme-dark/base/colors";
 
 import pxToRem from "assets/theme-dark/functions/pxToRem";
 
-const { transparent } = colors;
+const { text, transparent } = colors;
 
 const select = {
   styleOverrides: {
     select: {
       display: "grid",
       alignItems: "center",
+      color: text.primary || text.main,
       padding: `${pxToRem(12)} ${pxToRem(12)} !important`,
+      "&.Mui-disabled": {
+        color: text.disabled,
+        WebkitTextFillColor: text.disabled,
+      },
       "& .Mui-selected": {
         backgroundColor: transparent.main,
       },

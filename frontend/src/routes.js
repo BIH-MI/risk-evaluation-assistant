@@ -45,6 +45,8 @@ import QidDiscoveryConfiguration from "./screens/qidDiscoveryConfiguration";
 import AddEditQidDiscoveryConfiguration from "./screens/qidDiscoveryConfiguration/AddEditQidDiscoveryConfiguration";
 import ProjectTemplateConfiguration from "./screens/projectTemplateConfiguration";
 import AddEditProjectTemplate from "./screens/projectTemplateConfiguration/AddEditProjectTemplate";
+import MitigationCatalogue from "./screens/mitigationCatalogue";
+import AddEditMitigationAction from "./screens/mitigationCatalogue/AddEditMitigationAction";
 
 const routes = [
   {
@@ -280,6 +282,27 @@ const routes = [
     key: "configuration-project-templates-edit",
     route: "/configuration/project-templates/:id/edit",
     component: <AddEditProjectTemplate />,
+    adminOnly: true,
+  },
+  {
+    type: "collapse",
+    name: "navigation.mitigationCatalogue",
+    key: "configuration/mitigation-catalogue",
+    route: "/configuration/mitigation-catalogue",
+    icon: <Icon fontSize="small">rule</Icon>,
+    component: <MitigationCatalogue />,
+    adminOnly: true,
+  },
+  {
+    key: "configuration-mitigation-catalogue-new",
+    route: "/configuration/mitigation-catalogue/new",
+    component: <AddEditMitigationAction />,
+    adminOnly: true,
+  },
+  {
+    key: "configuration-mitigation-catalogue-edit",
+    route: "/configuration/mitigation-catalogue/:id/edit",
+    component: <AddEditMitigationAction />,
     adminOnly: true,
   },
   {

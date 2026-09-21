@@ -4,7 +4,7 @@ import typography from "assets/theme/base/typography";
 
 import pxToRem from "assets/theme/functions/pxToRem";
 
-const { inputBorderColor, info, grey, transparent } = colors;
+const { inputBorderColor, info, text, transparent } = colors;
 const { borderRadius } = borders;
 const { size } = typography;
 
@@ -12,8 +12,18 @@ const inputOutlined = {
   styleOverrides: {
     root: {
       backgroundColor: transparent.main,
+      color: text.primary,
       fontSize: size.sm,
       borderRadius: borderRadius.md,
+
+      "&.Mui-disabled": {
+        color: text.disabled,
+      },
+
+      "& .MuiInputBase-input.Mui-disabled, & .MuiSelect-select.Mui-disabled": {
+        color: text.disabled,
+        WebkitTextFillColor: text.disabled,
+      },
 
       "&:hover .MuiOutlinedInput-notchedOutline": {
         borderColor: inputBorderColor,
@@ -31,9 +41,18 @@ const inputOutlined = {
     },
 
     input: {
-      color: grey[700],
+      color: "inherit",
       padding: pxToRem(12),
       backgroundColor: transparent.main,
+
+      "&::-webkit-input-placeholder": {
+        color: text.secondary,
+        opacity: 0.72,
+      },
+      "&::placeholder": {
+        color: text.secondary,
+        opacity: 0.72,
+      },
     },
 
     inputSizeSmall: {
@@ -42,7 +61,7 @@ const inputOutlined = {
     },
 
     multiline: {
-      color: grey[700],
+      color: "inherit",
       padding: 0,
     },
   },

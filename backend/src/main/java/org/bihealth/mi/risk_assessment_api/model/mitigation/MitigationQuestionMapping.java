@@ -2,6 +2,8 @@ package org.bihealth.mi.risk_assessment_api.model.mitigation;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -11,15 +13,19 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import org.bihealth.mi.risk_assessment_api.enums.MitigationAssessmentScope;
 import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
 
 /**
- * Connects a context-control action to a framework question state.
+ * Connects a mitigation action to a framework question state.
  *
  * <p>{@code triggerOptionCode} means the action can be considered when that
  * option is currently selected. {@code projectedOptionCode} means that, if the
- * action is implemented and verified, a future counterfactual assessment may
- * use that answer in memory. This mapping never changes stored answers.</p>
+ * context action is implemented and verified, a future counterfactual
+ * recipient assessment may use that answer in memory. Dataset mappings may
+ * leave {@code projectedOptionCode} empty because a proposed data
+ * transformation does not change Impact/T until transformed data have been
+ * produced and reassessed. This mapping never changes stored answers.</p>
  */
 @Getter
 @Setter
@@ -40,13 +46,20 @@ public class MitigationQuestionMapping {
     @JoinColumn(name = "configuration_id")
     private Configuration configuration;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "assessment_scope", length = 40)
+    private MitigationAssessmentScope assessmentScope = MitigationAssessmentScope.RECIPIENT;
+
+    @Column(name = "category_code", length = 160)
+    private String categoryCode;
+
     @Column(name = "question_code", nullable = false, length = 160)
     private String questionCode;
 
     @Column(name = "trigger_option_code", nullable = false, length = 160)
     private String triggerOptionCode;
 
-    @Column(name = "projected_option_code", nullable = false, length = 160)
+    @Column(name = "projected_option_code", length = 160)
     private String projectedOptionCode;
 
     @Column(name = "notes", length = 2000)

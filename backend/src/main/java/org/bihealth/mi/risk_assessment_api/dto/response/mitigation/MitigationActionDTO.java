@@ -4,6 +4,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationActionType;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationEstimateScope;
+import org.bihealth.mi.risk_assessment_api.enums.MitigationRecordRetentionEffect;
+import org.bihealth.mi.risk_assessment_api.enums.MitigationResultingDataForm;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationSharingArrangement;
 import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationAction;
 
@@ -28,6 +30,8 @@ public class MitigationActionDTO {
     private String verificationDescription;
     private String source;
     private String rationale;
+    private MitigationResultingDataForm resultingDataForm;
+    private MitigationRecordRetentionEffect recordRetentionEffect;
     private Set<MitigationSharingArrangement> applicableSharingArrangements;
     private BigDecimal estimatedCostMin;
     private BigDecimal estimatedCostMax;
@@ -56,6 +60,8 @@ public class MitigationActionDTO {
         this.verificationDescription = action.getVerificationDescription();
         this.source = action.getSource();
         this.rationale = action.getRationale();
+        this.resultingDataForm = action.getResultingDataForm();
+        this.recordRetentionEffect = action.getRecordRetentionEffect();
         this.applicableSharingArrangements = action.getApplicableSharingArrangements() == null
                 ? new LinkedHashSet<>()
                 : action.getApplicableSharingArrangements().stream()

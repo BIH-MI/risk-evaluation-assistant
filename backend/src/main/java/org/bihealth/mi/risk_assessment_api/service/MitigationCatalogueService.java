@@ -7,6 +7,7 @@ import org.bihealth.mi.risk_assessment_api.dto.request.mitigation.MitigationPara
 import org.bihealth.mi.risk_assessment_api.dto.request.mitigation.MitigationQuestionMappingRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigation.MitigationActionDTO;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationActionType;
+import org.bihealth.mi.risk_assessment_api.enums.MitigationAssessmentScope;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationAttributeRole;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationSharingArrangement;
 import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
@@ -136,6 +137,7 @@ public class MitigationCatalogueService {
         }
 
         validateMappingsForType(dto);
+        validateDataTransformationMetadata(dto);
         validateOperationalEstimates(dto);
         validateParameterDefinitions(dto);
 
@@ -147,6 +149,12 @@ public class MitigationCatalogueService {
         action.setVerificationDescription(trimToNull(dto.getVerificationDescription()));
         action.setSource(trimToNull(dto.getSource()));
         action.setRationale(trimToNull(dto.getRationale()));
+        action.setResultingDataForm(dto.getActionType() == MitigationActionType.DATA_TRANSFORMATION
+                ? dto.getResultingDataForm()
+                : null);
+        action.setRecordRetentionEffect(dto.getActionType() == MitigationActionType.DATA_TRANSFORMATION
+                ? dto.getRecordRetentionEffect()
+                : null);
         action.setApplicableSharingArrangements(dto.getApplicableSharingArrangements() == null
                 ? new LinkedHashSet<>()
                 : dto.getApplicableSharingArrangements().stream()
@@ -162,10 +170,8 @@ public class MitigationCatalogueService {
         action.setEstimateAssumptions(trimToNull(dto.getEstimateAssumptions()));
 
         action.getQuestionMappings().clear();
-        if (dto.getActionType() == MitigationActionType.CONTEXT_CONTROL) {
-            for (MitigationQuestionMappingRequestDTO mappingDto : nullToEmpty(dto.getQuestionMappings())) {
-                action.addQuestionMapping(questionMappingFromDto(mappingDto));
-            }
+        for (MitigationQuestionMappingRequestDTO mappingDto : nullToEmpty(dto.getQuestionMappings())) {
+            action.addQuestionMapping(questionMappingFromDto(mappingDto, dto.getActionType()));
         }
 
         action.getAttributeMappings().clear();
@@ -211,18 +217,25 @@ public class MitigationCatalogueService {
     }
 
     private void validateMappingsForType(MitigationActionRequestDTO dto) {
-        boolean hasQuestionMappings = dto.getQuestionMappings() != null && !dto.getQuestionMappings().isEmpty();
         boolean hasAttributeMappings = dto.getAttributeMappings() != null && !dto.getAttributeMappings().isEmpty();
         boolean hasParameterDefinitions = dto.getParameterDefinitions() != null && !dto.getParameterDefinitions().isEmpty();
 
         if (dto.getActionType() == MitigationActionType.CONTEXT_CONTROL && hasAttributeMappings) {
             throw new IllegalArgumentException("Context-control actions cannot define attribute mappings.");
         }
-        if (dto.getActionType() == MitigationActionType.DATA_TRANSFORMATION && hasQuestionMappings) {
-            throw new IllegalArgumentException("Data-transformation actions cannot define questionnaire mappings.");
-        }
         if (dto.getActionType() == MitigationActionType.CONTEXT_CONTROL && hasParameterDefinitions) {
             throw new IllegalArgumentException("Context-control actions cannot define data-transformation plan parameters.");
+        }
+    }
+
+    private void validateDataTransformationMetadata(MitigationActionRequestDTO dto) {
+        if (dto.getActionType() == MitigationActionType.CONTEXT_CONTROL
+                && (dto.getResultingDataForm() != null || dto.getRecordRetentionEffect() != null)) {
+            throw new IllegalArgumentException("Context-control actions cannot define data-transformation effect metadata.");
+        }
+        if (dto.getActionType() == MitigationActionType.DATA_TRANSFORMATION
+                && (dto.getResultingDataForm() == null || dto.getRecordRetentionEffect() == null)) {
+            throw new IllegalArgumentException("Data-transformation actions require resulting data form and record-retention metadata.");
         }
     }
 
@@ -293,7 +306,10 @@ public class MitigationCatalogueService {
         }
     }
 
-    private MitigationQuestionMapping questionMappingFromDto(MitigationQuestionMappingRequestDTO dto) {
+    private MitigationQuestionMapping questionMappingFromDto(
+            MitigationQuestionMappingRequestDTO dto,
+            MitigationActionType actionType
+    ) {
         if (dto.getConfigurationId() == null) {
             throw new IllegalArgumentException("Question mapping requires configurationId.");
         }
@@ -303,27 +319,45 @@ public class MitigationCatalogueService {
         if (isBlank(dto.getTriggerOptionCode())) {
             throw new IllegalArgumentException("Question mapping requires triggerOptionCode.");
         }
-        if (isBlank(dto.getProjectedOptionCode())) {
-            throw new IllegalArgumentException("Question mapping requires projectedOptionCode.");
+        MitigationAssessmentScope scope = dto.getAssessmentScope() == null
+                ? defaultScope(actionType)
+                : dto.getAssessmentScope();
+        if (actionType == MitigationActionType.DATA_TRANSFORMATION && scope != MitigationAssessmentScope.DATASET) {
+            throw new IllegalArgumentException("Data-transformation questionnaire mappings must use DATASET scope.");
+        }
+        if (actionType == MitigationActionType.CONTEXT_CONTROL && scope != MitigationAssessmentScope.RECIPIENT) {
+            throw new IllegalArgumentException("Context-control questionnaire mappings must use RECIPIENT scope.");
+        }
+        if (scope == MitigationAssessmentScope.RECIPIENT && isBlank(dto.getProjectedOptionCode())) {
+            throw new IllegalArgumentException("Recipient question mappings require projectedOptionCode.");
         }
         String questionCode = normalizeCode(dto.getQuestionCode());
+        String categoryCode = normalizeCode(dto.getCategoryCode());
         String triggerOptionCode = normalizeCode(dto.getTriggerOptionCode());
-        String projectedOptionCode = normalizeCode(dto.getProjectedOptionCode());
-        if (triggerOptionCode.equals(projectedOptionCode)) {
+        String projectedOptionCode = isBlank(dto.getProjectedOptionCode()) ? null : normalizeCode(dto.getProjectedOptionCode());
+        if (projectedOptionCode != null && triggerOptionCode.equals(projectedOptionCode)) {
             throw new IllegalArgumentException("Question mapping trigger and projected answers must be different.");
         }
 
         MitigationQuestionMapping mapping = new MitigationQuestionMapping();
         Configuration configuration = configurationRepository.findById(dto.getConfigurationId())
                 .orElseThrow(() -> new EntityNotFoundException("Configuration not found: " + dto.getConfigurationId()));
-        validateControlsQuestionMapping(configuration, questionCode, triggerOptionCode, projectedOptionCode);
+        Question question = validateQuestionMapping(configuration, scope, categoryCode, questionCode, triggerOptionCode, projectedOptionCode);
 
         mapping.setConfiguration(configuration);
+        mapping.setAssessmentScope(scope);
+        mapping.setCategoryCode(categoryCode.isEmpty() ? normalizeCode(question.getCategoryCode()) : categoryCode);
         mapping.setQuestionCode(questionCode);
         mapping.setTriggerOptionCode(triggerOptionCode);
         mapping.setProjectedOptionCode(projectedOptionCode);
         mapping.setNotes(trimToNull(dto.getNotes()));
         return mapping;
+    }
+
+    private MitigationAssessmentScope defaultScope(MitigationActionType actionType) {
+        return actionType == MitigationActionType.DATA_TRANSFORMATION
+                ? MitigationAssessmentScope.DATASET
+                : MitigationAssessmentScope.RECIPIENT;
     }
 
     private MitigationAttributeMapping attributeMappingFromDto(MitigationAttributeMappingRequestDTO dto) {
@@ -355,8 +389,10 @@ public class MitigationCatalogueService {
         return definition;
     }
 
-    private void validateControlsQuestionMapping(
+    private Question validateQuestionMapping(
             Configuration configuration,
+            MitigationAssessmentScope scope,
+            String categoryCode,
             String questionCode,
             String triggerOptionCode,
             String projectedOptionCode
@@ -366,19 +402,26 @@ public class MitigationCatalogueService {
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Question mapping references an unknown question code."));
 
-        String categoryCode = normalizeCode(question.getCategoryCode());
+        String questionCategoryCode = normalizeCode(question.getCategoryCode());
+        if (!categoryCode.isEmpty() && !categoryCode.equals(questionCategoryCode)) {
+            throw new IllegalArgumentException("Question mapping categoryCode does not match the referenced question.");
+        }
         String assessmentPhase = question.getCategory() == null ? null : question.getCategory().getAssessmentPhase();
-        if (!"RECIPIENT_ASSESSMENT".equals(assessmentPhase) || !"CONTROLS".equals(categoryCode)) {
-            throw new IllegalArgumentException("Context-control questionnaire mappings must reference recipient controls questions.");
+        if (scope == MitigationAssessmentScope.DATASET && !"DATASET_ASSESSMENT".equals(assessmentPhase)) {
+            throw new IllegalArgumentException("Dataset question mappings must reference Dataset Assessment questions.");
+        }
+        if (scope == MitigationAssessmentScope.RECIPIENT && !"RECIPIENT_ASSESSMENT".equals(assessmentPhase)) {
+            throw new IllegalArgumentException("Recipient question mappings must reference Recipient Assessment questions.");
         }
 
         boolean hasTrigger = question.getOptions().stream()
                 .anyMatch(option -> triggerOptionCode.equals(normalizeCode(option.getCode())));
-        boolean hasProjected = question.getOptions().stream()
+        boolean hasProjected = projectedOptionCode == null || question.getOptions().stream()
                 .anyMatch(option -> projectedOptionCode.equals(normalizeCode(option.getCode())));
         if (!hasTrigger || !hasProjected) {
             throw new IllegalArgumentException("Question mapping references an unknown answer option code.");
         }
+        return question;
     }
 
     private void applyDeterministicAttributeFlags(

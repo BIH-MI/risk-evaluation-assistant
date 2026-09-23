@@ -2,8 +2,12 @@ package org.bihealth.mi.risk_assessment_api.config;
 
 import org.bihealth.mi.risk_assessment_api.enums.DataType;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationActionType;
+import org.bihealth.mi.risk_assessment_api.enums.MitigationAssessmentScope;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationAttributeRole;
+import org.bihealth.mi.risk_assessment_api.enums.MitigationEstimateScope;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationParameterCode;
+import org.bihealth.mi.risk_assessment_api.enums.MitigationRecordRetentionEffect;
+import org.bihealth.mi.risk_assessment_api.enums.MitigationResultingDataForm;
 import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
 import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationAction;
 import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationAttributeMapping;
@@ -16,6 +20,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -32,6 +37,7 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
 
     private static final String SEED_CREATOR = "admin";
     private static final String SEED_SOURCE = "REA built-in mitigation catalogue";
+    private static final String ILLUSTRATIVE_ESTIMATE_SOURCE = "REA illustrative operational estimate";
     private static final String EL_EMAM_NAME = "El Emam Risk Exposure Model";
     private static final String SPHN_NAME = "SPHN Risk Assessment Framework (v2.1.2)";
 
@@ -63,7 +69,13 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
                 "Verify that selected direct-identifier attributes are absent from the released dataset or have been replaced according to the approved procedure.",
                 "Direct identifiers are data representation risks and must be handled as data transformations."
         );
+        ensureDataEffect(removeDirectIdentifier,
+                MitigationResultingDataForm.PRESERVES_INDIVIDUAL_LEVEL,
+                MitigationRecordRetentionEffect.PRESERVES_RECORDS);
         ensureAttributeMapping(removeDirectIdentifier, MitigationAttributeRole.DIRECT_IDENTIFIER, null);
+        ensureQuestionMapping(removeDirectIdentifier, SPHN_NAME, MitigationAssessmentScope.DATASET, "IMPACT",
+                "DIRECT_IDENTIFIERS_E_G_NAME_PHONE_NUMBER_SOCIAL_SECURITY_NUMBER_EMAIL_ADDRESS_MEDICAL_RECORD_NUMBER_LICENSE_NUMBER",
+                "ORIGINAL_VALUES_OF_ONE_OR_MORE_DIRECT_IDENTIFIERS_ARE_KEPT", null);
 
         MitigationAction coarsenDate = ensureAction(
                 "COARSEN_DATE",
@@ -74,10 +86,37 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
                 "Verify that targeted date fields contain no temporal detail finer than the configured output resolution.",
                 "Temporal quasi-identifiers can support linkage when represented with excessive precision."
         );
+        ensureDataEffect(coarsenDate,
+                MitigationResultingDataForm.PRESERVES_INDIVIDUAL_LEVEL,
+                MitigationRecordRetentionEffect.PRESERVES_RECORDS);
         ensureAttributeMapping(coarsenDate, MitigationAttributeRole.CANDIDATE_QID, DataType.DATE);
         ensureAttributeMapping(coarsenDate, MitigationAttributeRole.CANDIDATE_QID, DataType.DATETIME);
         ensureParameter(coarsenDate, MitigationParameterCode.TARGET_RESOLUTION,
                 "Output resolution to select later for a concrete plan.", List.of("MONTH", "QUARTER", "YEAR"));
+        ensureQuestionMapping(coarsenDate, SPHN_NAME, MitigationAssessmentScope.DATASET, "IMPACT",
+                "DATES_IN_THE_PATIENT_RECORD_DATES_OF_BIRTH_AND_DEATH_EXCLUDED",
+                "DATES_ARE_SHIFTED_BY_A_RANDOM_NUMBER_OF_DAYS_WITHIN_90_DAYS", null);
+        ensureQuestionMapping(coarsenDate, SPHN_NAME, MitigationAssessmentScope.DATASET, "IMPACT",
+                "DATES_IN_THE_PATIENT_RECORD_DATES_OF_BIRTH_AND_DEATH_EXCLUDED",
+                "DATES_ARE_SHIFTED_BY_A_RANDOM_NUMBER_OF_DAYS_WITHIN_30_DAYS", null);
+        ensureQuestionMapping(coarsenDate, SPHN_NAME, MitigationAssessmentScope.DATASET, "IMPACT",
+                "DATES_IN_THE_PATIENT_RECORD_DATES_OF_BIRTH_AND_DEATH_EXCLUDED",
+                "DATES_ARE_SHIFTED_BY_A_RANDOM_NUMBER_OF_DAYS_WITHIN_7_DAYS", null);
+        ensureQuestionMapping(coarsenDate, SPHN_NAME, MitigationAssessmentScope.DATASET, "IMPACT",
+                "DATES_IN_THE_PATIENT_RECORD_DATES_OF_BIRTH_AND_DEATH_EXCLUDED",
+                "ORIGINAL_DATES_ARE_KEPT", null);
+        ensureQuestionMapping(coarsenDate, SPHN_NAME, MitigationAssessmentScope.DATASET, "IMPACT",
+                "DATE_OF_BIRTH",
+                "ONLY_THE_YEAR_AND_MONTH_OF_THE_ORIGINAL_DATE_OF_BIRTH_ARE_KEPT", null);
+        ensureQuestionMapping(coarsenDate, SPHN_NAME, MitigationAssessmentScope.DATASET, "IMPACT",
+                "DATE_OF_BIRTH",
+                "FULL_ORIGINAL_DATE_OF_BIRTH_IS_KEPT_DD_MM_YYYY", null);
+        ensureQuestionMapping(coarsenDate, SPHN_NAME, MitigationAssessmentScope.DATASET, "IMPACT",
+                "DATE_OF_DEATH",
+                "ONLY_THE_YEAR_AND_MONTH_OF_THE_ORIGINAL_DATE_OF_DEATH_ARE_KEPT", null);
+        ensureQuestionMapping(coarsenDate, SPHN_NAME, MitigationAssessmentScope.DATASET, "IMPACT",
+                "DATE_OF_DEATH",
+                "FULL_ORIGINAL_DATE_OF_DEATH_IS_KEPT_DD_MM_YYYY", null);
 
         MitigationAction generalizeNumeric = ensureAction(
                 "GENERALIZE_NUMERIC_QI",
@@ -88,10 +127,19 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
                 "Verify that targeted numeric QID fields follow the selected generalization hierarchy in the released dataset.",
                 "Numeric quasi-identifiers can support linkage when released at full precision."
         );
+        ensureDataEffect(generalizeNumeric,
+                MitigationResultingDataForm.PRESERVES_INDIVIDUAL_LEVEL,
+                MitigationRecordRetentionEffect.PRESERVES_RECORDS);
         ensureAttributeMapping(generalizeNumeric, MitigationAttributeRole.CANDIDATE_QID, DataType.INTEGER);
         ensureAttributeMapping(generalizeNumeric, MitigationAttributeRole.CANDIDATE_QID, DataType.DECIMAL);
         ensureParameter(generalizeNumeric, MitigationParameterCode.GENERALIZATION_HIERARCHY,
                 "Concrete hierarchy or binning rule to specify later for a plan.", List.of());
+        ensureQuestionMapping(generalizeNumeric, SPHN_NAME, MitigationAssessmentScope.DATASET, "IMPACT",
+                "AGE",
+                "ORIGINAL_AGE_IS_KEPT_EXCEPT_FOR_PEOPLE_WITH_MORE_THAN_89Y_OLD_WHO_ARE_PUT_IN_THE_AGE_CLASS_90Y", null);
+        ensureQuestionMapping(generalizeNumeric, SPHN_NAME, MitigationAssessmentScope.DATASET, "IMPACT",
+                "AGE",
+                "ORIGINAL_AGE_IS_KEPT", null);
 
         MitigationAction generalizeCategorical = ensureAction(
                 "GENERALIZE_CATEGORICAL_QI",
@@ -102,6 +150,9 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
                 "Verify that targeted categorical QID fields contain only values allowed by the selected hierarchy.",
                 "Categorical quasi-identifiers can support linkage when represented too specifically."
         );
+        ensureDataEffect(generalizeCategorical,
+                MitigationResultingDataForm.PRESERVES_INDIVIDUAL_LEVEL,
+                MitigationRecordRetentionEffect.PRESERVES_RECORDS);
         ensureAttributeMapping(generalizeCategorical, MitigationAttributeRole.CANDIDATE_QID, DataType.STRING);
         ensureParameter(generalizeCategorical, MitigationParameterCode.GENERALIZATION_HIERARCHY,
                 "Concrete hierarchy to specify later for a plan.", List.of());
@@ -115,6 +166,9 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
                 "Verify that the transformed release no longer contains targeted rare candidate QID combinations under the selected suppression limit.",
                 "Rare combinations can make individuals more distinguishable within the released data representation."
         );
+        ensureDataEffect(suppressRare,
+                MitigationResultingDataForm.PRESERVES_INDIVIDUAL_LEVEL,
+                MitigationRecordRetentionEffect.MAY_REMOVE_RECORDS);
         ensureAttributeMapping(suppressRare, MitigationAttributeRole.CANDIDATE_QID_COMBINATION, null);
         ensureParameter(suppressRare, MitigationParameterCode.SUPPRESSION_LIMIT,
                 "Suppression limit to specify later for a concrete plan.", List.of());
@@ -131,6 +185,8 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
                 "Access restriction changes recipient-side controls and may change questionnaire control answers."
         );
         ensureQuestionMapping(restrictAccess, EL_EMAM_NAME, "CONTROLS_NEED_TO_KNOW_ACCESS", "NO", "YES");
+        ensureEstimate(restrictAccess, 500, 2000, 1, 3,
+                "Illustrative estimate for configuring or documenting project-specific authorized-user access in an existing environment. Replace with institution-specific costing.");
 
         MitigationAction introduceAgreement = ensureAction(
                 "INTRODUCE_DATA_SHARING_AGREEMENT",
@@ -144,6 +200,8 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
         ensureQuestionMapping(introduceAgreement, EL_EMAM_NAME, "CONTROLS_DATA_SHARING_AGREEMENT_ENFORCEABLE", "NO", "YES");
         ensureQuestionMapping(introduceAgreement, SPHN_NAME, "SPHN_CIT_01_LEGAL_AGREEMENT", "NO", "YES");
         ensureQuestionMapping(introduceAgreement, SPHN_NAME, "SPHN_CIT_10_PROCESSING_AGREEMENT", "NO", "YES");
+        ensureEstimate(introduceAgreement, 1000, 5000, 2, 10,
+                "Illustrative estimate for preparing and reviewing one data-sharing or processing agreement based on existing institutional templates. Replace with local legal and administrative costing.");
 
         MitigationAction prohibitOnwardDisclosure = ensureAction(
                 "PROHIBIT_ONWARD_DISCLOSURE",
@@ -156,6 +214,8 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
         );
         ensureQuestionMapping(prohibitOnwardDisclosure, EL_EMAM_NAME, "CONTROLS_NO_ONWARD_DISCLOSURE", "NO", "YES");
         ensureQuestionMapping(prohibitOnwardDisclosure, SPHN_NAME, "SPHN_CIT_02_NO_THIRD_PARTY_DISCLOSURE", "NO", "YES");
+        ensureEstimate(prohibitOnwardDisclosure, 500, 2000, 1, 3,
+                "Illustrative estimate for adding onward-disclosure clauses to an existing agreement template. Replace with institution-specific legal costing.");
 
         MitigationAction restrictRecordLinkage = ensureAction(
                 "RESTRICT_RECORD_LINKAGE",
@@ -167,6 +227,8 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
                 "Linkage restrictions affect recipient behavior and contractual controls."
         );
         ensureQuestionMapping(restrictRecordLinkage, EL_EMAM_NAME, "CONTROLS_LINKAGE_RESTRICTION", "NO", "YES");
+        ensureEstimate(restrictRecordLinkage, 500, 2000, 1, 3,
+                "Illustrative estimate for adding record-linkage restrictions to an existing agreement or project policy. Replace with local legal and governance costing.");
 
         MitigationAction auditLogging = ensureAction(
                 "ENABLE_AUDIT_LOGGING",
@@ -178,6 +240,8 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
                 "Audit logging is a technical context control."
         );
         ensureQuestionMapping(auditLogging, EL_EMAM_NAME, "CONTROLS_AUDIT_LOGGING", "NO", "YES");
+        ensureEstimate(auditLogging, 1000, 5000, 1, 5,
+                "Illustrative estimate for enabling and validating audit logging in an existing managed system. Replace with local infrastructure costing.");
 
         MitigationAction accessRights = ensureAction(
                 "IMPLEMENT_ACCESS_RIGHT_MANAGEMENT",
@@ -189,6 +253,8 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
                 "Access-right management is a technical and organizational context control."
         );
         ensureQuestionMapping(accessRights, EL_EMAM_NAME, "CONTROLS_ACCESS_RIGHT_MANAGEMENT", "NO", "YES");
+        ensureEstimate(accessRights, 1500, 6000, 2, 5,
+                "Illustrative estimate for defining account provisioning, review, and revocation procedures in an existing access-management environment. Replace with local operational costing.");
 
         MitigationAction documentProcedures = ensureAction(
                 "DOCUMENT_SECURITY_PROCEDURES",
@@ -201,6 +267,23 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
         );
         ensureQuestionMapping(documentProcedures, EL_EMAM_NAME, "CONTROLS_DOCUMENTED_SECURITY_PROCEDURES", "NO", "YES");
         ensureQuestionMapping(documentProcedures, SPHN_NAME, "SPHN_CIT_07_SECURITY_PRIVACY_POLICIES", "NO", "YES");
+        ensureEstimate(documentProcedures, 500, 2000, 1, 3,
+                "Illustrative estimate for drafting or tailoring security procedures from existing institutional material. Replace with local governance costing.");
+
+        MitigationAction staffTraining = ensureAction(
+                "TRAIN_IT_DATABASE_STAFF",
+                "Train IT/database staff in data-protection requirements",
+                "Train IT and database staff in role-appropriate requirements for protecting personal information.",
+                MitigationActionType.CONTEXT_CONTROL,
+                "Provide role-appropriate privacy/security training covering handling, access, storage, disclosure, and incident responsibilities for personal data.",
+                "Training record/certificate/attendance plus approved training material.",
+                "Staff training is an organizational context control and is evaluated through the configured recipient-control questionnaire."
+        );
+        ensureQuestionMapping(staffTraining, EL_EMAM_NAME,
+                "IT_DATABASE_STAFF_ARE_SUFFICIENTLY_TRAINED_IN_THE_REQUIREMENTS_FOR_PROTECTING_PERSONAL_INFORMATION",
+                "NO", "YES");
+        ensureEstimate(staffTraining, 500, 1500, 1, 2,
+                "Illustrative estimate for preparation/delivery of one privacy and data-protection training session for a small IT/database team. Replace with institution-specific costing.");
 
         MitigationAction confidentiality = ensureAction(
                 "ESTABLISH_CONFIDENTIALITY_OBLIGATIONS",
@@ -213,6 +296,8 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
         );
         ensureQuestionMapping(confidentiality, EL_EMAM_NAME, "CONTROLS_CONFIDENTIALITY_AGREEMENTS", "NO", "YES");
         ensureQuestionMapping(confidentiality, SPHN_NAME, "SPHN_CIT_06_CONFIDENTIALITY_OBLIGATIONS", "NO", "YES");
+        ensureEstimate(confidentiality, 500, 2000, 1, 3,
+                "Illustrative estimate for preparing staff confidentiality obligations from an existing institutional template. Replace with local legal and HR costing.");
 
         MitigationAction approvedInfrastructure = ensureAction(
                 "USE_APPROVED_SECURE_INFRASTRUCTURE",
@@ -257,6 +342,55 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
         return actionRepository.save(action);
     }
 
+    private void ensureDataEffect(
+            MitigationAction action,
+            MitigationResultingDataForm resultingDataForm,
+            MitigationRecordRetentionEffect recordRetentionEffect
+    ) {
+        boolean changed = false;
+        if (action.getResultingDataForm() == null) {
+            action.setResultingDataForm(resultingDataForm);
+            changed = true;
+        }
+        if (action.getRecordRetentionEffect() == null) {
+            action.setRecordRetentionEffect(recordRetentionEffect);
+            changed = true;
+        }
+        if (changed) {
+            actionRepository.save(action);
+        }
+    }
+
+    private void ensureEstimate(
+            MitigationAction action,
+            int costMin,
+            int costMax,
+            int setupDaysMin,
+            int setupDaysMax,
+            String assumptions
+    ) {
+        boolean hasEstimate = action.getEstimatedCostMin() != null
+                || action.getEstimatedCostMax() != null
+                || action.getCurrency() != null
+                || action.getEstimatedSetupDaysMin() != null
+                || action.getEstimatedSetupDaysMax() != null
+                || action.getEstimateScope() != null
+                || action.getEstimateSource() != null
+                || action.getEstimateAssumptions() != null;
+        if (hasEstimate) {
+            return;
+        }
+        action.setEstimatedCostMin(BigDecimal.valueOf(costMin));
+        action.setEstimatedCostMax(BigDecimal.valueOf(costMax));
+        action.setCurrency("EUR");
+        action.setEstimatedSetupDaysMin(setupDaysMin);
+        action.setEstimatedSetupDaysMax(setupDaysMax);
+        action.setEstimateScope(MitigationEstimateScope.SETUP_ONLY);
+        action.setEstimateSource(ILLUSTRATIVE_ESTIMATE_SOURCE);
+        action.setEstimateAssumptions(assumptions);
+        actionRepository.save(action);
+    }
+
     private void ensureQuestionMapping(
             MitigationAction action,
             String configurationName,
@@ -264,7 +398,20 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
             String triggerOptionCode,
             String projectedOptionCode
     ) {
-        if (hasQuestionMapping(action, configurationName, questionCode, triggerOptionCode, projectedOptionCode)) {
+        ensureQuestionMapping(action, configurationName, MitigationAssessmentScope.RECIPIENT,
+                null, questionCode, triggerOptionCode, projectedOptionCode);
+    }
+
+    private void ensureQuestionMapping(
+            MitigationAction action,
+            String configurationName,
+            MitigationAssessmentScope assessmentScope,
+            String categoryCode,
+            String questionCode,
+            String triggerOptionCode,
+            String projectedOptionCode
+    ) {
+        if (hasQuestionMapping(action, configurationName, assessmentScope, categoryCode, questionCode, triggerOptionCode, projectedOptionCode)) {
             return;
         }
 
@@ -278,6 +425,8 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
 
         MitigationQuestionMapping mapping = new MitigationQuestionMapping();
         mapping.setConfiguration(configuration);
+        mapping.setAssessmentScope(assessmentScope);
+        mapping.setCategoryCode(categoryCode);
         mapping.setQuestionCode(questionCode);
         mapping.setTriggerOptionCode(triggerOptionCode);
         mapping.setProjectedOptionCode(projectedOptionCode);
@@ -330,6 +479,8 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
     private boolean hasQuestionMapping(
             MitigationAction action,
             String configurationName,
+            MitigationAssessmentScope assessmentScope,
+            String categoryCode,
             String questionCode,
             String triggerOptionCode,
             String projectedOptionCode
@@ -337,6 +488,9 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
         return action.getQuestionMappings().stream()
                 .anyMatch(mapping -> mapping.getConfiguration() != null
                         && configurationName.equals(mapping.getConfiguration().getName())
+                        && (mapping.getAssessmentScope() == null
+                                ? MitigationAssessmentScope.RECIPIENT : mapping.getAssessmentScope()) == assessmentScope
+                        && sameCode(categoryCode, mapping.getCategoryCode())
                         && sameCode(questionCode, mapping.getQuestionCode())
                         && sameCode(triggerOptionCode, mapping.getTriggerOptionCode())
                         && sameCode(projectedOptionCode, mapping.getProjectedOptionCode()));

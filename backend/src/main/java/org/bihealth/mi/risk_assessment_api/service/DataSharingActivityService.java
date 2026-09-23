@@ -83,6 +83,15 @@ public class DataSharingActivityService {
      */
     @Transactional(readOnly = true)
     public DataSharingActivityResponseDTO getById(Long id, String username, boolean isAdmin) {
+        return new DataSharingActivityResponseDTO(getAccessibleActivityEntity(id, username, isAdmin));
+    }
+
+    /**
+     * Loads one activity entity and verifies read access. Shared with read-only
+     * activity views such as the Mitigation Planner so they follow the same rule.
+     */
+    @Transactional(readOnly = true)
+    public DataSharingActivity getAccessibleActivityEntity(Long id, String username, boolean isAdmin) {
         DataSharingActivity act = repository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Activity not found: " + id));
 
@@ -92,7 +101,7 @@ public class DataSharingActivityService {
             throw new SecurityException("Access denied to activity: " + id);
         }
 
-        return new DataSharingActivityResponseDTO(act);
+        return act;
     }
 
     /**

@@ -20,6 +20,7 @@ import ActionGuidanceSection from "./components/ActionGuidanceSection";
 import ApplicabilitySection from "./components/ApplicabilitySection";
 import BasicSection from "./components/BasicSection";
 import DataApplicabilitySection from "./components/DataApplicabilitySection";
+import DataTransformationEffectSection from "./components/DataTransformationEffectSection";
 import OperationalEstimatesSection from "./components/OperationalEstimatesSection";
 import PlanParameterSection from "./components/PlanParameterSection";
 import QuestionnaireApplicabilitySection from "./components/QuestionnaireApplicabilitySection";
@@ -170,11 +171,13 @@ export default function AddEditMitigationAction() {
   const addQuestionnaireRule = useCallback(() => {
     addCollectionItem("questionMappings", {
       configurationId: "",
+      assessmentScope: form.actionType === "DATA_TRANSFORMATION" ? "DATASET" : "RECIPIENT",
+      categoryCode: "",
       questionCode: "",
       triggerOptionCode: "",
       projectedOptionCode: "",
     });
-  }, [addCollectionItem]);
+  }, [addCollectionItem, form.actionType]);
 
   const updateQuestionnaireRule = useCallback(
     (clientId, changes) => updateCollectionItem("questionMappings", clientId, changes),
@@ -283,6 +286,13 @@ export default function AddEditMitigationAction() {
 
       {form.actionType === "DATA_TRANSFORMATION" && (
         <>
+          <DataTransformationEffectSection
+            form={form}
+            errors={validationErrors}
+            showErrors={showErrors}
+            onChange={updateField}
+          />
+
           <DataApplicabilitySection
             mappings={form.attributeMappings}
             errors={validationErrors.attributeMappings || []}
@@ -303,12 +313,13 @@ export default function AddEditMitigationAction() {
         </>
       )}
 
-      {form.actionType === "CONTEXT_CONTROL" && (
+      {["DATA_TRANSFORMATION", "CONTEXT_CONTROL"].includes(form.actionType) && (
         <QuestionnaireApplicabilitySection
           mappings={form.questionMappings}
           errors={validationErrors.questionMappings || []}
           showErrors={showErrors}
           configurations={configurations}
+          actionType={form.actionType}
           onAdd={addQuestionnaireRule}
           onUpdate={updateQuestionnaireRule}
           onRemove={removeQuestionnaireRule}

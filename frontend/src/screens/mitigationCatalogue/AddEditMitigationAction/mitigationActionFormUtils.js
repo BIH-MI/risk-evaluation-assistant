@@ -46,10 +46,30 @@ export const PARAMETER_CODES = [
   { value: "SUPPRESSION_LIMIT", label: "Suppression Limit" },
 ];
 
+export const ASSESSMENT_SCOPES = [
+  { value: "DATASET", label: "Dataset Assessment" },
+  { value: "RECIPIENT", label: "Recipient Assessment" },
+];
+
 export const TARGET_RESOLUTIONS = [
   { value: "MONTH", label: "Month" },
   { value: "QUARTER", label: "Quarter" },
   { value: "YEAR", label: "Year" },
+];
+
+export const RESULTING_DATA_FORMS = [
+  { value: "", label: "Select resulting data form" },
+  { value: "PRESERVES_INDIVIDUAL_LEVEL", label: "Preserves individual-level representation" },
+  { value: "SYNTHETIC", label: "Synthetic representation" },
+  { value: "AGGREGATED", label: "Aggregated representation" },
+  { value: "NOT_APPLICABLE", label: "Not applicable (representation unchanged)" },
+];
+
+export const RECORD_RETENTION_EFFECTS = [
+  { value: "", label: "Select record-retention effect" },
+  { value: "PRESERVES_RECORDS", label: "Preserves records" },
+  { value: "MAY_REMOVE_RECORDS", label: "May remove records" },
+  { value: "NOT_APPLICABLE", label: "Not applicable" },
 ];
 
 const LEGACY_SHARING_ARRANGEMENT_ALIASES = {
@@ -69,6 +89,8 @@ export function emptyActionForm() {
     verificationDescription: "",
     source: "",
     rationale: "",
+    resultingDataForm: "",
+    recordRetentionEffect: "",
     estimatedCostMin: "",
     estimatedCostMax: "",
     currency: "",
@@ -102,11 +124,15 @@ export function normalizeActionToForm(action) {
     estimatedSetupDaysMin: valueOrEmpty(action.estimatedSetupDaysMin),
     estimatedSetupDaysMax: valueOrEmpty(action.estimatedSetupDaysMax),
     estimateScope: action.estimateScope || "",
+    resultingDataForm: action.resultingDataForm || "",
+    recordRetentionEffect: action.recordRetentionEffect || "",
     questionMappings: (action.questionMappings || []).map((mapping) =>
       withClientId({
         id: mapping.id,
         configurationId: valueOrEmpty(mapping.configurationId),
         configurationName: mapping.configurationName,
+        assessmentScope: mapping.assessmentScope || "RECIPIENT",
+        categoryCode: mapping.categoryCode || "",
         questionCode: mapping.questionCode || "",
         triggerOptionCode: mapping.triggerOptionCode || "",
         projectedOptionCode: mapping.projectedOptionCode || "",
@@ -147,6 +173,14 @@ export function buildActionPayload(form) {
     verificationDescription: emptyToNull(form.verificationDescription),
     source: emptyToNull(form.source),
     rationale: emptyToNull(form.rationale),
+    resultingDataForm:
+      actionType === "DATA_TRANSFORMATION"
+        ? emptyToNull(form.resultingDataForm)
+        : null,
+    recordRetentionEffect:
+      actionType === "DATA_TRANSFORMATION"
+        ? emptyToNull(form.recordRetentionEffect)
+        : null,
     estimatedCostMin: numberOrNull(form.estimatedCostMin),
     estimatedCostMax: numberOrNull(form.estimatedCostMax),
     currency: emptyToNull(form.currency),
@@ -155,23 +189,23 @@ export function buildActionPayload(form) {
     estimateScope: emptyToNull(form.estimateScope),
     estimateSource: emptyToNull(form.estimateSource),
     estimateAssumptions: emptyToNull(form.estimateAssumptions),
-    questionMappings:
-      actionType === "CONTEXT_CONTROL"
-        ? (form.questionMappings || []).map(
-            ({
-              clientId,
-              configurationName,
-              notes,
-              ...mapping
-            }) => ({
-              id: mapping.id,
-              configurationId: numberOrNull(mapping.configurationId),
-              questionCode: emptyToNull(mapping.questionCode),
-              triggerOptionCode: emptyToNull(mapping.triggerOptionCode),
-              projectedOptionCode: emptyToNull(mapping.projectedOptionCode),
-            })
-          )
-        : [],
+    questionMappings: (form.questionMappings || []).map(
+      ({
+        clientId,
+        configurationName,
+        notes,
+        ...mapping
+      }) => ({
+        id: mapping.id,
+        configurationId: numberOrNull(mapping.configurationId),
+        assessmentScope:
+          mapping.assessmentScope || (actionType === "DATA_TRANSFORMATION" ? "DATASET" : "RECIPIENT"),
+        categoryCode: emptyToNull(mapping.categoryCode),
+        questionCode: emptyToNull(mapping.questionCode),
+        triggerOptionCode: emptyToNull(mapping.triggerOptionCode),
+        projectedOptionCode: emptyToNull(mapping.projectedOptionCode),
+      })
+    ),
     attributeMappings:
       actionType === "DATA_TRANSFORMATION"
         ? (form.attributeMappings || []).map(({ clientId, notes, ...mapping }) => ({
@@ -205,12 +239,19 @@ export function validateActionForm(form) {
   validateOperationalEstimates(form, errors);
 
   if (form.actionType === "DATA_TRANSFORMATION") {
+    if (!form.resultingDataForm) {
+      errors.resultingDataForm = "Resulting data form is required.";
+    }
+    if (!form.recordRetentionEffect) {
+      errors.recordRetentionEffect = "Record-retention effect is required.";
+    }
     validateAttributeMappings(form.attributeMappings || [], errors);
     validateParameterDefinitions(form.parameterDefinitions || [], errors);
+    validateQuestionMappings(form.questionMappings || [], errors, "DATASET");
   }
 
   if (form.actionType === "CONTEXT_CONTROL") {
-    validateQuestionMappings(form.questionMappings || [], errors);
+    validateQuestionMappings(form.questionMappings || [], errors, "RECIPIENT");
   }
 
   return errors;
@@ -345,15 +386,19 @@ function validateParameterDefinitions(parameters, errors) {
   }
 }
 
-function validateQuestionMappings(mappings, errors) {
+function validateQuestionMappings(mappings, errors, requiredScope) {
   const mappingErrors = mappings.map((mapping) => {
     const rowErrors = {};
     if (!mapping.configurationId) rowErrors.configurationId = "Risk framework is required.";
-    if (!mapping.questionCode) rowErrors.questionCode = "Control question is required.";
+    const scope = mapping.assessmentScope || requiredScope;
+    if (requiredScope && scope !== requiredScope) {
+      rowErrors.assessmentScope = `Scope must be ${requiredScope.toLowerCase()}.`;
+    }
+    if (!mapping.questionCode) rowErrors.questionCode = "Question is required.";
     if (!mapping.triggerOptionCode) {
       rowErrors.triggerOptionCode = "Trigger answer is required.";
     }
-    if (!mapping.projectedOptionCode) {
+    if (scope === "RECIPIENT" && !mapping.projectedOptionCode) {
       rowErrors.projectedOptionCode = "Verified answer is required.";
     } else if (
       mapping.triggerOptionCode &&

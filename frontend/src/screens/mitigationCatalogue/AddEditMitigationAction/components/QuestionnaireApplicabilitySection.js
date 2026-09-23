@@ -18,6 +18,7 @@ export default function QuestionnaireApplicabilitySection({
   errors,
   showErrors,
   configurations,
+  actionType,
   onAdd,
   onUpdate,
   onRemove,
@@ -36,7 +37,7 @@ export default function QuestionnaireApplicabilitySection({
   return (
     <MitigationActionSection
       title="Questionnaire Applicability"
-      description="Connect this control to existing Recipient Assessment questions. The mapping defines when the action may be suggested and how a verified implementation could be evaluated in a counterfactual assessment. It never changes the stored assessment."
+      description="Connect this action to existing assessment questions. Dataset mappings suggest proposed transformations; recipient mappings can also define verified counterfactual answers. Stored assessments are never changed by catalogue mappings."
     >
       <RABox display="flex" flexDirection="column" gap={2}>
         {mappings.map((mapping, index) => (
@@ -47,6 +48,7 @@ export default function QuestionnaireApplicabilitySection({
               showErrors={showErrors}
               configurations={configurations}
               configurationMap={configurationMap}
+              actionType={actionType}
               onUpdate={onUpdate}
               onRemove={onRemove}
             />
@@ -75,13 +77,15 @@ function QuestionnaireApplicabilityRule({
   showErrors,
   configurations,
   configurationMap,
+  actionType,
   onUpdate,
   onRemove,
 }) {
+  const assessmentScope = mapping.assessmentScope || (actionType === "DATA_TRANSFORMATION" ? "DATASET" : "RECIPIENT");
   const selectedConfiguration = configurationMap.get(
     String(mapping.configurationId || "")
   );
-  const questions = getControlQuestions(selectedConfiguration);
+  const questions = getQuestions(selectedConfiguration, assessmentScope);
   const selectedQuestion = questions.find(
     (question) => question.code === mapping.questionCode
   );
@@ -116,6 +120,8 @@ function QuestionnaireApplicabilityRule({
           onChange={(event) =>
             onUpdate(mapping.clientId, {
               configurationId: event.target.value,
+              assessmentScope,
+              categoryCode: "",
               questionCode: "",
               triggerOptionCode: "",
               projectedOptionCode: "",
@@ -139,20 +145,23 @@ function QuestionnaireApplicabilityRule({
       </AdminField>
 
       <AdminField
-        label="Applicable Control Question"
+        label={assessmentScope === "DATASET" ? "Applicable Dataset Question" : "Applicable Recipient Question"}
         error={showErrors ? errors.questionCode : ""}
       >
         <RAInput
           select
           value={mapping.questionCode || ""}
-          onChange={(event) =>
+          onChange={(event) => {
+            const question = questions.find((candidate) => candidate.code === event.target.value);
             onUpdate(mapping.clientId, {
               questionCode: event.target.value,
+              categoryCode: question?.categoryCode || "",
               triggerOptionCode: "",
               projectedOptionCode: "",
-            })
-          }
-          inputProps={{ "aria-label": "Applicable Control Question" }}
+              assessmentScope,
+            });
+          }}
+          inputProps={{ "aria-label": "Applicable Question" }}
           fullWidth
           size="small"
           sx={selectWrapSx}
@@ -160,7 +169,7 @@ function QuestionnaireApplicabilityRule({
           error={showErrors && Boolean(errors.questionCode)}
         >
           <MenuItem value="" disabled>
-            Select a control question
+            Select a question
           </MenuItem>
           {questions.map((question) => (
             <MenuItem
@@ -216,68 +225,72 @@ function QuestionnaireApplicabilityRule({
         </RAInput>
       </AdminField>
 
-      <AdminField
-        label="After verified implementation, evaluate this as"
-        info={FIELD_HELP.projectedAnswer}
-        error={showErrors ? errors.projectedOptionCode : ""}
-      >
-        <RAInput
-          select
-          value={
-            mapping.projectedOptionCode === mapping.triggerOptionCode
-              ? ""
-              : mapping.projectedOptionCode || ""
-          }
-          onChange={(event) =>
-            onUpdate(mapping.clientId, {
-              projectedOptionCode: event.target.value,
-            })
-          }
-          inputProps={{
-            "aria-label": "After verified implementation, evaluate this as",
-          }}
-          fullWidth
-          size="small"
-          sx={selectWrapSx}
-          disabled={!selectedQuestion}
-          error={showErrors && Boolean(errors.projectedOptionCode)}
+      {assessmentScope === "RECIPIENT" && (
+        <AdminField
+          label="After verified implementation, evaluate this as"
+          info={FIELD_HELP.projectedAnswer}
+          error={showErrors ? errors.projectedOptionCode : ""}
         >
-          <MenuItem value="" disabled>
-            Select verified answer
-          </MenuItem>
-          {projectedOptions.map((option) => (
-            <MenuItem
-              key={option.code}
-              value={option.code}
-              sx={{ whiteSpace: "normal" }}
-            >
-              {option.text}
+          <RAInput
+            select
+            value={
+              mapping.projectedOptionCode === mapping.triggerOptionCode
+                ? ""
+                : mapping.projectedOptionCode || ""
+            }
+            onChange={(event) =>
+              onUpdate(mapping.clientId, {
+                projectedOptionCode: event.target.value,
+              })
+            }
+            inputProps={{
+              "aria-label": "After verified implementation, evaluate this as",
+            }}
+            fullWidth
+            size="small"
+            sx={selectWrapSx}
+            disabled={!selectedQuestion}
+            error={showErrors && Boolean(errors.projectedOptionCode)}
+          >
+            <MenuItem value="" disabled>
+              Select verified answer
             </MenuItem>
-          ))}
-        </RAInput>
-      </AdminField>
+            {projectedOptions.map((option) => (
+              <MenuItem
+                key={option.code}
+                value={option.code}
+                sx={{ whiteSpace: "normal" }}
+              >
+                {option.text}
+              </MenuItem>
+            ))}
+          </RAInput>
+        </AdminField>
+      )}
     </RABox>
   );
 }
 
-function getControlQuestions(configuration) {
+function getQuestions(configuration, assessmentScope) {
   if (!configuration) return [];
   const categories = configuration.riskCategories || configuration.categories || [];
-  const recipientControlCategoryCodes = new Set(
+  const wantedPhase = assessmentScope === "DATASET" ? "DATASET_ASSESSMENT" : "RECIPIENT_ASSESSMENT";
+  const categoryCodes = new Set(
     categories
       .filter(
         (category) =>
-          category.assessmentPhase === "RECIPIENT_ASSESSMENT" &&
-          category.code === "CONTROLS"
+          category.assessmentPhase === wantedPhase
       )
       .map((category) => category.code)
   );
 
   return (configuration.questions || []).filter((question) => {
     if (!question.code) return false;
-    if (recipientControlCategoryCodes.size === 0) {
-      return question.categoryCode === "CONTROLS";
+    if (categoryCodes.size === 0) {
+      return assessmentScope === "DATASET"
+        ? question.categoryCode === "IMPACT"
+        : ["CONTROLS", "LIKELIHOOD"].includes(question.categoryCode);
     }
-    return recipientControlCategoryCodes.has(question.categoryCode);
+    return categoryCodes.has(question.categoryCode);
   });
 }

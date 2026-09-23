@@ -3,6 +3,8 @@ package org.bihealth.mi.risk_assessment_api.dto.request.mitigation;
 import lombok.Data;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationActionType;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationEstimateScope;
+import org.bihealth.mi.risk_assessment_api.enums.MitigationRecordRetentionEffect;
+import org.bihealth.mi.risk_assessment_api.enums.MitigationResultingDataForm;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationSharingArrangement;
 
 import java.math.BigDecimal;
@@ -20,6 +22,8 @@ public class MitigationActionRequestDTO {
     private String verificationDescription;
     private String source;
     private String rationale;
+    private MitigationResultingDataForm resultingDataForm;
+    private MitigationRecordRetentionEffect recordRetentionEffect;
     private Set<MitigationSharingArrangement> applicableSharingArrangements;
     private BigDecimal estimatedCostMin;
     private BigDecimal estimatedCostMax;

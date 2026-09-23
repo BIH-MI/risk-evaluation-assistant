@@ -35,6 +35,7 @@ import RecipientAssessments from "./screens/recipientAssessments";
 import AddEditDataSharingActivity from "./screens/sharingActivity/AddEditDataSharingActivity";
 import DataSharingActivities from "./screens/sharingActivity";
 import DataSharingReport from "./screens/dataSharingReport";
+import MitigationPlanner from "./screens/mitigationPlanner";
 import AddEditRecipientAssessmentForm from "./screens/recipientAssessments/AddEditRecipientAssessmentForm";
 import AddEditDatasetAssessmentForm from "./screens/datasetAssessments/AddEditDatasetAssessmentForm";
 import ConfigurationPage from "./screens/configurations";
@@ -209,6 +210,11 @@ const routes = [
     key: "data-sharing-activities-report",
     route: "/data-sharing-activities/:id/report",
     component: <DataSharingReport />,
+  },
+  {
+    key: "data-sharing-activities-mitigation-planner",
+    route: "/data-sharing-activities/:id/mitigation-planner",
+    component: <MitigationPlanner />,
   },
   {
     type: "divider",

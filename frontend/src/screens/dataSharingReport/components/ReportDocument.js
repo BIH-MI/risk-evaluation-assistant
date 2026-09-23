@@ -6,6 +6,7 @@ import RATypography from "components/display/RATypography";
 import AttributeLevelAssessment from "./AttributeLevelAssessment";
 import AttributeThresholdControls from "./AttributeThresholdControls";
 import GeneralInfo from "./GeneralInfo";
+import MitigationPlannerAction from "./MitigationPlannerAction";
 import RiskAnalysisSummary from "./RiskAnalysisSummary";
 import RiskFactors from "./RiskFactors";
 import ReportResultSection from "./shared/ReportResultSection";
@@ -107,6 +108,14 @@ export default function ReportDocument({
             onThresholdOverwriteChange={setThresholdOverwritten}
           />
         </ReportResultSection>
+
+        {!isGeneratingPdf && (
+          <MitigationPlannerAction
+            activity={activity}
+            isThresholdOverwritten={isThresholdOverwritten}
+            manualRiskThreshold={manualRiskThreshold}
+          />
+        )}
       </RABox>
 
       <div className="html2pdf__page-break" />

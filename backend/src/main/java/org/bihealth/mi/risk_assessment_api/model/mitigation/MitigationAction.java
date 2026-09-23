@@ -16,6 +16,8 @@ import lombok.Getter;
 import lombok.Setter;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationActionType;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationEstimateScope;
+import org.bihealth.mi.risk_assessment_api.enums.MitigationRecordRetentionEffect;
+import org.bihealth.mi.risk_assessment_api.enums.MitigationResultingDataForm;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationSharingArrangement;
 import org.bihealth.mi.risk_assessment_api.model.AuditableEntity;
 
@@ -66,6 +68,14 @@ public class MitigationAction extends AuditableEntity {
 
     @Column(name = "rationale", length = 4000)
     private String rationale;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "resulting_data_form", length = 80)
+    private MitigationResultingDataForm resultingDataForm;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "record_retention_effect", length = 80)
+    private MitigationRecordRetentionEffect recordRetentionEffect;
 
     @ElementCollection
     @CollectionTable(

@@ -56,14 +56,31 @@ public class RiskService {
         DataSharingActivity activity = activityRepository.findById(dto.getActivityId())
                 .orElseThrow(() -> new EntityNotFoundException("Activity not found with ID: " + dto.getActivityId()));
 
+        List<Answer> recipientAnswers = activity.getRecipientAssessment() == null
+                ? null
+                : activity.getRecipientAssessment().getAnswers();
+        return calculateRisk(activity, recipientAnswers, dto.getManualRiskThreshold());
+    }
+
+    /**
+     * Calculates risk for an activity using an explicit recipient answer set instead of the
+     * persisted one. Counterfactual what-if evaluation passes in-memory answers here; the
+     * dataset side and the calculation itself are unchanged.
+     */
+    public GenericRiskResponseDTO calculateRisk(
+            DataSharingActivity activity,
+            List<Answer> recipientAnswers,
+            Double manualRiskThreshold
+    ) {
+
         // Combine answers from both assessment halves. The computation service
         // groups them back into categories using each answer's question/category.
         List<Answer> combinedAnswers = new ArrayList<>();
         if (activity.getDatasetAssessment() != null && activity.getDatasetAssessment().getAnswers() != null) {
             combinedAnswers.addAll(activity.getDatasetAssessment().getAnswers());
         }
-        if (activity.getRecipientAssessment() != null && activity.getRecipientAssessment().getAnswers() != null) {
-            combinedAnswers.addAll(activity.getRecipientAssessment().getAnswers());
+        if (recipientAnswers != null) {
+            combinedAnswers.addAll(recipientAnswers);
         }
 
         if (combinedAnswers.isEmpty()) {
@@ -101,7 +118,7 @@ public class RiskService {
                 combinedAnswers,
                 daConfigVersion,
                 raConfigVersion,
-                dto.getManualRiskThreshold()
+                manualRiskThreshold
         );
 
         // Map directly to the API response. No Report entity is saved for this

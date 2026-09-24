@@ -4,7 +4,7 @@ import {
   formatParameterLabel,
 } from "./mitigationPlannerFormatters";
 
-// Risk-driver priority explains assessment findings; it is not an additional risk-scoring model.
+// Risk factor priority explains why a current assessment answer or evidence item is shown here.
 const PRIORITY_RANK = {
   CRITICAL: 0,
   HIGH: 1,
@@ -14,7 +14,7 @@ const PRIORITY_RANK = {
 
 const EVIDENCE_SOURCES = new Set(["DATASET_ATTRIBUTE", "QID_COMBINATION"]);
 
-export const isEvidenceDriver = (driver) => EVIDENCE_SOURCES.has(driver?.source);
+export const isDatasetEvidenceDriver = (driver) => EVIDENCE_SOURCES.has(driver?.source);
 
 /**
  * One parameter per parameterCode. The backend already returns unique definitions; this is a
@@ -66,15 +66,12 @@ export function preferredValue(parameter) {
 export const isUnresolvableParameter = (parameter) => (parameter.allowedValues || []).length === 0;
 
 /**
- * Table rows of the planner: one row per catalogue action, even when the action addresses several
- * risk drivers. The addressed drivers are attached for traceability only.
+ * Action rows of the planner: one row per catalogue action, even when the action addresses several
+ * risk factors. The addressed drivers are attached for traceability only.
  */
 export function buildActionRows(overview) {
   const dataDrivers = overview?.riskDrivers?.dataDrivers || [];
   const contextDrivers = overview?.riskDrivers?.contextDrivers || [];
-  const constraintsByKey = new Map(
-    (overview?.projectConstraints || []).map((constraint) => [constraint.key, constraint])
-  );
   const toRow = (group, drivers) => (opportunity) => {
     const addressedIds = new Set(opportunity.addressedRiskDriverIds || []);
     const addressedRiskDrivers = sortDrivers(
@@ -90,7 +87,6 @@ export function buildActionRows(overview) {
       parameters: dedupeParameters(opportunity.parameters),
       addressedRiskDrivers,
       priority: addressedRiskDrivers[0]?.priority || null,
-      requiredTemporalResolution: constraintsByKey.get("requiredTemporalResolution")?.value || null,
     };
   };
   return sortRows([
@@ -107,7 +103,7 @@ function sortDrivers(drivers) {
   return [...drivers].sort((left, right) => driverPriorityRank(left.priority) - driverPriorityRank(right.priority));
 }
 
-// Actions addressing critical findings first; the catalogue order is kept otherwise.
+// Actions addressing critical risk factors first; the catalogue order is kept otherwise.
 function sortRows(rows) {
   return rows
     .map((row, index) => ({ row, index }))
@@ -118,22 +114,24 @@ function sortRows(rows) {
     .map(({ row }) => row);
 }
 
+// Grouping predicates use stable source/category codes, never display labels.
+export const isImpactDriver = (driver) => driver?.source === "DATASET_QUESTION";
+export const isControlsDriver = (driver) =>
+  driver?.source === "RECIPIENT_QUESTION" && driver?.categoryCode === "CONTROLS";
+export const isLikelihoodDriver = (driver) =>
+  driver?.source === "RECIPIENT_QUESTION" && driver?.categoryCode === "LIKELIHOOD";
+
 /**
- * Splits drivers into the planner's display groups. Positive answers are not mitigation needs and
- * are omitted; neutral answers are offered as additional improvement opportunities.
+ * Risk factors shown in the planner: high-risk triggers (Critical) first, then negative answers
+ * (High). Neutral and positive answers are not mitigation needs in this milestone.
  */
-export function groupDriversByPriority(drivers = []) {
-  const byPriority = (priority) => drivers.filter((driver) => driver.priority === priority);
-  return {
-    critical: byPriority("CRITICAL"),
-    high: byPriority("HIGH"),
-    optional: byPriority("OPTIONAL_IMPROVEMENT"),
-  };
+export function visibleRiskFactors(drivers = []) {
+  return sortDrivers(drivers.filter((driver) => driver.priority === "CRITICAL" || driver.priority === "HIGH"));
 }
 
 export function driverTitle(driver) {
   if (!driver) return "";
-  if (isEvidenceDriver(driver)) {
+  if (isDatasetEvidenceDriver(driver)) {
     return (driver.attributeNames || []).join(" + ");
   }
   return driver.questionText || driver.questionCode || "";
@@ -141,61 +139,12 @@ export function driverTitle(driver) {
 
 /** Current answer (questionnaire) or classification (Dataset Assessment evidence). */
 export function driverCurrentState(driver) {
-  if (isEvidenceDriver(driver)) {
+  if (isDatasetEvidenceDriver(driver)) {
     return formatAttributeRole(driver.attributeRole);
   }
   return driver.selectedOptionText || "—";
 }
 
-/** "Risk driver / evidence" cell: one driver title, or a count with the details on expansion. */
-export function riskDriverSummary(row) {
-  const drivers = row.addressedRiskDrivers || [];
-  if (drivers.length === 1) {
-    const [driver] = drivers;
-    return isEvidenceDriver(driver)
-      ? `${driverTitle(driver)} · ${formatAttributeRole(driver.attributeRole)}`
-      : driverTitle(driver);
-  }
-  if (drivers.length > 1) {
-    return `Addresses ${drivers.length} current findings`;
-  }
-  return "—";
-}
-
-/**
- * Context rows: current and projected answers come from the explicit catalogue mapping. The
- * projected answer is only used in memory if the plan is evaluated counterfactually.
- */
-export function contextAnswerTransition(row) {
-  const findings = row.matchedFindings || [];
-  if (findings.length === 0) return { current: "—", projected: "—" };
-  const distinct = (values) => [...new Set(values.filter(Boolean))].join(" / ") || "—";
-  return {
-    current: distinct(findings.map((finding) => finding.currentOptionText)),
-    projected: distinct(findings.map((finding) => finding.potentialOptionText)),
-  };
-}
-
-/**
- * Data rows: the Project requirement most relevant to choosing this transformation. Values are
- * taken from explicit catalogue metadata and Project constraints, never from action names.
- */
-export function dataProjectConsideration(row) {
-  const hasTemporalParameter = (row.parameters || []).some(
-    (parameter) => parameter.parameterCode === "TARGET_RESOLUTION"
-  );
-  if (hasTemporalParameter) {
-    const required = row.requiredTemporalResolution;
-    return required && required !== "NOT_REQUIRED"
-      ? `${formatOptionValue(required)} required`
-      : "No temporal requirement";
-  }
-  if (row.recordRetentionEffect === "MAY_REMOVE_RECORDS") return "May remove records";
-  if (row.resultingDataForm === "AGGREGATED") return "Aggregate output only";
-  if (row.resultingDataForm === "SYNTHETIC") return "Synthetic output";
-  if (row.resultingDataForm === "PRESERVES_INDIVIDUAL_LEVEL") return "Individual-level structure retained";
-  return "Data form not configured";
-}
 
 /** Plain-text lines describing the selected parameters of a planned action. */
 export function planActionParameterLines(action) {

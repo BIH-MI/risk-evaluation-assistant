@@ -41,7 +41,46 @@ public class CounterfactualContextResultDTO {
     private List<ConflictingQuestionMapping> conflictingQuestionMappings = new ArrayList<>();
     private List<String> warnings = new ArrayList<>();
 
+    // Explanatory diagnostics of the projected (in-memory) answer set. They never feed back into
+    // the risk computation.
+    private List<RemainingHighRiskTrigger> remainingHighRiskTriggers = new ArrayList<>();
+    private List<CategoryOutcome> categoryOutcomes = new ArrayList<>();
+
     private ContextRiskMatrix matrix;
+
+    /** Why a context category has (or has not) moved in the counterfactual result. */
+    public enum CategoryOutcomeReason {
+        // The recalculated band differs from the baseline band.
+        BAND_CHANGED,
+        // A projected answer is still a high-risk trigger, so the engine keeps the override band.
+        HIGH_RISK_TRIGGERS_REMAIN,
+        // Answers changed and no trigger remains, but the normalized score stays in the same band.
+        SAME_SCORE_BAND,
+        // None of the selected controls changes an answer in this category.
+        NOT_ADDRESSED
+    }
+
+    /** A high-risk-trigger answer that is still selected after all projected changes. */
+    @Data
+    @NoArgsConstructor
+    public static class RemainingHighRiskTrigger {
+        private String categoryCode;
+        private String questionCode;
+        private String questionText;
+        private String selectedOptionText;
+    }
+
+    @Data
+    @NoArgsConstructor
+    public static class CategoryOutcome {
+        private String categoryCode;
+        private String categoryLabel;
+        private String baselineBand;
+        private String projectedBand;
+        private int changedAnswerCount;
+        private int remainingHighRiskTriggerCount;
+        private CategoryOutcomeReason reason;
+    }
 
     @Data
     @NoArgsConstructor

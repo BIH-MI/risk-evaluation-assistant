@@ -14,7 +14,7 @@ export default function MitigationPlannerHeader() {
       <RATypography variant="body2">
         {t(
           "mitigationPlanner.subtitle",
-          "Review risk-driving findings, configured mitigation options, Project constraints, and the remaining evaluations needed before a sharing arrangement can be considered."
+          "Review risk factors, configured mitigation options, Project constraints, and the remaining evaluations needed before a sharing arrangement can be considered."
         )}
       </RATypography>
     </RABox>

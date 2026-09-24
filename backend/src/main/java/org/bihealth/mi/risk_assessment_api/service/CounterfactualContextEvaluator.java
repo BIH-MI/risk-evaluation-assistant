@@ -16,11 +16,14 @@ import java.util.stream.Collectors;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.CounterfactualContextResultDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.CounterfactualContextResultDTO.AppliedAction;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.CounterfactualContextResultDTO.AppliedQuestionChange;
+import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.CounterfactualContextResultDTO.CategoryOutcome;
+import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.CounterfactualContextResultDTO.CategoryOutcomeReason;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.CounterfactualContextResultDTO.ConflictingProjection;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.CounterfactualContextResultDTO.ConflictingQuestionMapping;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.CounterfactualContextResultDTO.ContextRiskMatrix;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.CounterfactualContextResultDTO.ContextRiskState;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.CounterfactualContextResultDTO.MatrixCell;
+import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.CounterfactualContextResultDTO.RemainingHighRiskTrigger;
 import org.bihealth.mi.risk_assessment_api.dto.response.report.GenericRiskResponseDTO;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationActionType;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationSharingArrangement;
@@ -225,7 +228,105 @@ public class CounterfactualContextEvaluator {
         if (!Objects.equals(baseline.getThreshold(), projected.getThreshold())) {
             warnings.add("The target threshold T differs between baseline and what-if; only context should change.");
         }
+        explainCategoryOutcomes(result, assessment, actualAnswers, hypotheticalAnswers, baseline, projected);
         return result;
+    }
+
+    /**
+     * Explains, per context category, why the recalculated band did or did not move. Remaining
+     * triggers are read from the hypothetical answers (never from the baseline), and the override
+     * state comes from the engine's own projected result. This is explanatory metadata only.
+     */
+    private void explainCategoryOutcomes(
+            CounterfactualContextResultDTO result,
+            RecipientAssessment assessment,
+            List<Answer> actualAnswers,
+            List<Answer> hypotheticalAnswers,
+            GenericRiskResponseDTO baseline,
+            GenericRiskResponseDTO projected
+    ) {
+        for (Answer answer : hypotheticalAnswers) {
+            QuestionOption option = answer.getSelectedOption();
+            String categoryCode = categoryCode(answer);
+            if (option != null && option.isHighRiskTrigger() && isContextCategory(categoryCode)) {
+                RemainingHighRiskTrigger trigger = new RemainingHighRiskTrigger();
+                trigger.setCategoryCode(categoryCode);
+                trigger.setQuestionCode(answer.getQuestion().getCode());
+                trigger.setQuestionText(answer.getQuestion().getText());
+                trigger.setSelectedOptionText(option.getText());
+                result.getRemainingHighRiskTriggers().add(trigger);
+            }
+        }
+
+        Map<Long, QuestionOption> currentOptions = actualAnswers.stream()
+                .filter(answer -> answer.getSelectedOption() != null)
+                .collect(Collectors.toMap(answer -> answer.getQuestion().getId(), Answer::getSelectedOption, (a, b) -> a));
+        Map<String, String> labels = categoryLabels(assessment);
+        for (String categoryCode : List.of(CONTROLS, LIKELIHOOD)) {
+            int changedAnswers = (int) hypotheticalAnswers.stream()
+                    .filter(answer -> categoryCode.equalsIgnoreCase(categoryCode(answer)))
+                    .filter(answer -> {
+                        QuestionOption current = currentOptions.get(answer.getQuestion().getId());
+                        return current != null && !Objects.equals(current.getId(), answer.getSelectedOption().getId());
+                    })
+                    .count();
+            int remainingTriggers = (int) result.getRemainingHighRiskTriggers().stream()
+                    .filter(trigger -> categoryCode.equalsIgnoreCase(trigger.getCategoryCode()))
+                    .count();
+
+            CategoryOutcome outcome = new CategoryOutcome();
+            outcome.setCategoryCode(categoryCode);
+            outcome.setCategoryLabel(labels.getOrDefault(categoryCode, categoryCode));
+            outcome.setBaselineBand(RiskResultBands.categoryBand(baseline, categoryCode));
+            outcome.setProjectedBand(RiskResultBands.categoryBand(projected, categoryCode));
+            outcome.setChangedAnswerCount(changedAnswers);
+            outcome.setRemainingHighRiskTriggerCount(remainingTriggers);
+            outcome.setReason(outcomeReason(outcome, RiskResultBands.highRiskTriggered(projected, categoryCode)));
+            result.getCategoryOutcomes().add(outcome);
+        }
+    }
+
+    private CategoryOutcomeReason outcomeReason(CategoryOutcome outcome, boolean projectedOverride) {
+        if (!Objects.equals(outcome.getBaselineBand(), outcome.getProjectedBand())) {
+            return CategoryOutcomeReason.BAND_CHANGED;
+        }
+        if (projectedOverride) {
+            return CategoryOutcomeReason.HIGH_RISK_TRIGGERS_REMAIN;
+        }
+        return outcome.getChangedAnswerCount() > 0
+                ? CategoryOutcomeReason.SAME_SCORE_BAND
+                : CategoryOutcomeReason.NOT_ADDRESSED;
+    }
+
+    private Map<String, String> categoryLabels(RecipientAssessment assessment) {
+        ConfigurationVersion version = configurationVersion(assessment);
+        if (version == null) {
+            return Map.of();
+        }
+        return version.getRiskCategories().stream()
+                .filter(category -> category.getCode() != null && category.getName() != null)
+                .collect(Collectors.toMap(
+                        category -> category.getCode().trim().toUpperCase(Locale.ROOT),
+                        RiskCategory::getName,
+                        (a, b) -> a));
+    }
+
+    private String categoryCode(Answer answer) {
+        RiskCategory category = answer.getQuestion() == null ? null : answer.getQuestion().getCategory();
+        return category == null || category.getCode() == null ? null : category.getCode().trim().toUpperCase(Locale.ROOT);
+    }
+
+    private boolean isContextCategory(String categoryCode) {
+        return CONTROLS.equals(categoryCode) || LIKELIHOOD.equals(categoryCode);
+    }
+
+    private ConfigurationVersion configurationVersion(RecipientAssessment assessment) {
+        if (assessment.getConfigurationVersion() != null) {
+            return assessment.getConfigurationVersion();
+        }
+        return assessment.getConfiguration() == null
+                ? null
+                : assessment.getConfiguration().getCurrentVersionEntity().orElse(null);
     }
 
     private List<MitigationAction> validateActions(
@@ -283,10 +384,7 @@ public class CounterfactualContextEvaluator {
 
     /** Exposes the framework's actual configured matrix; nothing is hard-coded or recomputed. */
     private ContextRiskMatrix buildMatrix(RecipientAssessment assessment) {
-        ConfigurationVersion version = assessment.getConfigurationVersion() != null
-                ? assessment.getConfigurationVersion()
-                : assessment.getConfiguration() == null ? null
-                        : assessment.getConfiguration().getCurrentVersionEntity().orElse(null);
+        ConfigurationVersion version = configurationVersion(assessment);
         if (version == null) {
             return null;
         }

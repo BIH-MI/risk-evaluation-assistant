@@ -6,13 +6,31 @@ import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
 import ProjectConstraintChip from "./ProjectConstraintChip";
 
+function comparableText(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+function planEvidenceLines(check) {
+  const planEvidence = String(check.planEvidence || "").trim();
+  const note = String(check.note || "").trim();
+  const lines = [];
+
+  if (planEvidence) lines.push(planEvidence);
+  if (note && comparableText(note) !== comparableText(planEvidence)) lines.push(note);
+
+  return lines;
+}
+
 // Every check was computed by the backend; this component only renders it.
 export default function ProjectConstraintChecks({ checks }) {
   const { t } = useTranslation();
 
   return (
     <RABox>
-      <RATypography variant="subtitle1" fontWeight="bold" mb={1}>
+      <RATypography variant="h6" fontWeight="bold" textAlign="center" width="100%" mb={1}>
         {t("mitigationPlanner.checks.title", "Project Constraint Checks")}
       </RATypography>
       {checks.length === 0 ? (
@@ -31,23 +49,32 @@ export default function ProjectConstraintChecks({ checks }) {
               </TableRow>
             </TableHead>
             <TableBody>
-              {checks.map((check) => (
-                <TableRow key={check.key}>
-                  <TableCell>{check.label}</TableCell>
-                  <TableCell sx={{ overflowWrap: "anywhere" }}>{check.required}</TableCell>
-                  <TableCell>
-                    {check.planEvidence}
-                    {check.note && (
-                      <RATypography variant="caption" display="block" sx={{ color: "text.secondary" }}>
-                        {check.note}
-                      </RATypography>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <ProjectConstraintChip result={check.status} />
-                  </TableCell>
-                </TableRow>
-              ))}
+              {checks.map((check) => {
+                const evidenceLines = planEvidenceLines(check);
+
+                return (
+                  <TableRow key={check.key}>
+                    <TableCell>{check.label}</TableCell>
+                    <TableCell sx={{ overflowWrap: "anywhere" }}>{check.required}</TableCell>
+                    <TableCell>
+                      {evidenceLines.length === 0
+                        ? "—"
+                        : evidenceLines.map((line, index) => (
+                            <RATypography
+                              key={`${check.key}:evidence:${index}`}
+                              variant="body2"
+                              sx={index === 0 ? undefined : { color: "text.secondary" }}
+                            >
+                              {line}
+                            </RATypography>
+                          ))}
+                    </TableCell>
+                    <TableCell>
+                      <ProjectConstraintChip result={check.status} />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>

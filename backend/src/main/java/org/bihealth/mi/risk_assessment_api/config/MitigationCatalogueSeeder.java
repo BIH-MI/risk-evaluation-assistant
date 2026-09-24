@@ -299,6 +299,44 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
         ensureEstimate(confidentiality, 500, 2000, 1, 3,
                 "Illustrative estimate for preparing staff confidentiality obligations from an existing institutional template. Replace with local legal and HR costing.");
 
+        // The next three safeguards map El Emam CONTROLS questions whose "No" answer is a
+        // high-risk trigger and whose "Yes" answer is exactly the verified outcome of the action.
+        // No operational estimate is configured: unknown cost/time stays N/A rather than invented.
+        MitigationAction threatRiskAssessment = ensureAction(
+                "CONDUCT_RECIPIENT_THREAT_RISK_ASSESSMENT",
+                "Conduct a threat and risk assessment of the recipient",
+                "Complete and document a threat and risk assessment of the recipient environment before data are disclosed.",
+                MitigationActionType.CONTEXT_CONTROL,
+                "Assess threats, vulnerabilities and existing safeguards of the recipient's processing environment using an accepted method, document the findings and agree remediation of identified gaps.",
+                "Signed threat and risk assessment report covering the recipient environment, with identified gaps remediated or formally accepted.",
+                "A completed recipient threat and risk assessment is a verifiable organizational control that the questionnaire records directly."
+        );
+        ensureQuestionMapping(threatRiskAssessment, EL_EMAM_NAME, "CONTROLS_RECIPIENT_RISK_ASSESSMENT", "NO", "YES");
+
+        MitigationAction physicalAccess = ensureAction(
+                "RESTRICT_PHYSICAL_ACCESS_TO_PROCESSING_AREAS",
+                "Restrict physical access to data-processing areas",
+                "Ensure there is no public access to areas where computers holding the data are located.",
+                MitigationActionType.CONTEXT_CONTROL,
+                "Locate systems holding the data in access-controlled rooms (badge or key access for authorized staff only) or move processing to such a facility.",
+                "Evidence of physical access control for the areas housing the systems, e.g. access-control configuration, facility policy or site inspection record.",
+                "Physical access restriction is a technical/organizational context control recorded by the questionnaire."
+        );
+        ensureQuestionMapping(physicalAccess, EL_EMAM_NAME,
+                "THERE_IS_NO_PUBLIC_ACCESS_TO_AREAS_WHERE_COMPUTERS_HOLDING_THE_DATA_WILL_BE", "NO", "YES");
+
+        MitigationAction dataDestruction = ensureAction(
+                "ENFORCE_DATA_DESTRUCTION_AFTER_PURPOSE",
+                "Define and enforce data retention and destruction",
+                "Require that the shared data are destroyed once the approved purpose has been accomplished.",
+                MitigationActionType.CONTEXT_CONTROL,
+                "Specify a retention period and secure destruction procedure in the agreement or project policy, and assign responsibility for executing it.",
+                "Agreement or policy clause defining retention and destruction, plus the procedure that will produce a destruction certificate at the end of the purpose.",
+                "Guaranteed destruction limits the period during which the data can be misused and is recorded by the questionnaire."
+        );
+        ensureQuestionMapping(dataDestruction, EL_EMAM_NAME,
+                "THE_DATA_WILL_BE_DESTROYED_ONCE_ITS_PURPOSE_HAS_BEEN_ACCOMPLISHED", "NO", "YES");
+
         MitigationAction approvedInfrastructure = ensureAction(
                 "USE_APPROVED_SECURE_INFRASTRUCTURE",
                 "Use approved secure infrastructure",

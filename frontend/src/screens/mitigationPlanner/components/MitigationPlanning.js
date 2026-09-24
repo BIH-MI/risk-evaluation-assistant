@@ -2,30 +2,28 @@ import PropTypes from "prop-types";
 import { useTranslation } from "react-i18next";
 import { CircularProgress, Divider } from "@mui/material";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
 import RAButton from "components/input/RAButton";
 import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
-import RequirementHelpTooltip from "components/display/RequirementHelpTooltip";
-import ContextActionTable from "./ContextActionTable";
-import DataActionTable from "./DataActionTable";
-import RiskDriverSection from "./RiskDriverSection";
+import DataTransformationAccordion from "./DataTransformationAccordion";
+import RiskFactorGroup from "./RiskFactorGroup";
+import {
+  isControlsDriver,
+  isDatasetEvidenceDriver,
+  isImpactDriver,
+  isLikelihoodDriver,
+} from "../utils/mitigationPlanRows";
 
-function SideHeading({ title, description }) {
+function RiskHeading({ title }) {
   return (
-    <RABox>
-      <RATypography variant="h6" fontWeight="bold">
-        {title}
-      </RATypography>
-      <RATypography variant="body2" sx={{ color: "text.secondary" }}>
-        {description}
-      </RATypography>
-    </RABox>
+    <RATypography variant="h5" fontWeight="bold" textAlign="center" width="100%">
+      {title}
+    </RATypography>
   );
 }
 
-SideHeading.propTypes = { title: PropTypes.string.isRequired, description: PropTypes.string.isRequired };
+RiskHeading.propTypes = { title: PropTypes.string.isRequired };
 
 function UnavailableNotice({ section }) {
   if (section?.availability !== "UNAVAILABLE") return null;
@@ -40,80 +38,53 @@ function UnavailableNotice({ section }) {
 UnavailableNotice.propTypes = { section: PropTypes.object };
 UnavailableNotice.defaultProps = { section: null };
 
-// Stated once for all data transformations instead of repeating it on every row.
-function ProposedTransformationNotice() {
-  const { t } = useTranslation();
-  return (
-    <RABox display="flex" alignItems="flex-start" gap={1}>
-      <InfoOutlinedIcon fontSize="small" sx={{ color: "info.main", mt: 0.25 }} />
-      <RATypography variant="body2" sx={{ color: "text.secondary" }}>
-        <strong>{t("mitigationPlanner.data.residualNotEvaluated", "Residual data risk: Not evaluated.")}</strong>{" "}
-        {t(
-          "mitigationPlanner.data.proposalNotice",
-          "The transformation has not been executed. Its effect on residual re-identification risk must be measured before it can be compared with the required anonymisation threshold."
-        )}
-      </RATypography>
-    </RABox>
-  );
-}
-
 /**
- * Risk drivers and their configured mitigation options, kept in two visually separate sides.
- * Candidate plans are researcher-constructed: nothing is combined or ranked automatically.
+ * Risk factors and configured mitigation options:
+ *   Data Risk: Impact factors and data transformations (collapsed)
+ *   Context Risk: Controls and Likelihood factors
+ * Candidate plans are researcher-constructed; selection identity is always the action id.
  */
 export default function MitigationPlanning({ overview, builder }) {
   const { t } = useTranslation();
   const { dataRows, contextRows } = builder;
+  const dataDrivers = overview.riskDrivers?.dataDrivers || [];
+  const contextDrivers = overview.riskDrivers?.contextDrivers || [];
 
   return (
     <RABox display="flex" flexDirection="column" gap={4}>
-      <RABox display="flex" alignItems="center" justifyContent="center" gap={0.75}>
-        <RATypography variant="subtitle1" fontWeight="bold" textAlign="center">
-          {t("mitigationPlanner.planning.driversTitle", "Risk Drivers and Mitigation Options")}
-        </RATypography>
-        <RequirementHelpTooltip
-          title={t(
-            "mitigationPlanner.planning.driversHelp",
-            "Risk drivers are questionnaire answers or dataset findings that contribute to the current assessment. High-risk triggers are shown first because they override normal category scoring. Suggested actions are drawn only from the configured Mitigation Catalogue."
-          )}
-        >
-          <InfoOutlinedIcon fontSize="small" sx={{ color: "text.secondary", cursor: "help" }} />
-        </RequirementHelpTooltip>
-      </RABox>
-
-      <RABox component="section" display="flex" flexDirection="column" gap={2}>
-        <SideHeading
-          title={t("mitigationPlanner.planning.dataTitle", "A. Data-side Risk Drivers")}
-          description={t(
-            "mitigationPlanner.planning.dataDescription",
-            "Invasion of Privacy answers and Dataset Assessment evidence. Data transformations are proposals and do not change Impact or T until transformed data are reassessed."
-          )}
-        />
+      <RABox component="section" display="flex" flexDirection="column" gap={2.5}>
+        <RiskHeading title={t("mitigationPlanner.planning.dataTitle", "Data Risk")} />
         <UnavailableNotice section={overview.dataOpportunities} />
-        <RiskDriverSection drivers={overview.riskDrivers?.dataDrivers || []} actionRows={dataRows} />
-        <RATypography variant="subtitle2" fontWeight="bold">
-          {t("mitigationPlanner.planning.dataOptions", "Data transformation options")}
-        </RATypography>
-        {dataRows.length > 0 && <ProposedTransformationNotice />}
-        <DataActionTable rows={dataRows} builder={builder} />
+        <RiskFactorGroup
+          title={t("mitigationPlanner.planning.impactTitle", "Impact")}
+          drivers={dataDrivers.filter(isImpactDriver)}
+          actionRows={dataRows}
+          builder={builder}
+        />
+        <DataTransformationAccordion
+          evidenceDrivers={dataDrivers.filter(isDatasetEvidenceDriver)}
+          dataRows={dataRows}
+          builder={builder}
+        />
       </RABox>
 
       <Divider />
 
-      <RABox component="section" display="flex" flexDirection="column" gap={2}>
-        <SideHeading
-          title={t("mitigationPlanner.planning.contextTitle", "B. Context-side Risk Drivers")}
-          description={t(
-            "mitigationPlanner.planning.contextDescription",
-            "Mitigating Controls and Motives & Capacity answers. Only explicitly mapped context controls are offered; their projected context-model effect is evaluated in memory."
-          )}
-        />
+      <RABox component="section" display="flex" flexDirection="column" gap={2.5}>
+        <RiskHeading title={t("mitigationPlanner.planning.contextTitle", "Context Risk")} />
         <UnavailableNotice section={overview.contextOpportunities} />
-        <RiskDriverSection drivers={overview.riskDrivers?.contextDrivers || []} actionRows={contextRows} />
-        <RATypography variant="subtitle2" fontWeight="bold">
-          {t("mitigationPlanner.planning.contextOptions", "Context control options")}
-        </RATypography>
-        <ContextActionTable rows={contextRows} builder={builder} />
+        <RiskFactorGroup
+          title={t("mitigationPlanner.planning.controlsTitle", "Controls")}
+          drivers={contextDrivers.filter(isControlsDriver)}
+          actionRows={contextRows}
+          builder={builder}
+        />
+        <RiskFactorGroup
+          title={t("mitigationPlanner.planning.likelihoodTitle", "Likelihood")}
+          drivers={contextDrivers.filter(isLikelihoodDriver)}
+          actionRows={contextRows}
+          builder={builder}
+        />
       </RABox>
 
       <RABox display="flex" flexDirection="column" alignItems="center" gap={1}>
@@ -143,7 +114,10 @@ MitigationPlanning.propTypes = {
     dataRows: PropTypes.array.isRequired,
     contextRows: PropTypes.array.isRequired,
     selectedActionIds: PropTypes.array.isRequired,
+    parameterChoices: PropTypes.object.isRequired,
     creating: PropTypes.bool.isRequired,
+    toggleAction: PropTypes.func.isRequired,
+    chooseParameter: PropTypes.func.isRequired,
     createPlan: PropTypes.func.isRequired,
   }).isRequired,
 };

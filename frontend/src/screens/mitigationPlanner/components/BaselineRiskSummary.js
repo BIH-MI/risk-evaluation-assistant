@@ -29,14 +29,14 @@ export default function BaselineRiskSummary({ baselineRisk }) {
     ],
     [t("mitigationPlanner.baseline.attackProbability", "Context probability of attack P_attack"), formatPercentageValue(baselineRisk.attackProbability)],
     [
-      t("mitigationPlanner.baseline.anonymizationThreshold", "Required data-risk threshold R_anon"),
+      t("mitigationPlanner.baseline.anonymizationThreshold", "Anonymization threshold"),
       formatPercentageValue(baselineRisk.anonymizationThreshold),
       false,
       "rAnon",
     ],
     [t("mitigationPlanner.baseline.impact", "Impact / Invasion of Privacy"), baselineRisk.impactBand || "—"],
-    [t("mitigationPlanner.baseline.controls", "Mitigating Controls"), baselineRisk.controlsBand || "—"],
-    [t("mitigationPlanner.baseline.likelihood", "Motives & Capacity / Likelihood"), baselineRisk.likelihoodBand || "—"],
+    [t("mitigationPlanner.baseline.controls", "Controls"), baselineRisk.controlsBand || "—"],
+    [t("mitigationPlanner.baseline.likelihood", "Likelihood"), baselineRisk.likelihoodBand || "—"],
   ];
 
   return (

@@ -32,16 +32,10 @@ export function buildMatrixModel(matrix, baseline, projected) {
     from,
     to,
     sameCell,
-    moved: placed(from) && placed(to) && !sameCell,
     cellAt: (likelihoodBand, controlsBand) =>
       matrix.cells.find(
         (cell) => sameLabel(cell.controlsBand, controlsBand) && sameLabel(cell.likelihoodBand, likelihoodBand)
       ),
-    // Cell centre in percent of the grid, used for the movement arrow.
-    center: (position) => ({
-      x: ((position.col + 0.5) / controls.length) * 100,
-      y: ((position.row + 0.5) / likelihood.length) * 100,
-    }),
   };
 }
 

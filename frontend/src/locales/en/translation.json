@@ -555,7 +555,7 @@
     },
     "riskMatrix": {
       "title": "Context Risk Matrix",
-      "description": "The Context Risk Matrix calculates the probability of an attack based on the recipient's Motives and Capacities and their Mitigating Controls that are in place. These qualitative levels are mapped to a quantitative attack probability in the given data sharing environment.",
+      "description": "The Context Risk Matrix calculates the probability of an attack based on the recipient's Likelihood and Controls levels. These qualitative levels are mapped to a quantitative attack probability in the given data sharing environment.",
       "conditions": "Conditions",
       "contextRisk": "Context Risk",
       "action": "Action",

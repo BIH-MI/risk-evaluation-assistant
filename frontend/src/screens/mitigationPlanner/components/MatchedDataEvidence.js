@@ -118,7 +118,7 @@ export default function MatchedDataEvidence({ targets }) {
       <SectionLabel>{t("mitigationPlanner.card.matchedEvidence", "Matched Dataset Assessment evidence")}</SectionLabel>
       {targets.length === 0 && (
         <RATypography variant="body2" sx={{ color: "text.secondary" }}>
-          This action is linked to a current Invasion of Privacy answer, not to specific attributes.
+          This action is linked to a current Impact answer, not to specific attributes.
         </RATypography>
       )}
       {[...groupBy(attributes, (target) => target.attributeRole)].map(([role, group]) => (

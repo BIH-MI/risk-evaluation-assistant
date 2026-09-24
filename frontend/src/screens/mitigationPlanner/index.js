@@ -15,7 +15,7 @@ import SelectedPlanAssessment from "./components/SelectedPlanAssessment";
 import useMitigationPlanBuilder from "./useMitigationPlanBuilder";
 import useMitigationPlanner from "./useMitigationPlanner";
 
-// One continuous report-style page (no tabs): Project requirements, baseline, risk drivers and
+// One continuous report-style page (no tabs): Project requirements, baseline, risk factors and
 // mitigation options, candidate plans, and the selected plan's assessment. Plan evaluation happens
 // on the backend; candidate plans are not persisted and stored assessments are never modified.
 export default function MitigationPlannerPage() {
@@ -28,7 +28,7 @@ export default function MitigationPlannerPage() {
 
   return (
     <>
-      <RABox py={8} sx={{ maxWidth: 1100, mx: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
+      <RABox py={8} sx={{ maxWidth: 1100, mx: "auto", display: "flex", flexDirection: "column", gap: 3 }}>
         <MitigationPlannerHeader />
 
         {loading && (
@@ -64,7 +64,7 @@ export default function MitigationPlannerPage() {
               title={t("mitigationPlanner.sections.planning", "Mitigation Planning")}
               description={t(
                 "mitigationPlanner.sections.planningDescription",
-                "Risk-driving findings from the current assessment are matched to configured mitigation options. Project requirements are used to identify compatible choices and unresolved constraints."
+                "Risk factors from the current assessment are matched to configured mitigation options. Project requirements are used to identify compatible choices and unresolved constraints."
               )}
             >
               <MitigationPlanning overview={overview} builder={builder} />
@@ -86,7 +86,7 @@ export default function MitigationPlannerPage() {
               <PlannerSection
                 id="assessment"
                 framed={false}
-                title={t("mitigationPlanner.sections.assessment", "Selected Plan — Assessment")}
+                title={t("mitigationPlanner.sections.assessment", "Assessment Report")}
               >
                 <SelectedPlanAssessment plan={builder.selectedPlan} baselineRisk={overview.baselineRisk} />
               </PlannerSection>

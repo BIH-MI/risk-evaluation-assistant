@@ -563,7 +563,7 @@
     },
     "riskMatrix": {
       "title": "Kontextrisiko-Matrix",
-      "description": "Die Kontextrisiko-Matrix berechnet die Wahrscheinlichkeit eines Angriffs basierend auf den Motiven und Kapazitäten des Empfängers sowie den vorhandenen mildernden Kontrollen. Diese qualitativen Stufen werden einer quantitativen Angriffswahrscheinlichkeit in der jeweiligen Datenfreigabeumgebung zugeordnet.",
+      "description": "Die Kontextrisiko-Matrix berechnet die Wahrscheinlichkeit eines Angriffs basierend auf den Likelihood- und Controls-Stufen des Empfängers. Diese qualitativen Stufen werden einer quantitativen Angriffswahrscheinlichkeit in der jeweiligen Datenfreigabeumgebung zugeordnet.",
       "conditions": "Bedingungen",
       "contextRisk": "Kontextrisiko",
       "action": "Aktion",

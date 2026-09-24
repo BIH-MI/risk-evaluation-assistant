@@ -1,6 +1,7 @@
 import PropTypes from "prop-types";
 import { useTranslation } from "react-i18next";
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
 import RequirementHelpTooltip from "components/display/RequirementHelpTooltip";
@@ -8,48 +9,52 @@ import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
 import { formatPercentageValue } from "screens/dataSharingReport/reportDataUtils";
 
+function contextChangeTone(baseline, projected) {
+  if (baseline?.attackProbability == null || projected?.attackProbability == null) return null;
+  if (projected.attackProbability < baseline.attackProbability) return "success.main";
+  if (projected.attackProbability > baseline.attackProbability) return "error.main";
+  return null;
+}
+
 /**
- * Baseline versus the counterfactual context of the selected plan. All values are backend results
- * of RiskComputationService. R_anon is a requirement; q is a measurement and remains
- * "Not evaluated" because changing context controls does not measure the data.
+ * Baseline versus the counterfactual context of the selected plan. Every value is a backend result
+ * of RiskComputationService; a value is highlighted only when it actually differs.
  */
 export default function BaselinePlanComparison({ context, planLabel }) {
   const { t } = useTranslation();
-  const notEvaluated = t("mitigationPlanner.risk.notEvaluated", "Not evaluated");
   const { baseline, projected } = context;
+  const changeTone = contextChangeTone(baseline, projected);
   const rows = [
     // Context-only what-ifs keep Impact and T fixed, so both columns share one value.
-    { key: "impact", label: t("mitigationPlanner.risk.impact", "Impact / Invasion of Privacy"), before: context.impactBand, after: context.impactBand },
+    { key: "impact", label: t("mitigationPlanner.risk.impact", "Impact"), before: context.impactBand, after: context.impactBand },
     {
       key: "t",
       label: t("mitigationPlanner.risk.targetThreshold", "Overall target threshold T"),
       before: formatPercentageValue(context.targetThreshold),
       after: formatPercentageValue(context.targetThreshold),
     },
-    { key: "controls", label: t("mitigationPlanner.risk.controls", "Mitigating Controls"), before: baseline.controlsBand, after: projected.controlsBand },
-    {
-      key: "likelihood",
-      label: t("mitigationPlanner.risk.likelihood", "Motives & Capacity / Likelihood"),
-      before: baseline.likelihoodBand,
-      after: projected.likelihoodBand,
-    },
+    { key: "controls", label: t("mitigationPlanner.risk.controls", "Controls"), before: baseline.controlsBand, after: projected.controlsBand },
+    { key: "likelihood", label: t("mitigationPlanner.risk.likelihood", "Likelihood"), before: baseline.likelihoodBand, after: projected.likelihoodBand },
     {
       key: "pAttack",
-      label: t("mitigationPlanner.risk.pAttack", "Context probability of attack P_attack"),
+      label: t("mitigationPlanner.risk.pAttack", "Probability of attack"),
+      help: t(
+        "mitigationPlanner.risk.pAttackHelp",
+        "P_attack: the context-dependent probability of attack taken from the configured Controls × Likelihood matrix."
+      ),
       before: formatPercentageValue(baseline.attackProbability),
       after: formatPercentageValue(projected.attackProbability),
     },
     {
       key: "rAnon",
-      label: t("mitigationPlanner.risk.rAnon", "Required data-risk threshold R_anon"),
+      label: t("mitigationPlanner.risk.rAnon", "Anonymization threshold"),
       help: t(
         "mitigationPlanner.risk.rAnonHelp",
-        "The maximum residual re-identification risk permitted for the data under the current sharing context. It is a requirement, not a measurement of the current dataset."
+        "R_anon = min(1, T / P_attack): the maximum residual re-identification risk permitted for the data under this sharing context. It is a requirement, not a measurement of the dataset."
       ),
       before: formatPercentageValue(baseline.recommendedAnonymizationThreshold),
       after: formatPercentageValue(projected.recommendedAnonymizationThreshold),
     },
-    { key: "q", label: t("mitigationPlanner.risk.q", "Measured residual data risk q"), before: notEvaluated, after: notEvaluated },
   ];
 
   return (
@@ -69,6 +74,7 @@ export default function BaselinePlanComparison({ context, planLabel }) {
           <TableBody>
             {rows.map((row) => {
               const changed = row.before !== row.after;
+              const changedSx = changeTone ? { color: changeTone } : undefined;
               return (
                 <TableRow key={row.key}>
                   <TableCell>
@@ -81,11 +87,16 @@ export default function BaselinePlanComparison({ context, planLabel }) {
                       )}
                     </RABox>
                   </TableCell>
+                  <TableCell>{row.before || "—"}</TableCell>
                   <TableCell>
-                    <strong>{row.before || "—"}</strong>
-                  </TableCell>
-                  <TableCell sx={changed ? { color: "info.main" } : undefined}>
-                    <strong>{row.after || "—"}</strong>
+                    {changed ? (
+                      <RABox display="flex" alignItems="center" gap={0.75} sx={changedSx}>
+                        <ArrowForwardIcon fontSize="small" aria-label={t("mitigationPlanner.risk.changed", "changed")} />
+                        <strong>{row.after || "—"}</strong>
+                      </RABox>
+                    ) : (
+                      row.after || "—"
+                    )}
                   </TableCell>
                 </TableRow>
               );

@@ -34,21 +34,6 @@ const RISK_DRIVER_PRIORITY_LABELS = {
   NO_ACTION_REQUIRED: "No action required",
 };
 
-const RISK_DRIVER_SOURCE_LABELS = {
-  DATASET_QUESTION: "Invasion of Privacy",
-  RECIPIENT_QUESTION: "Recipient Assessment",
-  DATASET_ATTRIBUTE: "Dataset Assessment",
-  QID_COMBINATION: "Dataset Assessment",
-};
-
-const ANSWER_IMPACT_LABELS = {
-  POSITIVE: "Positive",
-  NEUTRAL: "Neutral",
-  NEGATIVE: "Negative",
-};
-
-export const formatAnswerImpact = (impact) => ANSWER_IMPACT_LABELS[impact] || humanizeCode(impact);
-
 // Display fallback only: a missing estimate stays unknown (null) and is never treated as zero.
 export const NOT_AVAILABLE = "N/A";
 
@@ -109,8 +94,6 @@ export const formatCompatibility = (compatibility) =>
 export const formatRiskDriverPriority = (priority) =>
   RISK_DRIVER_PRIORITY_LABELS[priority] || humanizeCode(priority);
 
-export const formatRiskDriverSource = (source) =>
-  RISK_DRIVER_SOURCE_LABELS[source] || humanizeCode(source);
 
 export function compatibilityColor(compatibility) {
   if (compatibility === "COMPATIBLE") return "success";
@@ -247,4 +230,46 @@ export function formatPlanSetup(setup) {
   }
   if (setup?.availability === "PARTIAL") return "Incomplete estimate";
   return setup?.availability === "REQUIRES_ESTIMATE" ? "Requires estimate" : NOT_AVAILABLE;
+}
+
+// Short category names used in counterfactual explanations; the configured name is the fallback.
+const CONTEXT_CATEGORY_LABELS = { CONTROLS: "Controls", LIKELIHOOD: "Likelihood" };
+
+const categoryName = (outcome) =>
+  CONTEXT_CATEGORY_LABELS[outcome.categoryCode] || outcome.categoryLabel || humanizeCode(outcome.categoryCode);
+
+const responseCount = (count) =>
+  `${count} high-risk-trigger response${count === 1 ? " is" : "s are"} still active`;
+
+/**
+ * Sentence explaining one context category of a counterfactual result. The reason and counts are
+ * backend diagnostics of the projected answers; nothing is inferred here.
+ */
+export function formatCategoryOutcome(outcome) {
+  const name = categoryName(outcome);
+  const band = outcome.projectedBand || "—";
+  switch (outcome.reason) {
+    case "BAND_CHANGED":
+      return `${name} changes from ${outcome.baselineBand || "—"} to ${band}.`;
+    case "HIGH_RISK_TRIGGERS_REMAIN":
+      return `${name} remains ${band} because ${responseCount(outcome.remainingHighRiskTriggerCount)}.`;
+    case "SAME_SCORE_BAND":
+      return `The selected controls improve ${name} responses, but the recalculated score remains within the same configured ${name} band (${band}).`;
+    case "NOT_ADDRESSED":
+      return `${name} remains ${band}; no selected control changes its responses.`;
+    default:
+      return "";
+  }
+}
+
+/** Explanation shown under the matrix when the baseline and plan markers share one cell. */
+export function formatUnchangedMatrixPosition(outcomes = []) {
+  const triggerOutcomes = outcomes.filter((outcome) => outcome.reason === "HIGH_RISK_TRIGGERS_REMAIN");
+  const detail =
+    triggerOutcomes.length > 0
+      ? triggerOutcomes
+          .map((outcome) => `${categoryName(outcome)} remains ${outcome.projectedBand || "—"} because ${responseCount(outcome.remainingHighRiskTriggerCount)}`)
+          .join("; ")
+      : "The recalculated questionnaire score remains within the same configured risk bands";
+  return `Context-risk matrix position unchanged. ${detail}.`;
 }

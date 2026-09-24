@@ -9,7 +9,7 @@ export const requirementHelpTooltipComponentsProps = {
       color: theme.palette.common.white,
       fontSize: "0.8rem",
       lineHeight: 1.4,
-      maxWidth: 320,
+      maxWidth: 380,
       px: 1.5,
       py: 1,
       boxShadow: theme.shadows[4],

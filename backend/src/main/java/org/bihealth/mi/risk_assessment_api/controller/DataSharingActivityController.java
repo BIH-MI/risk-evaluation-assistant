@@ -5,12 +5,9 @@ import org.bihealth.mi.risk_assessment_api.dto.response.activity.DataSharingActi
 import org.bihealth.mi.risk_assessment_api.security.SecurityUtils;
 import org.bihealth.mi.risk_assessment_api.service.DataSharingActivityService;
 import org.bihealth.mi.risk_assessment_api.service.MitigationOpportunityService;
-import org.bihealth.mi.risk_assessment_api.service.CounterfactualContextEvaluator;
 import org.bihealth.mi.risk_assessment_api.service.MitigationPlanDraftService;
 import org.bihealth.mi.risk_assessment_api.dto.request.mitigationplanner.MitigationPlanDraftRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlanDraftEvaluationDTO;
-import org.bihealth.mi.risk_assessment_api.dto.request.mitigationplanner.ContextWhatIfRequestDTO;
-import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.CounterfactualContextResultDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -35,7 +32,6 @@ public class DataSharingActivityController {
 
     private final DataSharingActivityService sharingService;
     private final MitigationOpportunityService mitigationOpportunityService;
-    private final CounterfactualContextEvaluator counterfactualContextEvaluator;
     private final MitigationPlanDraftService mitigationPlanDraftService;
 
     /**
@@ -45,12 +41,10 @@ public class DataSharingActivityController {
     public DataSharingActivityController(
             DataSharingActivityService sharingService,
             MitigationOpportunityService mitigationOpportunityService,
-            CounterfactualContextEvaluator counterfactualContextEvaluator,
             MitigationPlanDraftService mitigationPlanDraftService
     ) {
         this.sharingService = sharingService;
         this.mitigationOpportunityService = mitigationOpportunityService;
-        this.counterfactualContextEvaluator = counterfactualContextEvaluator;
         this.mitigationPlanDraftService = mitigationPlanDraftService;
     }
 
@@ -187,27 +181,6 @@ public class DataSharingActivityController {
         try {
             return ResponseEntity.ok(mitigationOpportunityService.getOpportunities(
                     id, username, isAdmin, manualRiskThreshold));
-        } catch (EntityNotFoundException ex) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());
-        }
-    }
-
-    /**
-     * Evaluates selected context controls hypothetically. Read-only: the persisted Recipient
-     * Assessment is never modified; POST is used only because the selection is a request body.
-     */
-    @PostMapping("/{id}/mitigation-planner/context-what-if")
-    public ResponseEntity<CounterfactualContextResultDTO> evaluateContextWhatIf(
-            @PathVariable Long id,
-            @RequestBody ContextWhatIfRequestDTO request,
-            JwtAuthenticationToken token
-    ) {
-        String username = SecurityUtils.getUsername(token);
-        boolean isAdmin = SecurityUtils.isAdminRole(token);
-
-        try {
-            return ResponseEntity.ok(counterfactualContextEvaluator.evaluate(
-                    id, request.getActionIds(), request.getManualRiskThreshold(), username, isAdmin));
         } catch (EntityNotFoundException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());
         }

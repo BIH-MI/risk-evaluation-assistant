@@ -12,7 +12,6 @@ import org.bihealth.mi.risk_assessment_api.enums.MitigationRecordRetentionEffect
 import org.bihealth.mi.risk_assessment_api.enums.MitigationResultingDataForm;
 import org.bihealth.mi.risk_assessment_api.enums.ParameterValueCompatibility;
 import org.bihealth.mi.risk_assessment_api.enums.ProjectConstraintResult;
-import org.bihealth.mi.risk_assessment_api.enums.ResidualDataRiskState;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -44,10 +43,6 @@ public class MitigationPlanDraftEvaluationDTO {
     // risk that would be acceptable. It is not a measured data risk q.
     private Double requiredDataRiskThreshold;
     private Double baselineRequiredDataRiskThreshold;
-    // Measured residual data risk q. NOT_EVALUATED (value null) until a transformation engine
-    // has executed the plan's data transformations; REA never estimates q from metadata.
-    private ResidualDataRisk residualDataRisk = new ResidualDataRisk();
-
     private CostEstimate costEstimate = new CostEstimate();
     private SetupEstimate setupEstimate = new SetupEstimate();
     private List<ProjectCheck> projectChecks = new ArrayList<>();
@@ -117,10 +112,4 @@ public class MitigationPlanDraftEvaluationDTO {
         private String note;
     }
 
-    @Data
-    @NoArgsConstructor
-    public static class ResidualDataRisk {
-        private ResidualDataRiskState state = ResidualDataRiskState.NOT_EVALUATED;
-        private Double value;
-    }
 }

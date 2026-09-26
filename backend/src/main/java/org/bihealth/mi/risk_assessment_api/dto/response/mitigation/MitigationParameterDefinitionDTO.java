@@ -3,7 +3,7 @@ package org.bihealth.mi.risk_assessment_api.dto.response.mitigation;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationParameterCode;
-import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationParameterDefinition;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationParameterDefinition;
 
 import java.util.ArrayList;
 import java.util.List;

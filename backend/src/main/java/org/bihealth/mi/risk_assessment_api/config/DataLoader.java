@@ -1,8 +1,6 @@
 package org.bihealth.mi.risk_assessment_api.config;
 
 import org.bihealth.mi.risk_assessment_api.enums.DataType;
-import org.bihealth.mi.risk_assessment_api.enums.DateResolution;
-import org.bihealth.mi.risk_assessment_api.enums.ProjectAttributeRequirementType;
 import org.bihealth.mi.risk_assessment_api.model.activity.DataSharingActivity;
 import org.bihealth.mi.risk_assessment_api.model.assessment.BaseAssessment;
 import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetAssessment;
@@ -13,7 +11,6 @@ import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
 import org.bihealth.mi.risk_assessment_api.model.configuration.ConfigurationVersion;
 import org.bihealth.mi.risk_assessment_api.model.dataset.*;
 import org.bihealth.mi.risk_assessment_api.model.project.Project;
-import org.bihealth.mi.risk_assessment_api.model.project.ProjectAttributeRequirement;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Answer;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Question;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.QuestionOption;
@@ -27,7 +24,6 @@ import org.bihealth.mi.risk_assessment_api.repository.assessment.recipient.Recip
 import org.bihealth.mi.risk_assessment_api.repository.configuration.RiskConfigurationRepository;
 import org.bihealth.mi.risk_assessment_api.repository.dataset.DatasetRepository;
 import org.bihealth.mi.risk_assessment_api.repository.dataset.DatasetTableRepository;
-import org.bihealth.mi.risk_assessment_api.repository.project.ProjectRepository;
 import org.bihealth.mi.risk_assessment_api.repository.questionnaire.AnswerRepository;
 import org.bihealth.mi.risk_assessment_api.repository.questionnaire.QuestionRepository;
 import org.bihealth.mi.risk_assessment_api.repository.recipient.RecipientRepository;
@@ -39,8 +35,6 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.*;
 
 import static java.util.Map.entry;
@@ -59,23 +53,11 @@ public class DataLoader implements CommandLineRunner {
 
     private static final String DEMO_CREATOR = "user";
     private static final String LEOSS_DATASET_NAME = "LEOSS Public Use File";
-    private static final String LEOSS_PROJECT_NAME = "LEOSS Mitigation Planning Demo";
     private static final String ACADEMIC_RECIPIENT_NAME = "Academic Research Institute";
     private static final String COMMERCIAL_RECIPIENT_NAME = "Commercial Partner";
     private static final String PUBLIC_RECIPIENT_NAME = "Public Open Data Portal";
     private static final String EL_EMAM_DATASET_ASSESSMENT_NAME = "LEOSS Assessment (El Emam)";
     private static final String SPHN_DATASET_ASSESSMENT_NAME = "LEOSS Assessment (SPHN)";
-    private static final List<String> LEOSS_ACTIVITY_NAMES = List.of(
-            "LEOSS / Academic Labs (SPHN)",
-            "LEOSS / Academic Labs (El Emam)",
-            "LEOSS / Open Data Portal (El Emam)",
-            "LEOSS / Open Data Portal (SPHN)",
-            "LEOSS / HealthTech Solutions (El Emam)",
-            "LEOSS / HealthTech Solutions (SPHN)"
-    );
-    private static final String DEMO_REQUIREMENT_NOTE =
-            "Demo constraint for mitigation planning; not an evidence-based anonymisation recommendation.";
-
     // Allows deployments and tests to opt out of creating demo records.
     @Value("${app.setup.load-sample-data:true}")
     private boolean loadSampleData;
@@ -92,7 +74,6 @@ public class DataLoader implements CommandLineRunner {
     private final RecipientRepository recipientRepository;
     private final RecipientAssessmentRepository recipientAssessmentRepository;
     private final DataSharingActivityRepository dataSharingActivityRepository;
-    private final ProjectRepository projectRepository;
     private final RiskConfigurationRepository configRepo;
     private final AttributeScoringSystemService attributeScoringSystemService;
 
@@ -107,7 +88,6 @@ public class DataLoader implements CommandLineRunner {
             RecipientRepository recipientRepository,
             RecipientAssessmentRepository recipientAssessmentRepository,
             DataSharingActivityRepository dataSharingActivityRepository,
-            ProjectRepository projectRepository,
             RiskConfigurationRepository configRepo,
             AttributeScoringSystemService attributeScoringSystemService
     ) {
@@ -121,7 +101,6 @@ public class DataLoader implements CommandLineRunner {
         this.recipientRepository = recipientRepository;
         this.recipientAssessmentRepository = recipientAssessmentRepository;
         this.dataSharingActivityRepository = dataSharingActivityRepository;
-        this.projectRepository = projectRepository;
         this.configRepo = configRepo;
         this.attributeScoringSystemService = attributeScoringSystemService;
     }
@@ -168,17 +147,13 @@ public class DataLoader implements CommandLineRunner {
         List<RecipientAssessment> sphnRecipientAssessment =
                 getOrCreateSphnRecipientAssessments(baseRecipients, sphnConfig);
 
-        Project mitigationProject = ensureLeossMitigationProject(leossDataset, baseRecipients);
-
         // Finally, pair the dataset assessments with matching recipient
         // assessments to create the examples shown in the UI.
         createDemoDataSharingActivities(
                 elEmamConfig, elEmamDatasetAssessment, elEmamRecipientAssessments,
                 sphnConfig, sphnDatasetAssessment, sphnRecipientAssessment,
-                mitigationProject
+                null
         );
-
-        assignExistingLeossDemoActivitiesToProject(mitigationProject);
     }
 
     /**
@@ -876,93 +851,6 @@ public class DataLoader implements CommandLineRunner {
         );
     }
 
-    private Project ensureLeossMitigationProject(Dataset leossDataset, List<Recipient> recipients) {
-        Project project = findProjectByNormalizedName(LEOSS_PROJECT_NAME)
-                .orElseGet(() -> {
-                    Project created = new Project();
-                    created.setCreatorUsername(DEMO_CREATOR);
-                    created.setName(LEOSS_PROJECT_NAME);
-                    return created;
-                });
-
-        project.setDescription(
-                "Demonstration project for comparing alternative data-sharing and mitigation strategies for a "
-                        + "LEOSS-like clinical dataset. Predates Project Templates; its requirements are legacy."
-        );
-
-        addDatasetIfMissing(project, leossDataset);
-        recipients.forEach(recipient -> addRecipientIfMissing(project, recipient));
-
-        ensureProjectRequirement(
-                project,
-                leossDataset,
-                "age_at_diagnosis",
-                ProjectAttributeRequirementType.MAXIMUM_NUMERIC_BIN_WIDTH,
-                null,
-                BigDecimal.valueOf(5)
-        );
-        ensureProjectRequirement(
-                project,
-                leossDataset,
-                "date_of_diagnosis",
-                ProjectAttributeRequirementType.MINIMUM_DATE_RESOLUTION,
-                DateResolution.MONTH,
-                null
-        );
-        ensureProjectRequirement(
-                project,
-                leossDataset,
-                "last_known_patient_status",
-                ProjectAttributeRequirementType.MUST_REMAIN_UNCHANGED,
-                null,
-                null
-        );
-        ensureProjectRequirement(
-                project,
-                leossDataset,
-                "gender",
-                ProjectAttributeRequirementType.ATTRIBUTE_REQUIRED,
-                null,
-                null
-        );
-
-        return projectRepository.save(project);
-    }
-
-    private void ensureProjectRequirement(
-            Project project,
-            Dataset dataset,
-            String attributeName,
-            ProjectAttributeRequirementType type,
-            DateResolution dateResolution,
-            BigDecimal numericBinWidth
-    ) {
-        Optional<DatasetTableAttribute> attribute = findDatasetAttribute(dataset, attributeName);
-        if (attribute.isEmpty()) {
-            return;
-        }
-
-        ProjectAttributeRequirement requirement = project.getAttributeRequirements().stream()
-                .filter(existing -> existing.getTargetAttribute() != null
-                        && Objects.equals(existing.getTargetAttribute().getId(), attribute.get().getId())
-                        && existing.getRequirementType() == type)
-                .findFirst()
-                .orElseGet(() -> {
-                    ProjectAttributeRequirement created = new ProjectAttributeRequirement();
-                    created.setProject(project);
-                    project.getAttributeRequirements().add(created);
-                    return created;
-                });
-
-        requirement.setProject(project);
-        requirement.setDataset(dataset);
-        requirement.setTargetAttribute(attribute.get());
-        requirement.setRequirementType(type);
-        requirement.setDateResolution(dateResolution);
-        requirement.setNumericBinWidth(numericBinWidth);
-        requirement.setNotes(DEMO_REQUIREMENT_NOTE);
-    }
-
     private DataSharingActivity ensureDemoDataSharingActivity(
             String name,
             String description,
@@ -984,18 +872,10 @@ public class DataLoader implements CommandLineRunner {
         });
 
         activity.setProject(project);
-        addActivityIfMissing(project, activity);
-        return dataSharingActivityRepository.save(activity);
-    }
-
-    private void assignExistingLeossDemoActivitiesToProject(Project project) {
-        for (String activityName : LEOSS_ACTIVITY_NAMES) {
-            findActivityByNormalizedName(activityName).ifPresent(activity -> {
-                activity.setProject(project);
-                addActivityIfMissing(project, activity);
-                dataSharingActivityRepository.save(activity);
-            });
+        if (project != null) {
+            addActivityIfMissing(project, activity);
         }
+        return dataSharingActivityRepository.save(activity);
     }
 
     private void addActivityIfMissing(Project project, DataSharingActivity activity) {
@@ -1004,22 +884,6 @@ public class DataLoader implements CommandLineRunner {
                         || (existing.getId() != null && Objects.equals(existing.getId(), activity.getId())));
         if (!exists) {
             project.getDataSharingActivities().add(activity);
-        }
-    }
-
-    private void addDatasetIfMissing(Project project, Dataset dataset) {
-        boolean exists = project.getDatasets().stream()
-                .anyMatch(existing -> Objects.equals(existing.getId(), dataset.getId()));
-        if (!exists) {
-            project.getDatasets().add(dataset);
-        }
-    }
-
-    private void addRecipientIfMissing(Project project, Recipient recipient) {
-        boolean exists = project.getRecipients().stream()
-                .anyMatch(existing -> Objects.equals(existing.getId(), recipient.getId()));
-        if (!exists) {
-            project.getRecipients().add(recipient);
         }
     }
 
@@ -1036,14 +900,6 @@ public class DataLoader implements CommandLineRunner {
         return recipientRepository.findAll().stream()
                 .filter(recipient -> normalizedName.equals(recipient.getNormalizedName())
                         || normalizedName.equals(EntityNameNormalizer.normalizeForComparison(recipient.getName())))
-                .findFirst();
-    }
-
-    private Optional<Project> findProjectByNormalizedName(String name) {
-        String normalizedName = EntityNameNormalizer.normalizeForComparison(name);
-        return projectRepository.findAll().stream()
-                .filter(project -> normalizedName.equals(project.getNormalizedName())
-                        || normalizedName.equals(EntityNameNormalizer.normalizeForComparison(project.getName())))
                 .findFirst();
     }
 
@@ -1071,10 +927,4 @@ public class DataLoader implements CommandLineRunner {
                 .findFirst();
     }
 
-    private Optional<DatasetTableAttribute> findDatasetAttribute(Dataset dataset, String attributeName) {
-        return dataset.getTables().stream()
-                .flatMap(table -> table.getAttributes().stream())
-                .filter(attribute -> Objects.equals(attribute.getName(), attributeName))
-                .findFirst();
-    }
 }

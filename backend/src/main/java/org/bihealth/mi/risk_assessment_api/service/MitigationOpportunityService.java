@@ -1,11 +1,18 @@
 package org.bihealth.mi.risk_assessment_api.service;
 
+import static org.bihealth.mi.risk_assessment_api.service.ProjectRequirementStableKeys.PLANNER_RELEVANT_REQUIREMENT_KEYS;
+import static org.bihealth.mi.risk_assessment_api.service.ProjectRequirementStableKeys.REQ_ACCESS_PATTERN;
+import static org.bihealth.mi.risk_assessment_api.service.ProjectRequirementStableKeys.REQ_BUDGET;
+import static org.bihealth.mi.risk_assessment_api.service.ProjectRequirementStableKeys.REQ_COHORT_RETENTION;
+import static org.bihealth.mi.risk_assessment_api.service.ProjectRequirementStableKeys.REQ_SETUP_DAYS;
+import static org.bihealth.mi.risk_assessment_api.service.ProjectRequirementStableKeys.REQ_SHARING_MODEL;
+import static org.bihealth.mi.risk_assessment_api.service.ProjectRequirementStableKeys.REQ_TEMPORAL_RESOLUTION;
+
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.bihealth.mi.risk_assessment_api.dto.request.risk.RiskRequestDTO;
@@ -28,17 +35,16 @@ import org.bihealth.mi.risk_assessment_api.enums.MitigationParameterCode;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationSharingArrangement;
 import org.bihealth.mi.risk_assessment_api.enums.PlannerAvailability;
 import org.bihealth.mi.risk_assessment_api.enums.RiskThresholdSource;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.service.MitigationKnowledgeBaseSnapshot;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.service.MitigationKnowledgeBaseSnapshotService;
 import org.bihealth.mi.risk_assessment_api.model.activity.DataSharingActivity;
 import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetAssessment;
 import org.bihealth.mi.risk_assessment_api.model.assessment.recipient.RecipientAssessment;
-import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationAction;
-import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationParameterDefinition;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationAction;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationParameterDefinition;
 import org.bihealth.mi.risk_assessment_api.model.project.Project;
 import org.bihealth.mi.risk_assessment_api.model.project.ProjectRequirementResponse;
 import org.bihealth.mi.risk_assessment_api.model.project.ProjectTemplateRequirement;
-import org.bihealth.mi.risk_assessment_api.model.project.ProjectTemplateSection;
-import org.bihealth.mi.risk_assessment_api.model.project.ProjectTemplateVersion;
-import org.bihealth.mi.risk_assessment_api.repository.mitigation.MitigationActionRepository;
 import org.bihealth.mi.risk_assessment_api.utils.RiskResultBands;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -61,35 +67,16 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class MitigationOpportunityService {
 
-    private static final String REQ_SHARING_MODEL = "sharingModel";
-    private static final String REQ_TEMPORAL_RESOLUTION = "requiredTemporalResolution";
-    private static final String REQ_COHORT_RETENTION = "minimumCohortRetentionPercent";
-    private static final String REQ_BUDGET = "availableBudget";
-    private static final String REQ_SETUP_DAYS = "maximumSetupTimeDays";
     private static final String NOT_REQUIRED = "NOT_REQUIRED";
-
-    // Project requirements that will matter for planning, in display order.
-    private static final List<String> PLANNING_REQUIREMENT_KEYS = List.of(
-            "dataAccessDeadline",
-            REQ_SETUP_DAYS,
-            REQ_BUDGET,
-            "budgetScope",
-            REQ_TEMPORAL_RESOLUTION,
-            REQ_COHORT_RETENTION,
-            "criticalUtilityRequirement",
-            "analysisDataNeeded",
-            "requiredExternalDeliverables",
-            REQ_SHARING_MODEL,
-            "accessPattern"
-    );
 
     private final DataSharingActivityService activityService;
     private final RiskService riskService;
-    private final MitigationActionRepository actionRepository;
+    private final MitigationKnowledgeBaseSnapshotService knowledgeBaseSnapshotService;
     private final DataMitigationOpportunityMatcher dataMatcher;
     private final ContextMitigationOpportunityMatcher contextMatcher;
     private final RiskDriverExtractorService riskDriverExtractor;
     private final ProjectConstraintCompatibilityService compatibilityService;
+    private final ProjectRequirementResolver requirementResolver;
     private final PlatformTransactionManager transactionManager;
 
     /**
@@ -125,16 +112,17 @@ public class MitigationOpportunityService {
         overview.getAvailability().setProject(PlannerAvailability.AVAILABLE);
         overview.setProject(summarizeProject(project));
 
-        Map<String, ProjectRequirementResponse> responses = currentResponses(project);
+        Map<String, ProjectRequirementResponse> responses = requirementResolver.responsesByStableKey(project);
         overview.setProjectConstraints(buildConstraints(project, responses));
-        MitigationSharingArrangement arrangement = resolveSharingArrangement(project, warnings);
+        MitigationSharingArrangement arrangement = resolveSharingArrangement(project, responses, warnings);
         overview.getActivity().setSharingArrangement(arrangement);
-        overview.getActivity().setAccessPattern(requirementText(responses.get("accessPattern")));
+        overview.getActivity().setAccessPattern(requirementResolver.firstValue(responses, REQ_ACCESS_PATTERN));
 
         overview.setBaselineRisk(resolveBaselineRisk(activity, overview, manualRiskThreshold, warnings));
+        MitigationKnowledgeBaseSnapshot knowledgeSnapshot = knowledgeBaseSnapshotService.createSnapshotForPlanning(null);
 
-        String requiredResolution = requirementText(responses.get(REQ_TEMPORAL_RESOLUTION));
-        BigDecimal minimumRetention = requirementDecimal(responses.get(REQ_COHORT_RETENTION));
+        String requiredResolution = requirementResolver.firstValue(responses, REQ_TEMPORAL_RESOLUTION);
+        BigDecimal minimumRetention = requirementResolver.decimalValue(responses, REQ_COHORT_RETENTION);
 
         List<MitigationAction> dataActions = List.of();
         DataMitigationOpportunityMatcher.DatasetEvidence datasetEvidence = null;
@@ -144,7 +132,7 @@ public class MitigationOpportunityService {
             markUnavailable(overview.getDataOpportunities(), reason);
             warnings.add(reason);
         } else {
-            dataActions = loadApplicableActions(MitigationActionType.DATA_TRANSFORMATION, arrangement);
+            dataActions = loadApplicableActions(knowledgeSnapshot, MitigationActionType.DATA_TRANSFORMATION, arrangement);
             datasetEvidence = dataMatcher.resolveEvidence(activity, datasetAssessment);
             dataMatches = dataMatcher.match(dataActions, datasetEvidence);
         }
@@ -155,7 +143,7 @@ public class MitigationOpportunityService {
             markUnavailable(overview.getContextOpportunities(), reason);
             warnings.add("Recipient Assessment is unavailable; context opportunities cannot be evaluated.");
         } else {
-            contextActions = loadApplicableActions(MitigationActionType.CONTEXT_CONTROL, arrangement);
+            contextActions = loadApplicableActions(knowledgeSnapshot, MitigationActionType.CONTEXT_CONTROL, arrangement);
         }
 
         RiskDriverExtractorService.ExtractedRiskDrivers drivers = riskDriverExtractor.extract(
@@ -164,17 +152,33 @@ public class MitigationOpportunityService {
                 dataActions,
                 dataMatches,
                 contextActions,
-                datasetEvidence);
+                datasetEvidence
+        );
         overview.getRiskDrivers().setDataDrivers(drivers.dataDrivers());
         overview.getRiskDrivers().setContextDrivers(drivers.contextDrivers());
 
-        populateDataOpportunities(overview, datasetAssessment, dataActions, dataMatches,
-                drivers.dataDrivers(), requiredResolution, minimumRetention);
-        populateContextOpportunities(overview, recipientAssessment, contextActions, drivers.contextDrivers(), warnings);
+        populateDataOpportunities(
+                overview,
+                datasetAssessment,
+                dataActions,
+                dataMatches,
+                drivers.dataDrivers(),
+                requiredResolution,
+                minimumRetention
+        );
+
+        populateContextOpportunities(
+                overview,
+                recipientAssessment,
+                contextActions,
+                drivers.contextDrivers(),
+                warnings
+        );
 
         boolean temporalActionPresent = overview.getDataOpportunities().getOpportunities().stream()
                 .flatMap(opportunity -> opportunity.getParameters().stream())
                 .anyMatch(parameter -> parameter.getParameterCode() == MitigationParameterCode.TARGET_RESOLUTION);
+
         if (temporalActionPresent && (requiredResolution == null || NOT_REQUIRED.equals(requiredResolution))) {
             warnings.add("Project does not define a temporal-resolution requirement.");
         }
@@ -247,22 +251,15 @@ public class MitigationOpportunityService {
      * Loads active actions of one type, filters them by sharing arrangement first and only then
      * hydrates the mapping relationships, so filtered-out actions cost no additional queries.
      */
-    private List<MitigationAction> loadApplicableActions(MitigationActionType type, MitigationSharingArrangement arrangement) {
-        List<MitigationAction> actions = actionRepository.findActiveWithSharingArrangements(type).stream()
+    private List<MitigationAction> loadApplicableActions(
+            MitigationKnowledgeBaseSnapshot knowledgeSnapshot,
+            MitigationActionType type,
+            MitigationSharingArrangement arrangement
+    ) {
+        return knowledgeBaseSnapshotService.activeActionsByType(knowledgeSnapshot, type).stream()
                 .filter(action -> appliesTo(action, arrangement))
                 .sorted((left, right) -> left.getCode().compareTo(right.getCode()))
                 .collect(Collectors.toList());
-        if (actions.isEmpty()) {
-            return actions;
-        }
-        // Results are ignored on purpose: the queries hydrate the collections of the managed entities.
-        actionRepository.fetchQuestionMappings(actions);
-        if (type == MitigationActionType.DATA_TRANSFORMATION) {
-            actionRepository.fetchAttributeMappings(actions);
-            actionRepository.fetchParameterDefinitions(actions);
-            actionRepository.fetchParameterAllowedValues(actions);
-        }
-        return actions;
     }
 
     boolean appliesTo(MitigationAction action, MitigationSharingArrangement arrangement) {
@@ -435,21 +432,11 @@ public class MitigationOpportunityService {
         }
     }
 
-    // Only responses recorded against the Project's selected template version describe its template.
-    private Map<String, ProjectRequirementResponse> currentResponses(Project project) {
-        Long versionId = project.getTemplateVersion() == null ? null : project.getTemplateVersion().getId();
-        return project.getRequirementResponses().stream()
-                .filter(response -> versionId != null
-                        && response.getTemplateVersion() != null
-                        && versionId.equals(response.getTemplateVersion().getId()))
-                .collect(Collectors.toMap(ProjectRequirementResponse::getRequirementKey, Function.identity(), (a, b) -> a));
-    }
-
     private List<ProjectConstraint> buildConstraints(Project project, Map<String, ProjectRequirementResponse> responses) {
         List<ProjectConstraint> constraints = new ArrayList<>();
-        for (String key : PLANNING_REQUIREMENT_KEYS) {
+        for (String key : PLANNER_RELEVANT_REQUIREMENT_KEYS) {
             ProjectRequirementResponse response = responses.get(key);
-            String value = responseValue(response);
+            String value = requirementResolver.displayValue(response);
             if (value == null) {
                 continue; // No default is invented for requirements the Project did not define.
             }
@@ -470,10 +457,14 @@ public class MitigationOpportunityService {
      * The sharing arrangement is fixed by the Project Template's sharing-model requirement and is
      * never changed by the planner.
      */
-    MitigationSharingArrangement resolveSharingArrangement(Project project, List<String> warnings) {
-        String value = requirementText(currentResponses(project).get(REQ_SHARING_MODEL));
+    MitigationSharingArrangement resolveSharingArrangement(
+            Project project,
+            Map<String, ProjectRequirementResponse> responses,
+            List<String> warnings
+    ) {
+        String value = requirementResolver.firstValue(responses, REQ_SHARING_MODEL);
         if (value == null) {
-            value = fixedTemplateValue(project.getTemplateVersion(), REQ_SHARING_MODEL);
+            value = requirementResolver.fixedTemplateValue(project.getTemplateVersion(), REQ_SHARING_MODEL);
         }
         if (value == null) {
             warnings.add("Project does not define a sharing arrangement; only actions without a sharing-arrangement restriction are considered.");
@@ -485,52 +476,6 @@ public class MitigationOpportunityService {
             warnings.add("Project sharing model \"" + value + "\" is not a recognized sharing arrangement.");
             return null;
         }
-    }
-
-    private String fixedTemplateValue(ProjectTemplateVersion version, String key) {
-        if (version == null) {
-            return null;
-        }
-        for (ProjectTemplateSection section : version.getSections()) {
-            for (ProjectTemplateRequirement requirement : section.getRequirements()) {
-                if (key.equals(requirement.getStableKey()) && requirement.getFixedValue() != null
-                        && !requirement.getFixedValue().isBlank()) {
-                    return requirement.getFixedValue().split(",")[0];
-                }
-            }
-        }
-        return null;
-    }
-
-    private String responseValue(ProjectRequirementResponse response) {
-        if (response == null) {
-            return null;
-        }
-        return switch (response.getRequirement().getValueType()) {
-            case TEXT, LONG_TEXT, YES_NO_UNKNOWN -> blankToNull(response.getTextValue());
-            case INTEGER, DURATION -> response.getIntegerValue() == null ? null : response.getIntegerValue().toString();
-            case DECIMAL, MONEY -> response.getDecimalValue() == null
-                    ? null
-                    : response.getDecimalValue().stripTrailingZeros().toPlainString();
-            case DATE -> response.getDateValue() == null ? null : response.getDateValue().toString();
-            case YES_NO -> response.getBooleanValue() == null ? null : (response.getBooleanValue() ? "YES" : "NO");
-            case SINGLE_SELECT, MULTI_SELECT -> response.getSelectedValues() == null || response.getSelectedValues().isEmpty()
-                    ? null
-                    : String.join(",", response.getSelectedValues());
-        };
-    }
-
-    private String requirementText(ProjectRequirementResponse response) {
-        String value = responseValue(response);
-        return value == null ? null : value.split(",")[0].trim().toUpperCase(Locale.ROOT);
-    }
-
-    private BigDecimal requirementDecimal(ProjectRequirementResponse response) {
-        return response == null ? null : response.getDecimalValue();
-    }
-
-    private String blankToNull(String value) {
-        return value == null || value.isBlank() ? null : value;
     }
 
     private PlannerAvailability availableIf(boolean available) {

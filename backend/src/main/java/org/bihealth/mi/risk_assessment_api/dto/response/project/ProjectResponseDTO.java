@@ -41,9 +41,6 @@ public class ProjectResponseDTO {
     private List<Long> datasetIds;
     private List<Long> recipientIds;
     private List<Long> dataSharingActivityIds;
-    private Boolean hasLegacyAttributeRequirements;
-    private String legacyAttributeRequirementsMessage;
-    private List<ProjectAttributeRequirementResponseDTO> legacyAttributeRequirements;
 
     public ProjectResponseDTO(Project entity) {
         this.id = entity.getId();
@@ -82,12 +79,5 @@ public class ProjectResponseDTO {
         this.dataSharingActivityIds = entity.getDataSharingActivities().stream()
                 .map(DataSharingActivity::getId)
                 .collect(Collectors.toList());
-        this.legacyAttributeRequirements = entity.getAttributeRequirements().stream()
-                .map(ProjectAttributeRequirementResponseDTO::new)
-                .collect(Collectors.toList());
-        this.hasLegacyAttributeRequirements = !this.legacyAttributeRequirements.isEmpty();
-        this.legacyAttributeRequirementsMessage = this.hasLegacyAttributeRequirements
-                ? "Legacy project requirements exist and require review before migration to a Project Template."
-                : null;
     }
 }

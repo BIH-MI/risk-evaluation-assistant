@@ -11,8 +11,8 @@ import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.Mitiga
 import org.bihealth.mi.risk_assessment_api.enums.MitigationAssessmentScope;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationOpportunityStatus;
 import org.bihealth.mi.risk_assessment_api.model.assessment.recipient.RecipientAssessment;
-import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationAction;
-import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationQuestionMapping;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationAction;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationQuestionMapping;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Answer;
 import org.bihealth.mi.risk_assessment_api.repository.questionnaire.AnswerRepository;
 import org.springframework.stereotype.Component;
@@ -44,7 +44,7 @@ public class ContextMitigationOpportunityMatcher {
 
     /**
      * Returns one entry per matching action, grouping every matched framework question as a
-     * finding so duplicate mappings (for example El Emam and SPHN) stay traceable.
+     * finding so duplicate mappings stay traceable.
      */
     public Map<MitigationAction, ContextMatch> match(
             Collection<MitigationAction> actions,

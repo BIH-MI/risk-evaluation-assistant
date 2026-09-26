@@ -390,8 +390,6 @@
       "selectionInvalid": "{{label}} contains a value that is not allowed by this Project Template.",
       "yesNoUnknownInvalid": "{{label}} must be Yes, No, or Unknown.",
       "submitFailed": "Failed to save project.",
-      "legacyRequirementsTitle": "Legacy requirements",
-      "legacyRequirementsNotice": "Legacy project requirements exist and require review before migration to a Project Template.",
       "newerTemplateVersionNotice": "A newer Project Template version is available. This Project stays pinned to the version it was created with.",
       "answerYes": "Yes",
       "answerNo": "No",

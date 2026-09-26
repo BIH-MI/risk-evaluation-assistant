@@ -58,7 +58,6 @@ export default function DataPlanAssessment({ evaluation, baselineRisk }) {
 DataPlanAssessment.propTypes = {
   evaluation: PropTypes.shape({
     requiredDataRiskThreshold: PropTypes.number,
-    residualDataRisk: PropTypes.shape({ state: PropTypes.string, value: PropTypes.number }),
   }).isRequired,
   baselineRisk: PropTypes.shape({ impactBand: PropTypes.string, effectiveThreshold: PropTypes.number }),
 };

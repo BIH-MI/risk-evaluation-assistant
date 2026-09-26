@@ -1,6 +1,8 @@
 package org.bihealth.mi.risk_assessment_api.service;
 
 import jakarta.persistence.EntityNotFoundException;
+import org.bihealth.mi.risk_assessment_api.dto.request.mitigation.MitigationActionConflictRequestDTO;
+import org.bihealth.mi.risk_assessment_api.dto.request.mitigation.MitigationActionDependencyRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.request.mitigation.MitigationActionRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.request.mitigation.MitigationAttributeMappingRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.request.mitigation.MitigationParameterDefinitionRequestDTO;
@@ -12,12 +14,23 @@ import org.bihealth.mi.risk_assessment_api.enums.MitigationAttributeRole;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationSharingArrangement;
 import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Question;
-import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationAction;
-import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationAttributeMapping;
-import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationParameterDefinition;
-import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationQuestionMapping;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationAction;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationActionConflict;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationActionDependency;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationAttributeMapping;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationKnowledgeBase;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationKnowledgeBaseVersion;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationParameterDefinition;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationQuestionMapping;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.repository.MitigationActionRepository;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.service.MitigationKnowledgeBaseService;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.service.MitigationKnowledgeBaseSnapshot;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.service.MitigationKnowledgeBaseSnapshotService;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.service.MitigationKnowledgeBaseVersionService;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.validation.KnowledgeBaseValidationIssue;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.validation.KnowledgeBaseValidationResult;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.validation.MitigationKnowledgeBaseValidator;
 import org.bihealth.mi.risk_assessment_api.repository.configuration.RiskConfigurationRepository;
-import org.bihealth.mi.risk_assessment_api.repository.mitigation.MitigationActionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,13 +59,25 @@ public class MitigationCatalogueService {
 
     private final MitigationActionRepository actionRepository;
     private final RiskConfigurationRepository configurationRepository;
+    private final MitigationKnowledgeBaseService knowledgeBaseService;
+    private final MitigationKnowledgeBaseVersionService versionService;
+    private final MitigationKnowledgeBaseSnapshotService snapshotService;
+    private final MitigationKnowledgeBaseValidator validator;
 
     public MitigationCatalogueService(
             MitigationActionRepository actionRepository,
-            RiskConfigurationRepository configurationRepository
+            RiskConfigurationRepository configurationRepository,
+            MitigationKnowledgeBaseService knowledgeBaseService,
+            MitigationKnowledgeBaseVersionService versionService,
+            MitigationKnowledgeBaseSnapshotService snapshotService,
+            MitigationKnowledgeBaseValidator validator
     ) {
         this.actionRepository = actionRepository;
         this.configurationRepository = configurationRepository;
+        this.knowledgeBaseService = knowledgeBaseService;
+        this.versionService = versionService;
+        this.snapshotService = snapshotService;
+        this.validator = validator;
     }
 
     @Transactional(readOnly = true)
@@ -61,8 +86,9 @@ public class MitigationCatalogueService {
             Boolean active,
             MitigationSharingArrangement sharingArrangement
     ) {
+        MitigationKnowledgeBaseSnapshot snapshot = snapshotService.createSnapshotForPlanning(null);
         MitigationSharingArrangement canonicalSharingArrangement = canonicalSharingArrangement(sharingArrangement);
-        return actionRepository.findAll().stream()
+        return snapshot.actions().stream()
                 .filter(action -> actionType == null || action.getActionType() == actionType)
                 .filter(action -> active == null || action.isActive() == active)
                 .filter(action -> canonicalSharingArrangement == null
@@ -79,53 +105,100 @@ public class MitigationCatalogueService {
 
     @Transactional(readOnly = true)
     public MitigationActionDTO getAction(Long id) {
-        return new MitigationActionDTO(requireAction(id));
+        MitigationKnowledgeBaseVersion current = currentDefaultVersion();
+        MitigationAction action = requireCurrentAction(id, current);
+        return new MitigationActionDTO(action);
     }
 
     public MitigationActionDTO createAction(MitigationActionRequestDTO dto, String username, boolean isAdmin) {
         requireAdmin(isAdmin);
+        MitigationKnowledgeBase knowledgeBase = knowledgeBaseService.resolveDefaultActiveKnowledgeBase();
+        MitigationKnowledgeBaseVersion current = versionService.getCurrentVersion(knowledgeBase);
         String code = resolveCreateCode(dto);
-        validateCreateRequest(dto, code);
+        validateCreateRequest(dto, code, current.getId());
 
+        MitigationKnowledgeBaseVersion next = versionService.copyCurrentVersionForNext(knowledgeBase, username);
         MitigationAction action = new MitigationAction();
         action.setCreatorUsername(username);
         action.setCode(code);
         applyEditableFields(action, dto);
+        next.addAction(action);
+        applyRelationships(next, action, dto, true);
+        appendValidatedVersion(knowledgeBase, next);
 
-        MitigationAction saved = actionRepository.saveAndFlush(action);
-        return new MitigationActionDTO(saved);
+        return new MitigationActionDTO(action);
     }
 
-    public MitigationActionDTO updateAction(Long id, MitigationActionRequestDTO dto, boolean isAdmin) {
+    public MitigationActionDTO updateAction(Long id, MitigationActionRequestDTO dto, String username, boolean isAdmin) {
         requireAdmin(isAdmin);
         if (dto == null) {
             throw new IllegalArgumentException("Mitigation action request is required.");
         }
-        MitigationAction action = requireAction(id);
+        MitigationKnowledgeBase knowledgeBase = knowledgeBaseService.resolveDefaultActiveKnowledgeBase();
+        MitigationKnowledgeBaseVersion current = versionService.getCurrentVersion(knowledgeBase);
+        MitigationAction currentAction = requireCurrentAction(id, current);
 
-        if (dto.getCode() != null && !normalizeCode(dto.getCode()).equals(action.getCode())) {
+        if (dto.getCode() != null && !normalizeCode(dto.getCode()).equals(currentAction.getCode())) {
             throw new IllegalArgumentException("Mitigation action code cannot be changed after creation.");
         }
-        if (dto.getActionType() != null && dto.getActionType() != action.getActionType()) {
+        if (dto.getActionType() != null && dto.getActionType() != currentAction.getActionType()) {
             throw new IllegalArgumentException("Mitigation action type cannot be changed after creation.");
         }
 
+        MitigationKnowledgeBaseVersion next = versionService.copyCurrentVersionForNext(knowledgeBase, username);
+        MitigationAction action = findByCode(next, currentAction.getCode());
         applyEditableFields(action, dto);
-        MitigationAction saved = actionRepository.saveAndFlush(action);
-        return new MitigationActionDTO(saved);
+        applyRelationships(next, action, dto, false);
+        appendValidatedVersion(knowledgeBase, next);
+        return new MitigationActionDTO(action);
     }
 
-    public void deleteAction(Long id, boolean isAdmin) {
+    public void deleteAction(Long id, String username, boolean isAdmin) {
         requireAdmin(isAdmin);
-        if (!actionRepository.existsById(id)) {
-            throw new EntityNotFoundException("Mitigation action not found: " + id);
-        }
-        actionRepository.deleteById(id);
+        MitigationKnowledgeBase knowledgeBase = knowledgeBaseService.resolveDefaultActiveKnowledgeBase();
+        MitigationKnowledgeBaseVersion current = versionService.getCurrentVersion(knowledgeBase);
+        MitigationAction action = requireCurrentAction(id, current);
+        MitigationKnowledgeBaseVersion next = versionService.copyVersionExcludingAction(
+                current, username, knowledgeBase.getCurrentVersion() + 1, action.getCode());
+        appendValidatedVersion(knowledgeBase, next);
     }
 
-    private MitigationAction requireAction(Long id) {
-        return actionRepository.findById(id)
+    private MitigationAction requireCurrentAction(Long id, MitigationKnowledgeBaseVersion current) {
+        MitigationAction action = actionRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Mitigation action not found: " + id));
+        if (action.getKnowledgeBaseVersion() == null
+                || !action.getKnowledgeBaseVersion().getId().equals(current.getId())) {
+            throw new EntityNotFoundException("Mitigation action not found in current Knowledge Base version: " + id);
+        }
+        return action;
+    }
+
+    private MitigationKnowledgeBaseVersion currentDefaultVersion() {
+        return versionService.getCurrentVersion(knowledgeBaseService.resolveDefaultActiveKnowledgeBase());
+    }
+
+    private MitigationAction findByCode(MitigationKnowledgeBaseVersion version, String code) {
+        return version.getActions().stream()
+                .filter(action -> action.getCode().equals(code))
+                .findFirst()
+                .orElseThrow(() -> new EntityNotFoundException("Mitigation action not found in copied version: " + code));
+    }
+
+    private void appendValidatedVersion(MitigationKnowledgeBase knowledgeBase, MitigationKnowledgeBaseVersion version) {
+        version.setName(knowledgeBase.getName());
+        version.setDescription(knowledgeBase.getDescription());
+        versionService.rebuildVersionIndexes(version);
+        KnowledgeBaseValidationResult result = validator.validate(version);
+        if (!result.isValid()) {
+            KnowledgeBaseValidationIssue first = result.getIssues().stream()
+                    .filter(issue -> issue.getSeverity() == KnowledgeBaseValidationIssue.Severity.ERROR)
+                    .findFirst()
+                    .orElse(null);
+            throw new IllegalArgumentException(first == null
+                    ? "Mitigation Knowledge Base version is invalid."
+                    : first.getMessage());
+        }
+        versionService.appendVersion(knowledgeBase, version);
     }
 
     private void applyEditableFields(MitigationAction action, MitigationActionRequestDTO dto) {
@@ -160,14 +233,18 @@ public class MitigationCatalogueService {
                 : dto.getApplicableSharingArrangements().stream()
                 .map(this::canonicalSharingArrangement)
                 .collect(Collectors.toCollection(LinkedHashSet::new)));
-        action.setEstimatedCostMin(dto.getEstimatedCostMin());
-        action.setEstimatedCostMax(dto.getEstimatedCostMax());
-        action.setCurrency(normalizeCurrency(dto.getCurrency()));
-        action.setEstimatedSetupDaysMin(dto.getEstimatedSetupDaysMin());
-        action.setEstimatedSetupDaysMax(dto.getEstimatedSetupDaysMax());
-        action.setEstimateScope(dto.getEstimateScope());
-        action.setEstimateSource(trimToNull(dto.getEstimateSource()));
-        action.setEstimateAssumptions(trimToNull(dto.getEstimateAssumptions()));
+        if (hasAnyEstimateMetadata(dto)) {
+            action.setEstimatedCostMin(dto.getEstimatedCostMin());
+            action.setEstimatedCostMax(dto.getEstimatedCostMax());
+            action.setCurrency(normalizeCurrency(dto.getCurrency()));
+            action.setEstimatedSetupDaysMin(dto.getEstimatedSetupDaysMin());
+            action.setEstimatedSetupDaysMax(dto.getEstimatedSetupDaysMax());
+            action.setEstimateScope(dto.getEstimateScope());
+            action.setEstimateSource(trimToNull(dto.getEstimateSource()));
+            action.setEstimateAssumptions(trimToNull(dto.getEstimateAssumptions()));
+        } else {
+            action.setEstimate(null);
+        }
 
         action.getQuestionMappings().clear();
         for (MitigationQuestionMappingRequestDTO mappingDto : nullToEmpty(dto.getQuestionMappings())) {
@@ -189,6 +266,57 @@ public class MitigationCatalogueService {
         }
     }
 
+    private void applyRelationships(
+            MitigationKnowledgeBaseVersion version,
+            MitigationAction action,
+            MitigationActionRequestDTO dto,
+            boolean creatingAction
+    ) {
+        if (dto.getDependencies() != null || creatingAction) {
+            String actionCode = normalizeCode(action.getCode());
+            version.getDependencies().removeIf(dependency ->
+                    dependency.getAction() != null && actionCode.equals(normalizeCode(dependency.getAction().getCode())));
+            for (MitigationActionDependencyRequestDTO dependencyDto : nullToEmpty(dto.getDependencies())) {
+                String requiredCode = normalizeCode(dependencyDto.getRequiredActionCode());
+                if (requiredCode.isEmpty()) {
+                    throw new IllegalArgumentException("Dependency requires requiredActionCode.");
+                }
+                MitigationAction required = findByCode(version, requiredCode);
+                MitigationActionDependency dependency = new MitigationActionDependency();
+                dependency.setAction(action);
+                dependency.setRequiredAction(required);
+                dependency.setRationale(trimToNull(dependencyDto.getRationale()));
+                dependency.setSource(trimToNull(dependencyDto.getSource()));
+                version.addDependency(dependency);
+            }
+        }
+
+        if (dto.getConflicts() != null || creatingAction) {
+            String actionCode = normalizeCode(action.getCode());
+            version.getConflicts().removeIf(conflict ->
+                    (conflict.getActionA() != null && actionCode.equals(normalizeCode(conflict.getActionA().getCode())))
+                            || (conflict.getActionB() != null && actionCode.equals(normalizeCode(conflict.getActionB().getCode()))));
+            for (MitigationActionConflictRequestDTO conflictDto : nullToEmpty(dto.getConflicts())) {
+                String conflictingCode = normalizeCode(conflictDto.getConflictingActionCode());
+                if (conflictingCode.isEmpty()) {
+                    throw new IllegalArgumentException("Conflict requires conflictingActionCode.");
+                }
+                MitigationAction conflicting = findByCode(version, conflictingCode);
+                MitigationActionConflict conflict = new MitigationActionConflict();
+                if (action.getCode().compareTo(conflicting.getCode()) <= 0) {
+                    conflict.setActionA(action);
+                    conflict.setActionB(conflicting);
+                } else {
+                    conflict.setActionA(conflicting);
+                    conflict.setActionB(action);
+                }
+                conflict.setRationale(trimToNull(conflictDto.getRationale()));
+                conflict.setSource(trimToNull(conflictDto.getSource()));
+                version.addConflict(conflict);
+            }
+        }
+    }
+
     private String resolveCreateCode(MitigationActionRequestDTO dto) {
         if (dto == null) {
             throw new IllegalArgumentException("Mitigation action request is required.");
@@ -199,7 +327,7 @@ public class MitigationCatalogueService {
         return normalizeCode(dto.getCode());
     }
 
-    private void validateCreateRequest(MitigationActionRequestDTO dto, String code) {
+    private void validateCreateRequest(MitigationActionRequestDTO dto, String code, Long versionId) {
         if (dto == null) {
             throw new IllegalArgumentException("Mitigation action request is required.");
         }
@@ -209,7 +337,7 @@ public class MitigationCatalogueService {
         if (!STABLE_CODE_PATTERN.matcher(code).matches()) {
             throw new IllegalArgumentException("Mitigation action code must be uppercase snake case.");
         }
-        if (actionRepository.existsByCode(code)) {
+        if (actionRepository.existsByKnowledgeBaseVersionIdAndCode(versionId, code)) {
             throw new IllegalArgumentException(
                     "A mitigation action with system identifier '" + code + "' already exists."
             );
@@ -276,6 +404,17 @@ public class MitigationCatalogueService {
         if ((hasCostEstimate || hasTimeEstimate) && dto.getEstimateScope() == null) {
             throw new IllegalArgumentException("Estimate scope is required when cost or setup-time estimates are provided.");
         }
+    }
+
+    private boolean hasAnyEstimateMetadata(MitigationActionRequestDTO dto) {
+        return dto.getEstimatedCostMin() != null
+                || dto.getEstimatedCostMax() != null
+                || normalizeCurrency(dto.getCurrency()) != null
+                || dto.getEstimatedSetupDaysMin() != null
+                || dto.getEstimatedSetupDaysMax() != null
+                || dto.getEstimateScope() != null
+                || trimToNull(dto.getEstimateSource()) != null
+                || trimToNull(dto.getEstimateAssumptions()) != null;
     }
 
     private void validateParameterDefinitions(MitigationActionRequestDTO dto) {

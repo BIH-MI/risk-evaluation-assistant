@@ -36,4 +36,6 @@ public class MitigationActionRequestDTO {
     private List<MitigationQuestionMappingRequestDTO> questionMappings;
     private List<MitigationAttributeMappingRequestDTO> attributeMappings;
     private List<MitigationParameterDefinitionRequestDTO> parameterDefinitions;
+    private List<MitigationActionDependencyRequestDTO> dependencies;
+    private List<MitigationActionConflictRequestDTO> conflicts;
 }

@@ -62,8 +62,9 @@ public class MitigationCatalogueController {
             @RequestBody MitigationActionRequestDTO dto,
             JwtAuthenticationToken token
     ) {
+        String username = SecurityUtils.getUsername(token);
         boolean isAdmin = SecurityUtils.isAdminRole(token);
-        return ResponseEntity.ok(catalogueService.updateAction(id, dto, isAdmin));
+        return ResponseEntity.ok(catalogueService.updateAction(id, dto, username, isAdmin));
     }
 
     @DeleteMapping("/{id}")
@@ -71,8 +72,9 @@ public class MitigationCatalogueController {
             @PathVariable Long id,
             JwtAuthenticationToken token
     ) {
+        String username = SecurityUtils.getUsername(token);
         boolean isAdmin = SecurityUtils.isAdminRole(token);
-        catalogueService.deleteAction(id, isAdmin);
+        catalogueService.deleteAction(id, username, isAdmin);
         return ResponseEntity.noContent().build();
     }
 }

@@ -1,4 +1,4 @@
-package org.bihealth.mi.risk_assessment_api.config;
+package org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.seed;
 
 import org.bihealth.mi.risk_assessment_api.enums.DataType;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationActionType;
@@ -8,13 +8,20 @@ import org.bihealth.mi.risk_assessment_api.enums.MitigationEstimateScope;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationParameterCode;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationRecordRetentionEffect;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationResultingDataForm;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationKnowledgeBase;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationKnowledgeBaseVersion;
 import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
-import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationAction;
-import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationAttributeMapping;
-import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationParameterDefinition;
-import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationQuestionMapping;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationAction;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationAttributeMapping;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationParameterDefinition;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationQuestionMapping;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.repository.MitigationKnowledgeBaseRepository;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.service.MitigationKnowledgeBaseVersionService;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.validation.KnowledgeBaseValidationIssue;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.validation.KnowledgeBaseValidationResult;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.validation.MitigationKnowledgeBaseValidator;
 import org.bihealth.mi.risk_assessment_api.repository.configuration.RiskConfigurationRepository;
-import org.bihealth.mi.risk_assessment_api.repository.mitigation.MitigationActionRepository;
+import org.bihealth.mi.risk_assessment_api.utils.EntityNameNormalizer;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -23,7 +30,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 
 /**
  * Seeds the first mitigation catalogue knowledge base.
@@ -36,27 +42,72 @@ import java.util.Optional;
 public class MitigationCatalogueSeeder implements CommandLineRunner {
 
     private static final String SEED_CREATOR = "admin";
+    private static final String DEFAULT_KB_NAME = "REA Default Mitigation Knowledge Base";
     private static final String SEED_SOURCE = "REA built-in mitigation catalogue";
     private static final String ILLUSTRATIVE_ESTIMATE_SOURCE = "REA illustrative operational estimate";
     private static final String EL_EMAM_NAME = "El Emam Risk Exposure Model";
     private static final String SPHN_NAME = "SPHN Risk Assessment Framework (v2.1.2)";
 
-    private final MitigationActionRepository actionRepository;
+    private final MitigationKnowledgeBaseRepository knowledgeBaseRepository;
+    private final MitigationKnowledgeBaseVersionService versionService;
+    private final MitigationKnowledgeBaseValidator validator;
     private final RiskConfigurationRepository configurationRepository;
+    private MitigationKnowledgeBaseVersion seedVersion;
 
     public MitigationCatalogueSeeder(
-            MitigationActionRepository actionRepository,
+            MitigationKnowledgeBaseRepository knowledgeBaseRepository,
+            MitigationKnowledgeBaseVersionService versionService,
+            MitigationKnowledgeBaseValidator validator,
             RiskConfigurationRepository configurationRepository
     ) {
-        this.actionRepository = actionRepository;
+        this.knowledgeBaseRepository = knowledgeBaseRepository;
+        this.versionService = versionService;
+        this.validator = validator;
         this.configurationRepository = configurationRepository;
     }
 
     @Override
     @Transactional
     public void run(String... args) {
+        if (knowledgeBaseRepository.findFirstByDefaultKnowledgeBaseTrueAndActiveTrueOrderByIdAsc().isPresent()) {
+            return;
+        }
+        String normalizedDefaultName = EntityNameNormalizer.normalizeForComparison(DEFAULT_KB_NAME);
+        if (knowledgeBaseRepository.findByNormalizedName(normalizedDefaultName).isPresent()) {
+            return;
+        }
+
+        MitigationKnowledgeBase knowledgeBase = new MitigationKnowledgeBase();
+        knowledgeBase.setCreatorUsername(SEED_CREATOR);
+        knowledgeBase.setName(DEFAULT_KB_NAME);
+        knowledgeBase.setDescription("Built-in REA mitigation expert knowledge seeded for administrator configuration.");
+        knowledgeBase.setActive(true);
+        knowledgeBase.setDefaultKnowledgeBase(true);
+
+        seedVersion = new MitigationKnowledgeBaseVersion();
+        seedVersion.setCreatorUsername(SEED_CREATOR);
+        seedVersion.setName(knowledgeBase.getName());
+        seedVersion.setDescription(knowledgeBase.getDescription());
+        seedVersion.setVersionNumber(1);
+        seedVersion.setSelectionPolicy(versionService.defaultPolicyDefinition());
+
         seedDataActions();
         seedContextActions();
+        versionService.rebuildVersionIndexes(seedVersion);
+        KnowledgeBaseValidationResult result = validator.validate(seedVersion);
+        if (!result.isValid()) {
+            KnowledgeBaseValidationIssue first = result.getIssues().stream()
+                    .filter(issue -> issue.getSeverity() == KnowledgeBaseValidationIssue.Severity.ERROR)
+                    .findFirst()
+                    .orElse(null);
+            throw new IllegalStateException(first == null
+                    ? "Seeded mitigation Knowledge Base is invalid."
+                    : first.getMessage());
+        }
+
+        knowledgeBase.addVersion(seedVersion);
+        knowledgeBaseRepository.saveAndFlush(knowledgeBase);
+        seedVersion = null;
     }
 
     private void seedDataActions() {
@@ -243,6 +294,24 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
         ensureEstimate(auditLogging, 1000, 5000, 1, 5,
                 "Illustrative estimate for enabling and validating audit logging in an existing managed system. Replace with local infrastructure costing.");
 
+        MitigationAction externalAuditRights = ensureAction(
+                "ENABLE_EXTERNAL_AUDIT_RIGHTS",
+                "Enable external audit rights",
+                "Add enforceable rights for external review of data management, privacy, and security practices.",
+                MitigationActionType.CONTEXT_CONTROL,
+                "Amend the agreement or governance terms so external audits of data management and privacy/security practices may be performed.",
+                "Executed agreement, governance approval, or audit clause showing that external audits are permitted and operationally supported.",
+                "External audit rights are contractual context controls recorded by the recipient-control questionnaire."
+        );
+        ensureQuestionMapping(externalAuditRights, SPHN_NAME,
+                "DOES_THE_LEGAL_AGREEMENT_STIPULATE_THAT_EXTERNAL_AUDITS_OF_THE_DATA_MANAGEMENT_PRACTICES_MAY_BE_PERFORMED",
+                "NO", "YES");
+        ensureQuestionMapping(externalAuditRights, SPHN_NAME,
+                "DOES_THE_LEGAL_AGREEMENT_STIPULATE_THAT_REGULAR_EXTERNAL_AUDITS_OF_PRIVACY_AND_SECURITY_PRACTICES_MAY_BE_PERFORMED",
+                "NO", "YES");
+        ensureEstimate(externalAuditRights, 1000, 4000, 2, 5,
+                "Illustrative estimate for adding external-audit clauses to an existing agreement and confirming audit logistics. Replace with local legal and governance costing.");
+
         MitigationAction accessRights = ensureAction(
                 "IMPLEMENT_ACCESS_RIGHT_MANAGEMENT",
                 "Implement access-right management",
@@ -361,10 +430,11 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
             String verificationDescription,
             String rationale
     ) {
-        Optional<MitigationAction> existing = actionRepository.findByCode(code);
-        if (existing.isPresent()) {
-            return existing.get();
-        }
+        MitigationAction existing = seedVersion.getActions().stream()
+                .filter(action -> code.equals(action.getCode()))
+                .findFirst()
+                .orElse(null);
+        if (existing != null) return existing;
 
         MitigationAction action = new MitigationAction();
         action.setCreatorUsername(SEED_CREATOR);
@@ -377,7 +447,8 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
         action.setVerificationDescription(verificationDescription);
         action.setSource(SEED_SOURCE);
         action.setRationale(rationale);
-        return actionRepository.save(action);
+        seedVersion.addAction(action);
+        return action;
     }
 
     private void ensureDataEffect(
@@ -385,17 +456,11 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
             MitigationResultingDataForm resultingDataForm,
             MitigationRecordRetentionEffect recordRetentionEffect
     ) {
-        boolean changed = false;
         if (action.getResultingDataForm() == null) {
             action.setResultingDataForm(resultingDataForm);
-            changed = true;
         }
         if (action.getRecordRetentionEffect() == null) {
             action.setRecordRetentionEffect(recordRetentionEffect);
-            changed = true;
-        }
-        if (changed) {
-            actionRepository.save(action);
         }
     }
 
@@ -426,7 +491,6 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
         action.setEstimateScope(MitigationEstimateScope.SETUP_ONLY);
         action.setEstimateSource(ILLUSTRATIVE_ESTIMATE_SOURCE);
         action.setEstimateAssumptions(assumptions);
-        actionRepository.save(action);
     }
 
     private void ensureQuestionMapping(
@@ -469,7 +533,6 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
         mapping.setTriggerOptionCode(triggerOptionCode);
         mapping.setProjectedOptionCode(projectedOptionCode);
         action.addQuestionMapping(mapping);
-        actionRepository.save(action);
     }
 
     private void ensureAttributeMapping(
@@ -491,7 +554,6 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
         mapping.setRequiresDirectIdentifier(attributeRole == MitigationAttributeRole.DIRECT_IDENTIFIER);
         mapping.setRequiresSensitiveAttribute(attributeRole == MitigationAttributeRole.SENSITIVE_ATTRIBUTE);
         action.addAttributeMapping(mapping);
-        actionRepository.save(action);
     }
 
     private void ensureParameter(
@@ -511,7 +573,6 @@ public class MitigationCatalogueSeeder implements CommandLineRunner {
         parameter.setDescription(description);
         parameter.setAllowedValues(allowedValues);
         action.addParameterDefinition(parameter);
-        actionRepository.save(action);
     }
 
     private boolean hasQuestionMapping(

@@ -1,8 +1,8 @@
-package org.bihealth.mi.risk_assessment_api.repository.mitigation;
+package org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.repository;
 
 import org.bihealth.mi.risk_assessment_api.enums.MitigationActionType;
-import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationAction;
-import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationParameterDefinition;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationAction;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationParameterDefinition;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -12,19 +12,25 @@ import java.util.Collection;
 import java.util.Optional;
 
 public interface MitigationActionRepository extends JpaRepository<MitigationAction, Long> {
-    Optional<MitigationAction> findByCode(String code);
-    boolean existsByCode(String code);
-    boolean existsByCodeAndIdNot(String code, Long id);
-    List<MitigationAction> findByActionType(MitigationActionType actionType);
-    List<MitigationAction> findByActiveTrue();
-    List<MitigationAction> findByActionTypeAndActiveTrue(MitigationActionType actionType);
+    Optional<MitigationAction> findByKnowledgeBaseVersionIdAndCode(Long knowledgeBaseVersionId, String code);
+    boolean existsByKnowledgeBaseVersionIdAndCode(Long knowledgeBaseVersionId, String code);
+    List<MitigationAction> findByKnowledgeBaseVersionIdOrderByCodeAsc(Long knowledgeBaseVersionId);
+    List<MitigationAction> findByKnowledgeBaseVersionIdAndActionType(Long knowledgeBaseVersionId, MitigationActionType actionType);
+    List<MitigationAction> findByKnowledgeBaseVersionIdAndActiveTrue(Long knowledgeBaseVersionId);
+    List<MitigationAction> findByKnowledgeBaseVersionIdAndActionTypeAndActiveTrue(
+            Long knowledgeBaseVersionId,
+            MitigationActionType actionType
+    );
 
     // The four queries below hydrate one relationship each inside the same persistence
     // context. Fetching several List relationships in one query is not possible with
     // Hibernate (MultipleBagFetchException) and would otherwise cause N+1 lazy loads.
     @Query("select distinct a from MitigationAction a left join fetch a.applicableSharingArrangements "
-            + "where a.active = true and a.actionType = :actionType")
-    List<MitigationAction> findActiveWithSharingArrangements(@Param("actionType") MitigationActionType actionType);
+            + "where a.knowledgeBaseVersion.id = :versionId and a.active = true and a.actionType = :actionType")
+    List<MitigationAction> findActiveWithSharingArrangements(
+            @Param("versionId") Long versionId,
+            @Param("actionType") MitigationActionType actionType
+    );
 
     @Query("select distinct a from MitigationAction a left join fetch a.questionMappings m "
             + "left join fetch m.configuration where a in :actions")

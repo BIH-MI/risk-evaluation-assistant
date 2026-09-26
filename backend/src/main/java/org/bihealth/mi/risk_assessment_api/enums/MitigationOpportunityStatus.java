@@ -5,8 +5,5 @@ package org.bihealth.mi.risk_assessment_api.enums;
  * recommendation or ranking.
  */
 public enum MitigationOpportunityStatus {
-    APPLICABLE,
-    PARTIALLY_APPLICABLE,
-    NOT_APPLICABLE,
-    INSUFFICIENT_INFORMATION
+    APPLICABLE
 }

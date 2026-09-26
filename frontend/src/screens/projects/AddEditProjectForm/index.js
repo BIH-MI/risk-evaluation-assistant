@@ -1,7 +1,6 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 
-import RAAlert from "components/feedback/RAAlert";
 import RATypography from "components/display/RATypography";
 import RAFloatingAlertStack from "components/feedback/RAFloatingAlertStack";
 import RAButton from "components/input/RAButton";
@@ -62,15 +61,6 @@ export default function AddEditProjectForm() {
         <RATypography variant="h5" textAlign="center">
           {isEdit ? t("projects.form.editTitle") : t("projects.form.createTitle")}
         </RATypography>
-
-        {isEdit && currentProject?.hasLegacyAttributeRequirements && (
-          <RAAlert color="warning">
-            <RATypography variant="body2" color="white">
-              {currentProject.legacyAttributeRequirementsMessage ||
-                t("projects.form.legacyRequirementsNotice")}
-            </RATypography>
-          </RAAlert>
-        )}
 
         <ProjectIdentitySection
           values={values}

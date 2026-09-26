@@ -67,16 +67,3 @@ export async function updateMitigationActionApi(id, payload, token) {
 
   return res.json();
 }
-
-export async function deleteMitigationActionApi(id, token) {
-  const res = await fetch(`${apiUrl}/api/mitigation-actions/${id}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  if (!res.ok) {
-    await handleApiError(res, "Failed to delete mitigation action");
-  }
-
-  return true;
-}

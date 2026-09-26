@@ -4,7 +4,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.bihealth.mi.risk_assessment_api.enums.DataType;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationAttributeRole;
-import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationAttributeMapping;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationAttributeMapping;
 
 @Data
 @NoArgsConstructor

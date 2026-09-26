@@ -3,18 +3,13 @@ package org.bihealth.mi.risk_assessment_api.service;
 import org.bihealth.mi.risk_assessment_api.dto.request.project.ProjectRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.request.project.ProjectRequirementResponseRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.project.ProjectResponseDTO;
-import org.bihealth.mi.risk_assessment_api.enums.DataType;
-import org.bihealth.mi.risk_assessment_api.enums.ProjectAttributeRequirementType;
 import org.bihealth.mi.risk_assessment_api.enums.ProjectTemplateRequirementConstraintType;
 import org.bihealth.mi.risk_assessment_api.enums.ProjectTemplateRequirementValueType;
 import org.bihealth.mi.risk_assessment_api.model.activity.DataSharingActivity;
 import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetAssessment;
 import org.bihealth.mi.risk_assessment_api.model.assessment.recipient.RecipientAssessment;
 import org.bihealth.mi.risk_assessment_api.model.dataset.Dataset;
-import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTable;
-import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTableAttribute;
 import org.bihealth.mi.risk_assessment_api.model.project.Project;
-import org.bihealth.mi.risk_assessment_api.model.project.ProjectAttributeRequirement;
 import org.bihealth.mi.risk_assessment_api.model.project.ProjectTemplate;
 import org.bihealth.mi.risk_assessment_api.model.project.ProjectTemplateRequirement;
 import org.bihealth.mi.risk_assessment_api.model.project.ProjectTemplateSection;
@@ -197,31 +192,6 @@ class ProjectServiceTest {
     }
 
     @Test
-    void updateProjectLeavesLegacyAttributeRequirementsUntouched() {
-        Project project = project(5L, "alice");
-        Dataset legacyDataset = dataset(1L, "alice");
-        ProjectAttributeRequirement legacyRequirement = new ProjectAttributeRequirement();
-        legacyRequirement.setProject(project);
-        legacyRequirement.setDataset(legacyDataset);
-        legacyRequirement.setTargetAttribute(attribute(10L, legacyDataset, DataType.STRING));
-        legacyRequirement.setRequirementType(ProjectAttributeRequirementType.ATTRIBUTE_REQUIRED);
-        project.getAttributeRequirements().add(legacyRequirement);
-
-        when(projectRepository.findById(5L)).thenReturn(Optional.of(project));
-        when(projectRepository.existsByNormalizedNameAndIdNot(anyString(), eq(5L))).thenReturn(false);
-        when(projectRepository.saveAndFlush(any(Project.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        ProjectRequestDTO request = new ProjectRequestDTO();
-        request.setName("Cancer Study");
-        request.setDatasetIds(List.of());
-        request.setRecipientIds(List.of());
-
-        service.updateProject(5L, request, "alice", false);
-
-        assertThat(project.getAttributeRequirements()).containsExactly(legacyRequirement);
-    }
-
-    @Test
     void updateProjectRejectsResponsesForLegacyProjectWithoutTemplate() {
         Project project = project(5L, "alice");
 
@@ -365,18 +335,4 @@ class ProjectServiceTest {
         return recipient;
     }
 
-    private DatasetTableAttribute attribute(Long id, Dataset dataset, DataType dataType) {
-        DatasetTable table = new DatasetTable();
-        table.setId(20L);
-        table.setName("patients");
-        table.setCreatorUsername(dataset.getCreatorUsername());
-        table.setDataset(dataset);
-
-        DatasetTableAttribute attribute = new DatasetTableAttribute();
-        attribute.setId(id);
-        attribute.setName("outcome");
-        attribute.setTable(table);
-        attribute.setDataType(dataType);
-        return attribute;
-    }
 }

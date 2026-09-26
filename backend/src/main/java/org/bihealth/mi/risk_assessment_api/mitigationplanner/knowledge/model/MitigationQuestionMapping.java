@@ -1,4 +1,4 @@
-package org.bihealth.mi.risk_assessment_api.model.mitigation;
+package org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -30,7 +30,7 @@ import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
 @Getter
 @Setter
 @Entity
-@Table(name = "mitigation_question_mappings")
+@Table(name = "mitigation_kb_question_mappings")
 public class MitigationQuestionMapping {
 
     @Id
@@ -41,6 +41,10 @@ public class MitigationQuestionMapping {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "mitigation_action_id", nullable = false)
     private MitigationAction mitigationAction;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "knowledge_base_version_id", nullable = false)
+    private MitigationKnowledgeBaseVersion knowledgeBaseVersion;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "configuration_id")

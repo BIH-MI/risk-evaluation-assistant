@@ -29,27 +29,6 @@ export async function fetchMitigationOpportunitiesApi(
   return response.json();
 }
 
-/** POST /api/data-sharing-activities/{id}/mitigation-planner/context-what-if (read-only evaluation) */
-export async function evaluateContextWhatIfApi(activityId, payload, token) {
-  const response = await fetch(
-    `${apiUrl}/api/data-sharing-activities/${activityId}/mitigation-planner/context-what-if`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(payload),
-    }
-  );
-
-  if (!response.ok) {
-    await handleApiError(response, "Failed to evaluate the context what-if scenario");
-  }
-
-  return response.json();
-}
-
 /** POST /api/data-sharing-activities/{id}/mitigation-planner/plan-drafts/evaluate (read-only, not persisted) */
 export async function evaluateMitigationPlanDraftApi(activityId, payload, token) {
   const response = await fetch(

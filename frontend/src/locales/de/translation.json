@@ -393,8 +393,6 @@
       "selectionInvalid": "{{label}} enthält einen Wert, der durch diese Projektvorlage nicht erlaubt ist.",
       "yesNoUnknownInvalid": "{{label}} muss Ja, Nein oder Unbekannt sein.",
       "submitFailed": "Projekt konnte nicht gespeichert werden.",
-      "legacyRequirementsTitle": "Alte Anforderungen",
-      "legacyRequirementsNotice": "Es bestehen alte Projektanforderungen, die vor einer Migration zu einer Projektvorlage überprüft werden müssen.",
       "newerTemplateVersionNotice": "Eine neuere Version der Projektvorlage ist verfügbar. Dieses Projekt bleibt an die Version gebunden, mit der es erstellt wurde.",
       "answerYes": "Ja",
       "answerNo": "Nein",

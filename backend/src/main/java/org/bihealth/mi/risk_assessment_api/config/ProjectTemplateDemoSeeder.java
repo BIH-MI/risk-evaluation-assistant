@@ -12,11 +12,15 @@ import org.bihealth.mi.risk_assessment_api.dto.response.projecttemplate.ProjectT
 import org.bihealth.mi.risk_assessment_api.enums.ProjectTemplateRequirementConstraintType;
 import org.bihealth.mi.risk_assessment_api.enums.ProjectTemplateRequirementValueType;
 import org.bihealth.mi.risk_assessment_api.model.activity.DataSharingActivity;
+import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetAssessment;
+import org.bihealth.mi.risk_assessment_api.model.assessment.recipient.RecipientAssessment;
 import org.bihealth.mi.risk_assessment_api.model.dataset.Dataset;
 import org.bihealth.mi.risk_assessment_api.model.project.Project;
 import org.bihealth.mi.risk_assessment_api.model.project.ProjectTemplate;
 import org.bihealth.mi.risk_assessment_api.model.recipient.Recipient;
 import org.bihealth.mi.risk_assessment_api.repository.activity.DataSharingActivityRepository;
+import org.bihealth.mi.risk_assessment_api.repository.assessment.dataset.DatasetAssessmentRepository;
+import org.bihealth.mi.risk_assessment_api.repository.assessment.recipient.RecipientAssessmentRepository;
 import org.bihealth.mi.risk_assessment_api.repository.dataset.DatasetRepository;
 import org.bihealth.mi.risk_assessment_api.repository.project.ProjectRepository;
 import org.bihealth.mi.risk_assessment_api.repository.project.ProjectTemplateRepository;
@@ -31,7 +35,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -65,9 +68,8 @@ import static org.bihealth.mi.risk_assessment_api.enums.ProjectTemplateRequireme
  * R/A/D/S): they describe what the project needs, never how risky the
  * current dataset/recipient is.</p>
  *
- * <p>Runs after {@link DataLoader} (which owns the LEOSS dataset, recipients,
- * and the pre-template "LEOSS Mitigation Planning Demo" legacy project) so
- * those prerequisites already exist. Every demo object is resolved
+ * <p>Runs after {@link DataLoader}, so the LEOSS dataset, recipients, and
+ * framework assessments already exist. Every demo object is resolved
  * independently by normalized name and created only if absent: an
  * administrator's edits to a template, or a user's edits to a demo Project,
  * are never overwritten by a later restart.</p>
@@ -83,6 +85,8 @@ public class ProjectTemplateDemoSeeder implements CommandLineRunner {
     private static final String ACADEMIC_RECIPIENT_NAME = "Academic Research Institute";
     private static final String COMMERCIAL_RECIPIENT_NAME = "Commercial Partner";
     private static final String PUBLIC_RECIPIENT_NAME = "Public Open Data Portal";
+    private static final String SPHN_DATASET_ASSESSMENT_NAME = "LEOSS Assessment (SPHN)";
+    private static final String ACADEMIC_SPHN_RECIPIENT_ASSESSMENT_NAME = "Academic Research Institute (SPHN)";
 
     private static final String PUBLIC_RELEASE_TEMPLATE_NAME = "Public Data Release";
     private static final String CONTROLLED_TEMPLATE_NAME = "Controlled Data Transfer";
@@ -91,6 +95,7 @@ public class ProjectTemplateDemoSeeder implements CommandLineRunner {
     private static final String PUBLIC_RELEASE_PROJECT_NAME = "LEOSS Public Data Release Study";
     private static final String CONTROLLED_PROJECT_NAME = "LEOSS Controlled Transfer Study";
     private static final String SECURE_ANALYSIS_PROJECT_NAME = "LEOSS Secure Environment Study";
+    private static final String SECURE_ANALYSIS_ACTIVITY_NAME = "LEOSS / Secure Analysis Environment (SPHN)";
 
     private static final String PUBLIC_RELEASE_SOURCE =
             "LEOSS Public Use File; Jakob et al., Scientific Data 2020; Koll et al., Scientific Data 2022";
@@ -112,6 +117,8 @@ public class ProjectTemplateDemoSeeder implements CommandLineRunner {
     private final ProjectRepository projectRepository;
     private final DatasetRepository datasetRepository;
     private final RecipientRepository recipientRepository;
+    private final DatasetAssessmentRepository datasetAssessmentRepository;
+    private final RecipientAssessmentRepository recipientAssessmentRepository;
     private final DataSharingActivityRepository dataSharingActivityRepository;
     private final ProjectTemplateService templateService;
     private final ProjectService projectService;
@@ -121,6 +128,8 @@ public class ProjectTemplateDemoSeeder implements CommandLineRunner {
             ProjectRepository projectRepository,
             DatasetRepository datasetRepository,
             RecipientRepository recipientRepository,
+            DatasetAssessmentRepository datasetAssessmentRepository,
+            RecipientAssessmentRepository recipientAssessmentRepository,
             DataSharingActivityRepository dataSharingActivityRepository,
             ProjectTemplateService templateService,
             ProjectService projectService
@@ -129,6 +138,8 @@ public class ProjectTemplateDemoSeeder implements CommandLineRunner {
         this.projectRepository = projectRepository;
         this.datasetRepository = datasetRepository;
         this.recipientRepository = recipientRepository;
+        this.datasetAssessmentRepository = datasetAssessmentRepository;
+        this.recipientAssessmentRepository = recipientAssessmentRepository;
         this.dataSharingActivityRepository = dataSharingActivityRepository;
         this.templateService = templateService;
         this.projectService = projectService;
@@ -155,9 +166,10 @@ public class ProjectTemplateDemoSeeder implements CommandLineRunner {
                 ensureControlledResearchProject(controlledTemplate, leossDataset, academic, commercial);
         Project publicReleaseProject =
                 ensurePublicReleaseProject(publicReleaseTemplate, leossDataset, publicPortal);
-        ensureSecureAnalysisProject(secureAnalysisTemplate, leossDataset, academic);
+        Project secureAnalysisProject =
+                ensureSecureAnalysisProject(secureAnalysisTemplate, leossDataset, academic);
 
-        linkDemoDataSharingActivities(controlledProject, publicReleaseProject);
+        linkDemoDataSharingActivities(controlledProject, publicReleaseProject, secureAnalysisProject);
     }
 
     // -------------------------------------------------------------------
@@ -444,7 +456,6 @@ public class ProjectTemplateDemoSeeder implements CommandLineRunner {
                 decimalResponse(ids, "minimumCohortRetentionPercent", BigDecimal.valueOf(95), "PERCENT"),
                 textResponse(ids, "criticalUtilityRequirement",
                         "Age and outcome information must remain suitable for regression analysis."),
-                dateResponse(ids, "dataAccessDeadline", LocalDate.of(2026, 10, 31)),
                 integerResponse(ids, "maximumSetupTimeDays", 30L, "DAYS"),
                 decimalResponse(ids, "availableBudget", BigDecimal.valueOf(5000), "EUR"),
                 selectResponse(ids, "budgetScope", List.of("WHOLE_PROJECT"))
@@ -486,7 +497,6 @@ public class ProjectTemplateDemoSeeder implements CommandLineRunner {
                 decimalResponse(ids, "minimumCohortRetentionPercent", BigDecimal.valueOf(90), "PERCENT"),
                 textResponse(ids, "criticalUtilityRequirement",
                         "Monthly age bands and outcome summaries must remain usable for external replication."),
-                dateResponse(ids, "dataAccessDeadline", LocalDate.of(2026, 11, 30)),
                 integerResponse(ids, "maximumSetupTimeDays", 45L, "DAYS")
         ));
 
@@ -529,7 +539,6 @@ public class ProjectTemplateDemoSeeder implements CommandLineRunner {
                         "Detailed clinical covariates must remain available for reproducible aggregate analysis."),
                 textResponse(ids, "requiredAnalysisSoftware", "R"),
                 selectResponse(ids, "requiredComputeCapability", List.of("STANDARD_CPU")),
-                dateResponse(ids, "dataAccessDeadline", LocalDate.of(2026, 10, 15)),
                 decimalResponse(ids, "availableBudget", BigDecimal.valueOf(3000), "EUR"),
                 selectResponse(ids, "budgetScope", List.of("SINGLE_SHARING_ACTIVITY"))
         ));
@@ -549,7 +558,11 @@ public class ProjectTemplateDemoSeeder implements CommandLineRunner {
      * "Academic Labs" activities fit both the Controlled Research and Secure
      * Analysis projects) are left on the legacy project rather than guessed.
      */
-    private void linkDemoDataSharingActivities(Project controlledProject, Project publicReleaseProject) {
+    private void linkDemoDataSharingActivities(
+            Project controlledProject,
+            Project publicReleaseProject,
+            Project secureAnalysisProject
+    ) {
         Project legacyProject = findProjectByNormalizedName(LEGACY_LEOSS_PROJECT_NAME).orElse(null);
 
         if (controlledProject != null) {
@@ -560,6 +573,35 @@ public class ProjectTemplateDemoSeeder implements CommandLineRunner {
             linkActivityIfSafe("LEOSS / Open Data Portal (El Emam)", publicReleaseProject, legacyProject);
             linkActivityIfSafe("LEOSS / Open Data Portal (SPHN)", publicReleaseProject, legacyProject);
         }
+        if (secureAnalysisProject != null) {
+            ensureSecureAnalysisActivity(secureAnalysisProject, legacyProject);
+        }
+    }
+
+    private void ensureSecureAnalysisActivity(Project secureAnalysisProject, Project legacyProject) {
+        Optional<DataSharingActivity> existing = findActivityByNormalizedName(SECURE_ANALYSIS_ACTIVITY_NAME);
+        if (existing.isPresent()) {
+            linkActivityIfSafe(SECURE_ANALYSIS_ACTIVITY_NAME, secureAnalysisProject, legacyProject);
+            return;
+        }
+
+        DatasetAssessment datasetAssessment = findDatasetAssessmentByName(SPHN_DATASET_ASSESSMENT_NAME).orElse(null);
+        RecipientAssessment recipientAssessment =
+                findRecipientAssessmentByName(ACADEMIC_SPHN_RECIPIENT_ASSESSMENT_NAME).orElse(null);
+        if (datasetAssessment == null || recipientAssessment == null) {
+            return;
+        }
+
+        DataSharingActivity activity = new DataSharingActivity();
+        activity.setCreatorUsername(DEMO_CREATOR);
+        activity.setName(SECURE_ANALYSIS_ACTIVITY_NAME);
+        activity.setDescription(
+                "Dedicated secure-analysis scenario using the LEOSS-like dataset and a trusted academic recipient under the SPHN framework."
+        );
+        activity.setDatasetAssessment(datasetAssessment);
+        activity.setRecipientAssessment(recipientAssessment);
+        activity.setProject(secureAnalysisProject);
+        dataSharingActivityRepository.save(activity);
     }
 
     private void linkActivityIfSafe(String activityName, Project targetProject, Project legacyProject) {
@@ -762,10 +804,6 @@ public class ProjectTemplateDemoSeeder implements CommandLineRunner {
         });
     }
 
-    private ProjectRequirementResponseRequestDTO dateResponse(Map<String, Long> ids, String key, LocalDate value) {
-        return response(ids, key, dto -> dto.setDateValue(value));
-    }
-
     private ProjectRequirementResponseRequestDTO durationResponse(Map<String, Long> ids, String key, long amount, String unit) {
         return response(ids, key, dto -> {
             dto.setIntegerValue(amount);
@@ -847,6 +885,18 @@ public class ProjectTemplateDemoSeeder implements CommandLineRunner {
         return dataSharingActivityRepository.findAll().stream()
                 .filter(activity -> normalizedName.equals(activity.getNormalizedName())
                         || normalizedName.equals(EntityNameNormalizer.normalizeForComparison(activity.getName())))
+                .findFirst();
+    }
+
+    private Optional<DatasetAssessment> findDatasetAssessmentByName(String name) {
+        return datasetAssessmentRepository.findAll().stream()
+                .filter(assessment -> Objects.equals(assessment.getName(), name))
+                .findFirst();
+    }
+
+    private Optional<RecipientAssessment> findRecipientAssessmentByName(String name) {
+        return recipientAssessmentRepository.findAll().stream()
+                .filter(assessment -> Objects.equals(assessment.getName(), name))
                 .findFirst();
     }
 }

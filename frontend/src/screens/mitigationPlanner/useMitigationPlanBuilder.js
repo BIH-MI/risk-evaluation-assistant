@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { evaluateMitigationPlanDraftApi } from "api/mitigationPlanner";
 import {
@@ -13,7 +13,14 @@ const DUPLICATE_PLAN_MESSAGE = "This candidate plan already exists.";
 const isBlank = (value) => value === null || value === undefined || String(value).trim() === "";
 
 const normalizedActionIds = (actionIds) =>
-  [...new Set((actionIds || []).map((id) => Number(id)))].sort((left, right) => left - right);
+  [...new Set((actionIds || []).map((id) => Number(id)).filter(Number.isFinite))].sort(
+    (left, right) => left - right
+  );
+
+const normalizedActionId = (actionId) => {
+  const value = Number(actionId);
+  return Number.isFinite(value) ? value : null;
+};
 
 function buildSelectedParameters(actionIds, parameterChoices) {
   return normalizedActionIds(actionIds)
@@ -123,20 +130,34 @@ export default function useMitigationPlanBuilder({
     [plans, selectedPlanKey]
   );
 
+  useEffect(() => {
+    setSelectedActionIds([]);
+    setParameterChoices({});
+    setPlans([]);
+    setSelectedPlanKey(null);
+    setErrorMessage("");
+  }, [activityId, manualRiskThreshold]);
+
   const toggleAction = useCallback((actionId) => {
+    const id = normalizedActionId(actionId);
+    if (id === null) return;
+
     setSelectedActionIds((current) =>
-      current.includes(actionId) ? current.filter((id) => id !== actionId) : [...current, actionId]
+      current.includes(id) ? current.filter((currentId) => currentId !== id) : [...current, id]
     );
     setParameterChoices((current) => {
-      const { [actionId]: removed, ...rest } = current;
+      const { [id]: removed, ...rest } = current;
       return removed && Object.keys(removed).length > 0 ? rest : current;
     });
   }, []);
 
   const chooseParameter = useCallback((actionId, parameterCode, value) => {
+    const id = normalizedActionId(actionId);
+    if (id === null) return;
+
     setParameterChoices((current) => ({
       ...current,
-      [actionId]: { ...(current[actionId] || {}), [parameterCode]: value },
+      [id]: { ...(current[id] || {}), [parameterCode]: value },
     }));
   }, []);
 

@@ -143,8 +143,6 @@ public class ProjectService {
             );
         }
 
-        // Legacy attribute requirements are read-only: ordinary edits never touch them.
-
         Project saved = saveProjectHandlingDuplicateName(project, name);
         return new ProjectResponseDTO(saved);
     }

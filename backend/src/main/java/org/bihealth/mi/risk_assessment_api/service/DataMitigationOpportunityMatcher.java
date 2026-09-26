@@ -17,8 +17,8 @@ import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetAsses
 import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetTableAssessmentAttribute;
 import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTableAttribute;
 import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTableQidCombination;
-import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationAction;
-import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationAttributeMapping;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationAction;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationAttributeMapping;
 import org.bihealth.mi.risk_assessment_api.model.scoring.AttributeScoringSystemVersion;
 import org.bihealth.mi.risk_assessment_api.repository.activity.DataSharingActivityTableAssessmentAttributeRepository;
 import org.bihealth.mi.risk_assessment_api.repository.assessment.dataset.DatasetTableAssessmentAttributeRepository;

@@ -1,4 +1,4 @@
-package org.bihealth.mi.risk_assessment_api.model.mitigation;
+package org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model;
 
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
@@ -30,7 +30,7 @@ import java.util.List;
 @Getter
 @Setter
 @Entity
-@Table(name = "mitigation_parameter_definitions")
+@Table(name = "mitigation_kb_parameter_definitions")
 public class MitigationParameterDefinition {
 
     @Id
@@ -42,6 +42,10 @@ public class MitigationParameterDefinition {
     @JoinColumn(name = "mitigation_action_id", nullable = false)
     private MitigationAction mitigationAction;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "knowledge_base_version_id", nullable = false)
+    private MitigationKnowledgeBaseVersion knowledgeBaseVersion;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "parameter_code", nullable = false, length = 100)
     private MitigationParameterCode parameterCode;
@@ -51,7 +55,7 @@ public class MitigationParameterDefinition {
 
     @ElementCollection
     @CollectionTable(
-            name = "mitigation_parameter_allowed_values",
+            name = "mitigation_kb_parameter_allowed_values",
             joinColumns = @JoinColumn(name = "parameter_definition_id")
     )
     @OrderColumn(name = "display_order")

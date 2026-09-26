@@ -82,9 +82,4 @@ public class Project extends NamedResourceEntity {
     @OrderBy("id ASC")
     private List<ProjectRequirementResponse> requirementResponses = new ArrayList<>();
 
-    // Legacy user-defined attribute requirements. Kept read-only during the template migration.
-    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = false)
-    @OrderBy("id ASC")
-    @OnDelete(action = OnDeleteAction.CASCADE)
-    private List<ProjectAttributeRequirement> attributeRequirements = new ArrayList<>();
 }

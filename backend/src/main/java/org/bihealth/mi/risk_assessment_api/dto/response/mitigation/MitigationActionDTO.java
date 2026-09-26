@@ -7,13 +7,14 @@ import org.bihealth.mi.risk_assessment_api.enums.MitigationEstimateScope;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationRecordRetentionEffect;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationResultingDataForm;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationSharingArrangement;
-import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationAction;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationAction;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -48,6 +49,8 @@ public class MitigationActionDTO {
     private List<MitigationQuestionMappingDTO> questionMappings;
     private List<MitigationAttributeMappingDTO> attributeMappings;
     private List<MitigationParameterDefinitionDTO> parameterDefinitions;
+    private List<MitigationActionDependencyDTO> dependencies;
+    private List<MitigationActionConflictDTO> conflicts;
 
     public MitigationActionDTO(MitigationAction action) {
         this.id = action.getId();
@@ -97,6 +100,20 @@ public class MitigationActionDTO {
                 .sorted(Comparator.comparing(parameter -> parameter.getId() == null ? Long.MAX_VALUE : parameter.getId()))
                 .map(MitigationParameterDefinitionDTO::new)
                 .collect(Collectors.toList());
+        this.dependencies = action.getKnowledgeBaseVersion() == null
+                ? List.of()
+                : action.getKnowledgeBaseVersion().getDependencies().stream()
+                .filter(dependency -> sameAction(dependency.getAction(), action))
+                .sorted(Comparator.comparing(dependency -> dependency.getId() == null ? Long.MAX_VALUE : dependency.getId()))
+                .map(MitigationActionDependencyDTO::new)
+                .collect(Collectors.toList());
+        this.conflicts = action.getKnowledgeBaseVersion() == null
+                ? List.of()
+                : action.getKnowledgeBaseVersion().getConflicts().stream()
+                .filter(conflict -> sameAction(conflict.getActionA(), action) || sameAction(conflict.getActionB(), action))
+                .sorted(Comparator.comparing(conflict -> conflict.getId() == null ? Long.MAX_VALUE : conflict.getId()))
+                .map(conflict -> new MitigationActionConflictDTO(conflict, action))
+                .collect(Collectors.toList());
     }
 
     private boolean hasEstimate(MitigationAction action) {
@@ -107,5 +124,14 @@ public class MitigationActionDTO {
                 || action.getEstimateScope() != null
                 || action.getEstimateSource() != null
                 || action.getEstimateAssumptions() != null;
+    }
+
+    private boolean sameAction(MitigationAction left, MitigationAction right) {
+        if (left == right) {
+            return true;
+        }
+        return left != null && right != null
+                && left.getId() != null
+                && Objects.equals(left.getId(), right.getId());
     }
 }

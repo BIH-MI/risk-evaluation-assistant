@@ -4,7 +4,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationAssessmentScope;
 import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
-import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationQuestionMapping;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationQuestionMapping;
 
 @Data
 @NoArgsConstructor

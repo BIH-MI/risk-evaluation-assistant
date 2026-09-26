@@ -20,8 +20,8 @@ import org.bihealth.mi.risk_assessment_api.enums.RiskDriverSource;
 import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetAssessment;
 import org.bihealth.mi.risk_assessment_api.model.assessment.recipient.RecipientAssessment;
 import org.bihealth.mi.risk_assessment_api.model.configuration.RiskCategory;
-import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationAction;
-import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationQuestionMapping;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationAction;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationQuestionMapping;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Answer;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Question;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.QuestionOption;
@@ -69,7 +69,7 @@ public class RiskDriverExtractorService {
                             RiskDriverSource.DATASET_QUESTION,
                             datasetAssessment.getId(),
                             answer,
-                            matchedQuestionActions(answer, dataActions, MitigationAssessmentScope.DATASET),
+                            findActionsTriggeredByAnswer(answer, dataActions, MitigationAssessmentScope.DATASET),
                             "Risk-driving finding from the Dataset Assessment / Invasion of Privacy answers."
                     ));
                 }
@@ -87,7 +87,7 @@ public class RiskDriverExtractorService {
                             RiskDriverSource.RECIPIENT_QUESTION,
                             recipientAssessment.getId(),
                             answer,
-                            matchedQuestionActions(answer, contextActions, MitigationAssessmentScope.RECIPIENT),
+                            findActionsTriggeredByAnswer(answer, contextActions, MitigationAssessmentScope.RECIPIENT),
                             "Risk-driving finding from the Recipient Assessment context answers."
                     ));
                 }
@@ -138,7 +138,7 @@ public class RiskDriverExtractorService {
         return driver;
     }
 
-    private List<MitigationAction> matchedQuestionActions(
+    private List<MitigationAction> findActionsTriggeredByAnswer(
             Answer answer,
             Collection<MitigationAction> actions,
             MitigationAssessmentScope scope

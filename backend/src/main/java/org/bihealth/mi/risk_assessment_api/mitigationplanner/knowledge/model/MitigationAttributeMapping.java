@@ -1,4 +1,4 @@
-package org.bihealth.mi.risk_assessment_api.model.mitigation;
+package org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -25,7 +25,7 @@ import org.bihealth.mi.risk_assessment_api.enums.MitigationAttributeRole;
 @Getter
 @Setter
 @Entity
-@Table(name = "mitigation_attribute_mappings")
+@Table(name = "mitigation_kb_attribute_mappings")
 public class MitigationAttributeMapping {
 
     @Id
@@ -36,6 +36,10 @@ public class MitigationAttributeMapping {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "mitigation_action_id", nullable = false)
     private MitigationAction mitigationAction;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "knowledge_base_version_id", nullable = false)
+    private MitigationKnowledgeBaseVersion knowledgeBaseVersion;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "attribute_role", length = 80)

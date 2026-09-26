@@ -4,7 +4,7 @@ import java.util.Locale;
 
 import org.bihealth.mi.risk_assessment_api.enums.MitigationAssessmentScope;
 import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
-import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationQuestionMapping;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationQuestionMapping;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Answer;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.QuestionOption;
 import org.springframework.stereotype.Component;

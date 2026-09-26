@@ -28,17 +28,19 @@ import org.bihealth.mi.risk_assessment_api.dto.response.report.GenericRiskRespon
 import org.bihealth.mi.risk_assessment_api.enums.MitigationActionType;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationSharingArrangement;
 import org.bihealth.mi.risk_assessment_api.enums.RiskThresholdSource;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.service.MitigationKnowledgeBaseSnapshot;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.service.MitigationKnowledgeBaseSnapshotService;
 import org.bihealth.mi.risk_assessment_api.model.activity.DataSharingActivity;
 import org.bihealth.mi.risk_assessment_api.model.assessment.recipient.RecipientAssessment;
 import org.bihealth.mi.risk_assessment_api.model.configuration.ConfigurationVersion;
 import org.bihealth.mi.risk_assessment_api.model.configuration.RiskBand;
 import org.bihealth.mi.risk_assessment_api.model.configuration.RiskCategory;
 import org.bihealth.mi.risk_assessment_api.model.configuration.RiskMatrix;
-import org.bihealth.mi.risk_assessment_api.model.mitigation.MitigationAction;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationAction;
+import org.bihealth.mi.risk_assessment_api.model.project.ProjectRequirementResponse;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Answer;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Question;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.QuestionOption;
-import org.bihealth.mi.risk_assessment_api.repository.mitigation.MitigationActionRepository;
 import org.bihealth.mi.risk_assessment_api.utils.RiskResultBands;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -63,9 +65,10 @@ public class CounterfactualContextEvaluator {
 
     private final DataSharingActivityService activityService;
     private final RiskService riskService;
-    private final MitigationActionRepository actionRepository;
+    private final MitigationKnowledgeBaseSnapshotService knowledgeBaseSnapshotService;
     private final ContextMitigationOpportunityMatcher matcher;
     private final MitigationOpportunityService opportunityService;
+    private final ProjectRequirementResolver requirementResolver;
 
     /** One projected answer change and the actions that request it. */
     private record ProjectedChange(
@@ -116,9 +119,12 @@ public class CounterfactualContextEvaluator {
             return result;
         }
 
+        Map<String, ProjectRequirementResponse> responses =
+                requirementResolver.responsesByStableKey(activity.getProject());
         MitigationSharingArrangement arrangement =
-                opportunityService.resolveSharingArrangement(activity.getProject(), warnings);
-        List<MitigationAction> validActions = validateActions(actionIds, arrangement, warnings);
+                opportunityService.resolveSharingArrangement(activity.getProject(), responses, warnings);
+        MitigationKnowledgeBaseSnapshot snapshot = knowledgeBaseSnapshotService.createSnapshotForPlanning(null);
+        List<MitigationAction> validActions = validateActions(snapshot, actionIds, arrangement, warnings);
 
         Map<MitigationAction, ContextMitigationOpportunityMatcher.ContextMatch> matches = validActions.isEmpty()
                 ? Map.of()
@@ -330,6 +336,7 @@ public class CounterfactualContextEvaluator {
     }
 
     private List<MitigationAction> validateActions(
+            MitigationKnowledgeBaseSnapshot snapshot,
             Collection<Long> actionIds,
             MitigationSharingArrangement arrangement,
             List<String> warnings
@@ -338,7 +345,8 @@ public class CounterfactualContextEvaluator {
             return List.of();
         }
         Set<Long> requested = new LinkedHashSet<>(actionIds);
-        Map<Long, MitigationAction> found = actionRepository.findAllById(requested).stream()
+        Map<Long, MitigationAction> found = snapshot.actions().stream()
+                .filter(action -> requested.contains(action.getId()))
                 .collect(Collectors.toMap(MitigationAction::getId, action -> action));
 
         List<MitigationAction> valid = new ArrayList<>();
@@ -355,9 +363,6 @@ public class CounterfactualContextEvaluator {
             } else {
                 valid.add(action);
             }
-        }
-        if (!valid.isEmpty()) {
-            actionRepository.fetchQuestionMappings(valid); // hydrates mappings of the managed entities
         }
         return valid;
     }

@@ -28,6 +28,8 @@ import {
   PARAMETER_CODES,
   buildActionPayload,
   emptyActionForm,
+  switchActionType,
+  assessmentScopeForActionType,
   hasActionFormErrors,
   normalizeActionToForm,
   normalizeSharingArrangement,
@@ -100,6 +102,9 @@ export default function AddEditMitigationAction() {
 
   const updateField = useCallback((field, value) => {
     setForm((previous) => {
+      if (field === "actionType" && value !== previous.actionType) {
+        return switchActionType(previous, value);
+      }
       const next = { ...previous, [field]: value };
       if (field === "currency") next.currency = String(value || "").toUpperCase();
       if (field === "applicableSharingArrangements") {
@@ -172,7 +177,7 @@ export default function AddEditMitigationAction() {
   const addQuestionnaireRule = useCallback(() => {
     addCollectionItem("questionMappings", {
       configurationId: "",
-      assessmentScope: form.actionType === "DATA_TRANSFORMATION" ? "DATASET" : "RECIPIENT",
+      assessmentScope: assessmentScopeForActionType(form.actionType),
       categoryCode: "",
       questionCode: "",
       triggerOptionCode: "",

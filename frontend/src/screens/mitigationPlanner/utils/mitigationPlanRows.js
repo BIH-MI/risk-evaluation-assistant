@@ -154,3 +154,51 @@ export function planActionParameterLines(action) {
       : `${formatParameterLabel(parameter.parameterCode)}: To be determined during transformation evaluation`
   );
 }
+
+const PRIORITY_ORDER = { CRITICAL: 0, HIGH: 1, OPTIONAL_IMPROVEMENT: 2, NO_ACTION_REQUIRED: 3 };
+const CATEGORY_LABELS = {
+  IMPACT: "Impact",
+  CONTROLS: "Controls",
+  LIKELIHOOD: "Likelihood",
+  DATASET_EVIDENCE: "Dataset evidence",
+};
+
+export function riskDriversById(overview) {
+  return new Map(
+    [...(overview?.riskDrivers?.dataDrivers || []), ...(overview?.riskDrivers?.contextDrivers || [])].map(
+      (driver) => [driver.id, driver]
+    )
+  );
+}
+
+/**
+ * Risk Drivers a plan action is structurally linked to, grouped by category and then priority,
+ * taken from the actual overview drivers (never inferred from the action name). Linkage means the
+ * action addresses the driver, not that the risk is eliminated.
+ *
+ * @returns {{ category: string, priorities: { priority: string, count: number }[] }[]}
+ */
+export function addressedDriverGroups(action, driversById) {
+  const byCategory = new Map();
+  (action.addressedRiskDriverIds || []).forEach((id) => {
+    const driver = driversById.get(id);
+    if (!driver) return;
+    const category = CATEGORY_LABELS[driver.categoryCode] || driver.categoryLabel || "Risk Driver";
+    const priorities = byCategory.get(category) || new Map();
+    priorities.set(driver.priority, (priorities.get(driver.priority) || 0) + 1);
+    byCategory.set(category, priorities);
+  });
+  const priorityRank = (priority) => PRIORITY_ORDER[priority] ?? 9;
+  return [...byCategory.entries()]
+    .map(([category, priorities]) => ({
+      category,
+      priorities: [...priorities.entries()]
+        .map(([priority, count]) => ({ priority, count }))
+        .sort((left, right) => priorityRank(left.priority) - priorityRank(right.priority)),
+    }))
+    .sort(
+      (left, right) =>
+        priorityRank(left.priorities[0].priority) - priorityRank(right.priorities[0].priority) ||
+        left.category.localeCompare(right.category)
+    );
+}

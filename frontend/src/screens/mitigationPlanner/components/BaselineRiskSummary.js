@@ -6,6 +6,7 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import RequirementHelpTooltip from "components/display/RequirementHelpTooltip";
 import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
+import RiskBandChip from "./RiskBandChip";
 import { formatPercentageValue } from "screens/dataSharingReport/reportDataUtils";
 
 // Values come from the backend's authoritative REA risk result. REA has no measured residual
@@ -34,9 +35,10 @@ export default function BaselineRiskSummary({ baselineRisk }) {
       false,
       "rAnon",
     ],
-    [t("mitigationPlanner.baseline.impact", "Impact / Invasion of Privacy"), baselineRisk.impactBand || "—"],
-    [t("mitigationPlanner.baseline.controls", "Controls"), baselineRisk.controlsBand || "—"],
-    [t("mitigationPlanner.baseline.likelihood", "Likelihood"), baselineRisk.likelihoodBand || "—"],
+    // Qualitative bands are chips; Controls is protective, so a high band is favourable.
+    [t("mitigationPlanner.baseline.impact", "Impact / Invasion of Privacy"), <RiskBandChip band={baselineRisk.impactBand} />],
+    [t("mitigationPlanner.baseline.controls", "Controls"), <RiskBandChip band={baselineRisk.controlsBand} isProtection />],
+    [t("mitigationPlanner.baseline.likelihood", "Likelihood"), <RiskBandChip band={baselineRisk.likelihoodBand} />],
   ];
 
   return (
@@ -78,7 +80,7 @@ export default function BaselineRiskSummary({ baselineRisk }) {
                       <Chip size="small" variant="outlined" color="info" label={t("mitigationPlanner.baseline.userDefined", "User-defined")} />
                     </RequirementHelpTooltip>
                   )}
-                  <strong>{value}</strong>
+                  {typeof value === "string" ? <strong>{value}</strong> : value}
                 </RABox>
               </TableCell>
             </TableRow>

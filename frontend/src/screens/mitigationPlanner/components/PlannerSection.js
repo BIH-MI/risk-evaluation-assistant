@@ -6,9 +6,9 @@ import RATypography from "components/display/RATypography";
 import ReportSectionTitle from "screens/dataSharingReport/components/shared/ReportSectionTitle";
 
 // Report-style section: centered title, optional description and a themed Paper body (optional).
-export default function PlannerSection({ id, title, description, framed, children }) {
+export default function PlannerSection({ id, title, description, framed, mt, children }) {
   return (
-    <RABox id={id} component="section" sx={{ scrollMarginTop: 96 }}>
+    <RABox id={id} component="section" sx={{ scrollMarginTop: 96, mt }}>
       <ReportSectionTitle>{title}</ReportSectionTitle>
       {description && (
         <RATypography variant="body2" textAlign="center" mb={2}>
@@ -32,10 +32,13 @@ PlannerSection.propTypes = {
   description: PropTypes.string,
   // Sections that mostly hold tables read better without a surrounding frame.
   framed: PropTypes.bool,
+  // Extra theme spacing above the section, on top of the page gap.
+  mt: PropTypes.number,
   children: PropTypes.node.isRequired,
 };
 
 PlannerSection.defaultProps = {
   description: null,
   framed: true,
+  mt: 0,
 };

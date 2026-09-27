@@ -45,7 +45,7 @@ export default function RiskFactorTable({ drivers, actionRows, builder, currentH
                   onToggleRiskFactor={() => toggleSetValue(setExpandedRiskFactorIds, key)}
                   selectedActionIds={builder.selectedActionIds}
                   parameterChoices={builder.parameterChoices}
-                  onToggleAction={builder.manualMode ? builder.toggleAction : null}
+                  onToggleAction={builder.toggleAction}
                   onToggleDetails={(actionId) => toggleSetValue(setExpandedActionIds, actionId)}
                   onChooseParameter={builder.chooseParameter}
                   expandedActionIds={expandedActionIds}

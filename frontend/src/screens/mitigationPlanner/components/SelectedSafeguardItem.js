@@ -4,28 +4,41 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import RequirementHelpTooltip from "components/display/RequirementHelpTooltip";
 import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
-import { planActionParameterLines } from "../utils/mitigationPlanRows";
+import { addressedDriverGroups, planActionParameterLines } from "../utils/mitigationPlanRows";
+import { RiskPriorityChip } from "./riskFactorTableHelpers";
 
 function appliesToAction(change, action) {
   if ((change.actionIds || []).map(Number).includes(Number(action.actionId))) return true;
   return (change.actionNames || []).includes(action.actionName);
 }
 
+// Tooltip content. Every box and text inherits the tooltip's theme colour; labels are secondary
+// through opacity only, so they stay legible on both light and dark tooltip surfaces.
+function LabelledValue({ label, value }) {
+  return (
+    <RABox color="inherit">
+      <RATypography variant="caption" color="inherit" display="block" sx={{ opacity: 0.72 }}>
+        {label}
+      </RATypography>
+      <RATypography variant="body2" color="inherit">
+        {value || "—"}
+      </RATypography>
+    </RABox>
+  );
+}
+
+LabelledValue.propTypes = { label: PropTypes.string.isRequired, value: PropTypes.string };
+LabelledValue.defaultProps = { value: null };
+
 function ChangeLine({ change, index, showNumber }) {
   return (
-    <RABox>
-      {showNumber && (
-        <RATypography variant="body2" fontWeight="bold">
-          {index + 1}.
-        </RATypography>
-      )}
-      <RATypography variant="body2" fontWeight="bold">
+    <RABox color="inherit" display="flex" flexDirection="column" gap={1}>
+      <RATypography variant="body2" color="inherit" sx={{ fontWeight: 600 }}>
+        {showNumber ? `${index + 1}. ` : ""}
         {change.questionText}
       </RATypography>
-      <RATypography variant="body2">Current: {change.currentOptionText || "—"}</RATypography>
-      <RATypography variant="body2">
-        After verified implementation: {change.projectedOptionText || "—"}
-      </RATypography>
+      <LabelledValue label="Current" value={change.currentOptionText} />
+      <LabelledValue label="After verified implementation" value={change.projectedOptionText} />
     </RABox>
   );
 }
@@ -46,8 +59,8 @@ function SafeguardTooltipContent({ changes }) {
   }
 
   return (
-    <RABox display="flex" flexDirection="column" gap={1}>
-      <RATypography variant="body2" fontWeight="bold">
+    <RABox color="inherit" display="flex" flexDirection="column" gap={1.5}>
+      <RATypography variant="body2" color="inherit" sx={{ fontWeight: 600 }}>
         Mapped assessment changes
       </RATypography>
       {changes.map((change, index) => (
@@ -70,19 +83,42 @@ export function changesForAction(action, changes = []) {
   return changes.filter((change) => appliesToAction(change, action));
 }
 
-export default function SelectedSafeguardItem({ action, appliedChanges }) {
+/**
+ * One selected action of the plan: its name, the Risk Driver categories it structurally addresses
+ * (from the actual linked drivers) and, for context controls, the mapped questionnaire change in
+ * a tooltip. "Addresses" is linkage, not proof the risk is eliminated.
+ */
+export default function SelectedSafeguardItem({ action, appliedChanges, driversById }) {
   const actionChanges = changesForAction(action, appliedChanges);
+  const groups = addressedDriverGroups(action, driversById);
 
   return (
     <li>
-      <RABox display="flex" alignItems="center" gap={0.75}>
-        <RATypography variant="body2">{action.actionName}</RATypography>
-        {actionChanges.length > 0 && (
-          <RequirementHelpTooltip title={<SafeguardTooltipContent changes={actionChanges} />}>
-            <InfoOutlinedIcon fontSize="small" sx={{ color: "text.secondary", cursor: "help" }} />
-          </RequirementHelpTooltip>
-        )}
-      </RABox>
+      <RATypography variant="body2">{action.actionName}</RATypography>
+      {(groups.length > 0 || actionChanges.length > 0) && (
+        <RABox display="flex" alignItems="center" flexWrap="wrap" columnGap={1} rowGap={0.5} mt={0.25}>
+          {groups.length > 0 && (
+            <RATypography variant="body2" sx={{ color: "text.secondary" }}>
+              Addresses:
+            </RATypography>
+          )}
+          {groups.map(({ category, priorities }) => (
+            <RABox key={category} display="flex" alignItems="center" flexWrap="wrap" gap={0.75}>
+              <RATypography variant="body2" sx={{ color: "text.secondary" }}>
+                {category}
+              </RATypography>
+              {priorities.map(({ priority, count }) => (
+                <RiskPriorityChip key={priority} priority={priority} count={count} />
+              ))}
+            </RABox>
+          ))}
+          {actionChanges.length > 0 && (
+            <RequirementHelpTooltip title={<SafeguardTooltipContent changes={actionChanges} />}>
+              <InfoOutlinedIcon fontSize="small" sx={{ color: "text.secondary", cursor: "help" }} />
+            </RequirementHelpTooltip>
+          )}
+        </RABox>
+      )}
       {planActionParameterLines(action).map((line) => (
         <RATypography key={line} variant="body2" sx={{ color: "text.secondary" }}>
           {line}
@@ -96,10 +132,13 @@ SelectedSafeguardItem.propTypes = {
   action: PropTypes.shape({
     actionId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
     actionName: PropTypes.string,
+    addressedRiskDriverIds: PropTypes.array,
   }).isRequired,
   appliedChanges: PropTypes.array,
+  driversById: PropTypes.instanceOf(Map),
 };
 
 SelectedSafeguardItem.defaultProps = {
   appliedChanges: [],
+  driversById: new Map(),
 };

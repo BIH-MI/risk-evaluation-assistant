@@ -25,7 +25,6 @@ import {
 
 import getMitigationActionsTableData from "./getMitigationActionsTableData";
 
-const LIST_ROUTE = "/configuration/mitigation-knowledge-bases";
 
 const sectionSx = {
   p: { xs: 2.5, md: 3 },
@@ -215,33 +214,34 @@ export default function EditMitigationKnowledgeBase() {
         </RABox>
       </Paper>
 
-      <RABox display="flex" justifyContent="center" gap={2}>
-        <RAButton variant="outlined" color="secondary" onClick={() => navigate(LIST_ROUTE)}>
-          Back
-        </RAButton>
-        <RAButton type="submit" variant="contained" color="primary" disabled={saving}>
+      <RABox display="flex" justifyContent="center">
+        <RAButton
+          type="submit"
+          variant="contained"
+          color="primary"
+          disabled={saving}
+          sx={{ minWidth: 160 }}
+        >
           {saving ? "Saving..." : "Save"}
         </RAButton>
       </RABox>
 
       {isEditMode && (
-        <Paper sx={sectionSx}>
-          <RABox display="flex" flexDirection="column" gap={2}>
-            <RATypography variant="h6">Actions</RATypography>
-            <DataTable
-              table={{ columns, rows }}
-              canSearch
-              canAdd
-              searchColumnKey="displayName"
-              searchPlaceholder="Search mitigation actions..."
-              onAddClick={() =>
-                navigate(
-                  `/configuration/mitigation-knowledge-bases/${knowledgeBaseId}/actions/new`
-                )
-              }
-            />
-          </RABox>
-        </Paper>
+        <RABox display="flex" flexDirection="column" gap={2}>
+          <RATypography variant="h6">Actions</RATypography>
+          <DataTable
+            table={{ columns, rows }}
+            canSearch
+            canAdd
+            searchColumnKey="displayName"
+            searchPlaceholder="Search mitigation actions..."
+            onAddClick={() =>
+              navigate(
+                `/configuration/mitigation-knowledge-bases/${knowledgeBaseId}/actions/new`
+              )
+            }
+          />
+        </RABox>
       )}
 
       <RAFloatingAlertStack

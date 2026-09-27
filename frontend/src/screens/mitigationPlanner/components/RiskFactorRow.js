@@ -115,7 +115,7 @@ RiskFactorRow.propTypes = {
   onToggleRiskFactor: PropTypes.func.isRequired,
   selectedActionIds: PropTypes.array.isRequired,
   parameterChoices: PropTypes.object.isRequired,
-  // Null outside manual plan construction: actions are then shown read-only.
+  // Adds the action to the Custom Plan; when omitted the action is shown read-only.
   onToggleAction: PropTypes.func,
   onToggleDetails: PropTypes.func.isRequired,
   onChooseParameter: PropTypes.func.isRequired,

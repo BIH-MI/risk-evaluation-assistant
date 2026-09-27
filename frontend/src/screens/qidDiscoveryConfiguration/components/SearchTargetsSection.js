@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Grid } from "@mui/material";
 
 import RAInput from "components/input/RAInput";
-import FormSection from "./FormSection";
+import FormSection from "components/layout/FormSection";
 
 export default function SearchTargetsSection({
   search,

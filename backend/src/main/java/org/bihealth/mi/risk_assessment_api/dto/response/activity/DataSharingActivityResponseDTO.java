@@ -28,6 +28,10 @@ public class DataSharingActivityResponseDTO {
     private LocalDateTime creationDate;
     private Set<String> sharedUsernames;
 
+    // Optional project workspace reference.
+    private Long projectId;
+    private String projectName;
+
     // Flattened dataset-assessment references for list/detail views.
     private Long datasetId;
     private Long datasetAssessmentId;
@@ -52,6 +56,8 @@ public class DataSharingActivityResponseDTO {
         this.description              = act.getDescription();
         this.creationDate             = act.getCreationDate();
         this.sharedUsernames          = act.getSharedUsernames();
+        this.projectId                = act.getProject() != null ? act.getProject().getId() : null;
+        this.projectName              = act.getProject() != null ? act.getProject().getName() : null;
 
         this.datasetId = act.getDatasetAssessment().getDataset().getId();
         this.datasetAssessmentId = act.getDatasetAssessment() != null

@@ -12,6 +12,9 @@ import org.bihealth.mi.risk_assessment_api.model.questionnaire.QuestionOption;
 @Data
 @NoArgsConstructor
 public class OptionResponseDTO {
+    // Stable code for internal configuration-dependent workflows.
+    private String code;
+
     // Display text for the option.
     private String text;
 
@@ -26,6 +29,7 @@ public class OptionResponseDTO {
      */
     public OptionResponseDTO(QuestionOption entity) {
         if (entity != null) {
+            this.code = entity.getCode();
             this.text = entity.getText();
             this.score = entity.getScore();
             this.isHighRiskTrigger = entity.isHighRiskTrigger();

@@ -29,10 +29,13 @@ import DatasetAssessments from "screens/datasetAssessments";
 import Documentation from "screens/documentation";
 import Recipients from "./screens/recipients";
 import AddEditRecipientForm from "./screens/recipients/AddEditRecipientForm";
+import Projects from "./screens/projects";
+import AddEditProjectForm from "./screens/projects/AddEditProjectForm";
 import RecipientAssessments from "./screens/recipientAssessments";
 import AddEditDataSharingActivity from "./screens/sharingActivity/AddEditDataSharingActivity";
 import DataSharingActivities from "./screens/sharingActivity";
 import DataSharingReport from "./screens/dataSharingReport";
+import MitigationPlanner from "./screens/mitigationPlanner";
 import AddEditRecipientAssessmentForm from "./screens/recipientAssessments/AddEditRecipientAssessmentForm";
 import AddEditDatasetAssessmentForm from "./screens/datasetAssessments/AddEditDatasetAssessmentForm";
 import ConfigurationPage from "./screens/configurations";
@@ -41,6 +44,11 @@ import AttributeScoringSystems from "./screens/attributeScoringSystems";
 import AddEditAttributeScoringSystem from "./screens/attributeScoringSystems/AddEditAttributeScoringSystem";
 import QidDiscoveryConfiguration from "./screens/qidDiscoveryConfiguration";
 import AddEditQidDiscoveryConfiguration from "./screens/qidDiscoveryConfiguration/AddEditQidDiscoveryConfiguration";
+import ProjectTemplateConfiguration from "./screens/projectTemplateConfiguration";
+import AddEditProjectTemplate from "./screens/projectTemplateConfiguration/AddEditProjectTemplate";
+import MitigationKnowledgeBases from "./screens/mitigationKnowledgeBases";
+import EditMitigationKnowledgeBase from "./screens/mitigationKnowledgeBases/EditMitigationKnowledgeBase";
+import AddEditMitigationAction from "./screens/mitigationKnowledgeBases/AddEditMitigationAction";
 
 const routes = [
   {
@@ -157,6 +165,32 @@ const routes = [
   },
   {
     type: "collapse",
+    name: "navigation.projects",
+    key: "projects",
+    route: "/projects",
+    icon: <Icon fontSize="small">workspaces</Icon>,
+    component: <Projects />,
+  },
+  {
+    type: "route",
+    name: "navigation.addProject",
+    key: "projects-new",
+    route: "/projects/new",
+    component: <AddEditProjectForm />,
+  },
+  {
+    type: "route",
+    name: "navigation.editProject",
+    key: "projects-edit",
+    route: "/projects/:projectId/edit",
+    component: <AddEditProjectForm />,
+  },
+  {
+    type: "divider",
+    key: "divider-project",
+  },
+  {
+    type: "collapse",
     name: "navigation.dataSharingActivities",
     key: "data-sharing-activities",
     route: "/data-sharing-activities",
@@ -177,6 +211,11 @@ const routes = [
     key: "data-sharing-activities-report",
     route: "/data-sharing-activities/:id/report",
     component: <DataSharingReport />,
+  },
+  {
+    key: "data-sharing-activities-mitigation-planner",
+    route: "/data-sharing-activities/:id/mitigation-planner",
+    component: <MitigationPlanner />,
   },
   {
     type: "divider",
@@ -208,6 +247,15 @@ const routes = [
     adminOnly: true,
   },
   {
+    type: "collapse",
+    name: "navigation.projectTemplates",
+    key: "configuration/project-templates",
+    route: "/configuration/project-templates",
+    icon: <Icon fontSize="small">fact_check</Icon>,
+    component: <ProjectTemplateConfiguration />,
+    adminOnly: true,
+  },
+  {
     key: "configuration-qid-discovery-new",
     route: "/configuration/qid-discovery/new",
     component: <AddEditQidDiscoveryConfiguration />,
@@ -229,6 +277,52 @@ const routes = [
     key: "configuration-attribute-scoring-systems-edit",
     route: "/configuration/attribute-scoring-systems/:id/edit",
     component: <AddEditAttributeScoringSystem />,
+    adminOnly: true,
+  },
+  {
+    key: "configuration-project-templates-new",
+    route: "/configuration/project-templates/new",
+    component: <AddEditProjectTemplate />,
+    adminOnly: true,
+  },
+  {
+    key: "configuration-project-templates-edit",
+    route: "/configuration/project-templates/:id/edit",
+    component: <AddEditProjectTemplate />,
+    adminOnly: true,
+  },
+  {
+    type: "collapse",
+    name: "navigation.mitigationKnowledgeBases",
+    key: "configuration/mitigation-knowledge-bases",
+    route: "/configuration/mitigation-knowledge-bases",
+    icon: <Icon fontSize="small">rule</Icon>,
+    component: <MitigationKnowledgeBases />,
+    adminOnly: true,
+  },
+  {
+    key: "configuration-mitigation-knowledge-bases-new",
+    route: "/configuration/mitigation-knowledge-bases/new",
+    component: <EditMitigationKnowledgeBase />,
+    adminOnly: true,
+  },
+  {
+    key: "configuration-mitigation-knowledge-bases-edit",
+    route: "/configuration/mitigation-knowledge-bases/:knowledgeBaseId/edit",
+    component: <EditMitigationKnowledgeBase />,
+    adminOnly: true,
+  },
+  {
+    key: "configuration-mitigation-knowledge-base-actions-new",
+    route: "/configuration/mitigation-knowledge-bases/:knowledgeBaseId/actions/new",
+    component: <AddEditMitigationAction />,
+    adminOnly: true,
+  },
+  {
+    key: "configuration-mitigation-knowledge-base-actions-edit",
+    route:
+      "/configuration/mitigation-knowledge-bases/:knowledgeBaseId/actions/:actionId/edit",
+    component: <AddEditMitigationAction />,
     adminOnly: true,
   },
   {

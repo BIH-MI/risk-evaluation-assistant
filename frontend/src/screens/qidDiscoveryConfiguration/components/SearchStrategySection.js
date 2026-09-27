@@ -5,7 +5,7 @@ import { Grid, MenuItem } from "@mui/material";
 
 import RAInput from "components/input/RAInput";
 import RATypography from "components/display/RATypography";
-import FormSection from "./FormSection";
+import FormSection from "components/layout/FormSection";
 import { QID_SEARCH_TYPE_OPTIONS } from "../qidDiscoveryConfigurationUtils";
 
 const SEARCH_TYPE_DESCRIPTION_KEYS = Object.freeze({

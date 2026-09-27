@@ -10,6 +10,7 @@ import org.bihealth.mi.risk_assessment_api.model.assessment.recipient.RecipientA
 import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
 import org.bihealth.mi.risk_assessment_api.model.configuration.ConfigurationVersion;
 import org.bihealth.mi.risk_assessment_api.model.dataset.*;
+import org.bihealth.mi.risk_assessment_api.model.project.Project;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Answer;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Question;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.QuestionOption;
@@ -50,6 +51,13 @@ import static java.util.Map.entry;
 @Component
 public class DataLoader implements CommandLineRunner {
 
+    private static final String DEMO_CREATOR = "user";
+    private static final String LEOSS_DATASET_NAME = "LEOSS Public Use File";
+    private static final String ACADEMIC_RECIPIENT_NAME = "Academic Research Institute";
+    private static final String COMMERCIAL_RECIPIENT_NAME = "Commercial Partner";
+    private static final String PUBLIC_RECIPIENT_NAME = "Public Open Data Portal";
+    private static final String EL_EMAM_DATASET_ASSESSMENT_NAME = "LEOSS Assessment (El Emam)";
+    private static final String SPHN_DATASET_ASSESSMENT_NAME = "LEOSS Assessment (SPHN)";
     // Allows deployments and tests to opt out of creating demo records.
     @Value("${app.setup.load-sample-data:true}")
     private boolean loadSampleData;
@@ -100,14 +108,7 @@ public class DataLoader implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) throws Exception {
-        // The loader is intentionally optional and idempotent. If the canonical
-        // demo dataset already exists, the rest of the sample graph is assumed to
-        // have been created in a previous startup.
         if (!loadSampleData) return;
-        String leossDatasetName = EntityNameNormalizer.normalizeForComparison("LEOSS Public Use File");
-        boolean datasetExists = datasetRepo.findAll().stream()
-                .anyMatch(d -> leossDatasetName.equals(EntityNameNormalizer.normalizeForComparison(d.getName())));
-        if (datasetExists) return;
 
         // Fetch the two seeded frameworks. The exact names are part of the
         // bundled JSON seed data and keep the following assessments tied to the
@@ -124,29 +125,34 @@ public class DataLoader implements CommandLineRunner {
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("SPHN configuration not found."));
 
-        // Create one common dataset and assess it independently under each
-        // framework. The dataset stays the same; only the question set and
-        // scoring configuration differ.
-        Dataset leossDataset = createLeossDataset();
+        // Create or locate one common dataset and assess it independently under
+        // each framework. The project seed below must remain independent of
+        // whether older developer databases already contain the LEOSS dataset.
+        Dataset leossDataset = getOrCreateLeossDataset();
 
-        DatasetAssessment elEmamDatasetAssessment = createElEmamDatasetAssessment(leossDataset, elEmamConfig);
-        DatasetAssessment sphnDatasetAssessment = createSphnDatasetAssessment(leossDataset, sphnConfig);
+        DatasetAssessment elEmamDatasetAssessment =
+                getOrCreateElEmamDatasetAssessment(leossDataset, elEmamConfig);
+        DatasetAssessment sphnDatasetAssessment =
+                getOrCreateSphnDatasetAssessment(leossDataset, sphnConfig);
 
-        // Create three recipient archetypes that should produce meaningfully
-        // different context-risk results: trusted academic, commercial partner,
-        // and public/open release.
-        List<Recipient> baseRecipients = createBaseRecipients();
+        // Create or locate three recipient archetypes that should produce
+        // meaningfully different context-risk results: trusted academic,
+        // commercial partner, and public/open release.
+        List<Recipient> baseRecipients = getOrCreateBaseRecipients();
 
         // Each recipient is assessed once per framework because El Emam and SPHN
         // ask different contextual-control and likelihood questions.
-        List<RecipientAssessment> elEmamRecipientAssessments = createElEmamRecipientAssessments(baseRecipients, elEmamConfig);
-        List<RecipientAssessment> sphnRecipientAssessment = createSphnRecipientAssessments(baseRecipients, sphnConfig);
+        List<RecipientAssessment> elEmamRecipientAssessments =
+                getOrCreateElEmamRecipientAssessments(baseRecipients, elEmamConfig);
+        List<RecipientAssessment> sphnRecipientAssessment =
+                getOrCreateSphnRecipientAssessments(baseRecipients, sphnConfig);
 
         // Finally, pair the dataset assessments with matching recipient
         // assessments to create the examples shown in the UI.
         createDemoDataSharingActivities(
                 elEmamConfig, elEmamDatasetAssessment, elEmamRecipientAssessments,
-                sphnConfig, sphnDatasetAssessment, sphnRecipientAssessment
+                sphnConfig, sphnDatasetAssessment, sphnRecipientAssessment,
+                null
         );
     }
 
@@ -158,17 +164,22 @@ public class DataLoader implements CommandLineRunner {
      * so differences in the final recommendation come from framework scoring
      * and recipient context, not from different source data.</p>
      */
+    private Dataset getOrCreateLeossDataset() {
+        return findDatasetByNormalizedName(LEOSS_DATASET_NAME)
+                .orElseGet(this::createLeossDataset);
+    }
+
     private Dataset createLeossDataset() {
         Dataset leoss = new Dataset();
-        leoss.setCreatorUsername("user");
-        leoss.setName("LEOSS Public Use File");
+        leoss.setCreatorUsername(DEMO_CREATOR);
+        leoss.setName(LEOSS_DATASET_NAME);
         leoss.setDescription("Lean European Open Survey on SARS-CoV-2-Infected Patients (anonymized PUF)");
         leoss.setSharedUsernames(new HashSet<>(Set.of("anna.mueller", "max.mustermann", "sophie.becker")));
         leoss = datasetRepo.save(leoss);
 
         DatasetTable patients = new DatasetTable();
         patients.setName("Patients");
-        patients.setCreatorUsername("user");
+        patients.setCreatorUsername(DEMO_CREATOR);
         patients.setDataset(leoss);
 
         // LinkedHashMap preserves the display/order of attributes in the sample
@@ -347,14 +358,19 @@ public class DataLoader implements CommandLineRunner {
      * sample can demonstrate how recipient context changes the final
      * anonymization recommendation.</p>
      */
+    private DatasetAssessment getOrCreateElEmamDatasetAssessment(Dataset dataset, Configuration config) {
+        return findDatasetAssessment(dataset, EL_EMAM_DATASET_ASSESSMENT_NAME)
+                .orElseGet(() -> createElEmamDatasetAssessment(dataset, config));
+    }
+
     private DatasetAssessment createElEmamDatasetAssessment(Dataset dataset, Configuration config) {
         DatasetAssessment da = new DatasetAssessment();
         da.setDataset(dataset);
         applyConfiguration(da, config);
         applyDefaultAttributeScoringSystem(da);
-        da.setName("LEOSS Assessment (El Emam)");
+        da.setName(EL_EMAM_DATASET_ASSESSMENT_NAME);
         da.setDescription("Invasion-of-Privacy answers for the LEOSS Public Use File (No critical triggers applied).");
-        da.setCreatorUsername("user");
+        da.setCreatorUsername(DEMO_CREATOR);
         da = assessmentRepo.save(da);
 
         // Dataset-assessment questions are the only questions that contribute
@@ -393,14 +409,19 @@ public class DataLoader implements CommandLineRunner {
      * matched by code fragment so wording changes around the code do not break
      * the seed logic.</p>
      */
+    private DatasetAssessment getOrCreateSphnDatasetAssessment(Dataset dataset, Configuration config) {
+        return findDatasetAssessment(dataset, SPHN_DATASET_ASSESSMENT_NAME)
+                .orElseGet(() -> createSphnDatasetAssessment(dataset, config));
+    }
+
     private DatasetAssessment createSphnDatasetAssessment(Dataset dataset, Configuration config) {
         DatasetAssessment da = new DatasetAssessment();
         da.setDataset(dataset);
         applyConfiguration(da, config);
         applyDefaultAttributeScoringSystem(da);
-        da.setName("LEOSS Assessment (SPHN)");
+        da.setName(SPHN_DATASET_ASSESSMENT_NAME);
         da.setDescription("SPHN Data Risk evaluation mapped for the LEOSS Public Use File (No critical triggers applied).");
-        da.setCreatorUsername("user");
+        da.setCreatorUsername(DEMO_CREATOR);
         da = assessmentRepo.save(da);
 
         // Fetch all questions mapped to the DATASET_ASSESSMENT phase. In the
@@ -471,42 +492,51 @@ public class DataLoader implements CommandLineRunner {
      * Their framework-specific assessments below provide the actual control and
      * likelihood answers.</p>
      */
-    private List<Recipient> createBaseRecipients() {
+    private List<Recipient> getOrCreateBaseRecipients() {
         List<Recipient> recipients = new ArrayList<>();
 
         // Trusted recipient: strong institutional controls and ethical oversight.
-        Recipient trusted = new Recipient();
-        trusted.setCreatorUsername("user");
-        trusted.setName("Academic Research Institute");
-        trusted.setOrganization("University Labs");
-        trusted.setDescription("University-based lab with strict privacy controls and ethical oversight.");
-        trusted = recipientRepository.save(trusted);
+        Recipient trusted = findRecipientByNormalizedName(ACADEMIC_RECIPIENT_NAME)
+                .orElseGet(() -> {
+                    Recipient recipient = new Recipient();
+                    recipient.setCreatorUsername(DEMO_CREATOR);
+                    recipient.setName(ACADEMIC_RECIPIENT_NAME);
+                    recipient.setOrganization("University Labs");
+                    recipient.setDescription("University-based lab with strict privacy controls and ethical oversight.");
+                    return recipientRepository.save(recipient);
+                });
         recipients.add(trusted);
 
         // Commercial recipient: legitimate collaboration with additional motive
         // and capability considerations.
-        Recipient commercial = new Recipient();
-        commercial.setCreatorUsername("user");
-        commercial.setName("Commercial Partner");
-        commercial.setOrganization("HealthTech Solutions Ltd.");
-        commercial.setDescription("A commercial partner with standard security controls but potential commercial motives.");
-        commercial = recipientRepository.save(commercial);
+        Recipient commercial = findRecipientByNormalizedName(COMMERCIAL_RECIPIENT_NAME)
+                .orElseGet(() -> {
+                    Recipient recipient = new Recipient();
+                    recipient.setCreatorUsername(DEMO_CREATOR);
+                    recipient.setName(COMMERCIAL_RECIPIENT_NAME);
+                    recipient.setOrganization("HealthTech Solutions Ltd.");
+                    recipient.setDescription("A commercial partner with standard security controls but potential commercial motives.");
+                    return recipientRepository.save(recipient);
+                });
         recipients.add(commercial);
 
         // Public release: no specific trusted counterparty and minimal
         // contextual controls.
-        Recipient publicRelease = new Recipient();
-        publicRelease.setCreatorUsername("user");
-        publicRelease.setName("Public Open Data Portal");
-        publicRelease.setOrganization("Public Release");
-        publicRelease.setDescription("Open data release via a public portal with minimal to no contextual controls.");
-        publicRelease = recipientRepository.save(publicRelease);
+        Recipient publicRelease = findRecipientByNormalizedName(PUBLIC_RECIPIENT_NAME)
+                .orElseGet(() -> {
+                    Recipient recipient = new Recipient();
+                    recipient.setCreatorUsername(DEMO_CREATOR);
+                    recipient.setName(PUBLIC_RECIPIENT_NAME);
+                    recipient.setOrganization("Public Release");
+                    recipient.setDescription("Open data release via a public portal with minimal to no contextual controls.");
+                    return recipientRepository.save(recipient);
+                });
         recipients.add(publicRelease);
 
         return recipients;
     }
 
-    private List<RecipientAssessment> createElEmamRecipientAssessments(List<Recipient> recipients, Configuration config) {
+    private List<RecipientAssessment> getOrCreateElEmamRecipientAssessments(List<Recipient> recipients, Configuration config) {
         // Initialize the list to return
         List<RecipientAssessment> createdAssessments = new ArrayList<>();
 
@@ -517,11 +547,18 @@ public class DataLoader implements CommandLineRunner {
                 .toList();
 
         for (Recipient recipient : recipients) {
+            String assessmentName = recipient.getName() + " Assessment (El Emam)";
+            Optional<RecipientAssessment> existingAssessment = findRecipientAssessment(recipient, assessmentName);
+            if (existingAssessment.isPresent()) {
+                createdAssessments.add(existingAssessment.get());
+                continue;
+            }
+
             RecipientAssessment ra = new RecipientAssessment();
             ra.setRecipient(recipient);
             applyConfiguration(ra, config);
-            ra.setCreatorUsername("user");
-            ra.setName(recipient.getName() + " Assessment (El Emam)");
+            ra.setCreatorUsername(DEMO_CREATOR);
+            ra.setName(assessmentName);
             ra.setAnswers(new ArrayList<>());
             ra = recipientAssessmentRepository.save(ra);
 
@@ -627,7 +664,7 @@ public class DataLoader implements CommandLineRunner {
         return createdAssessments;
     }
 
-    private List<RecipientAssessment> createSphnRecipientAssessments(List<Recipient> recipients, Configuration config) {
+    private List<RecipientAssessment> getOrCreateSphnRecipientAssessments(List<Recipient> recipients, Configuration config) {
         List<RecipientAssessment> createdAssessments = new ArrayList<>();
 
         // Fetch all questions mapped to the RECIPIENT_ASSESSMENT phase (CONTEXTUAL_RISK and CONTRACTUAL_IT_RISK)
@@ -637,11 +674,18 @@ public class DataLoader implements CommandLineRunner {
                 .toList();
 
         for (Recipient recipient : recipients) {
+            String assessmentName = recipient.getName() + " (SPHN)";
+            Optional<RecipientAssessment> existingAssessment = findRecipientAssessment(recipient, assessmentName);
+            if (existingAssessment.isPresent()) {
+                createdAssessments.add(existingAssessment.get());
+                continue;
+            }
+
             RecipientAssessment ra = new RecipientAssessment();
             ra.setRecipient(recipient);
             applyConfiguration(ra, config);
-            ra.setCreatorUsername("user");
-            ra.setName(recipient.getName() + " (SPHN)");
+            ra.setCreatorUsername(DEMO_CREATOR);
+            ra.setName(assessmentName);
             ra.setAnswers(new ArrayList<>());
             ra = recipientAssessmentRepository.save(ra);
 
@@ -729,30 +773,32 @@ public class DataLoader implements CommandLineRunner {
      */
     private void createDemoDataSharingActivities(
             Configuration elEmamConfig, DatasetAssessment elEmamDA, List<RecipientAssessment> elEmamRAs,
-            Configuration sphnConfig, DatasetAssessment sphnDA, List<RecipientAssessment> sphnRAs) {
+            Configuration sphnConfig, DatasetAssessment sphnDA, List<RecipientAssessment> sphnRAs,
+            Project project) {
 
         // =========================================================================
         // TRUSTED RECIPIENT SCENARIOS
         // =========================================================================
 
         // Scenario 1: Academic evaluated under SPHN
-        DataSharingActivity act1 = new DataSharingActivity();
-        act1.setCreatorUsername("user");
-        act1.setName("LEOSS / Academic Labs (SPHN)");
-        act1.setDescription("Sharing COVID-19 tabular data with a trusted university lab. Evaluated under the strict SPHN framework.");
-        act1.setDatasetAssessment(sphnDA);
-        act1.setRecipientAssessment(sphnRAs.get(0));
-        act1.setSharedUsernames(new HashSet<>(Set.of("anna.mueller")));
-        dataSharingActivityRepository.save(act1);
+        ensureDemoDataSharingActivity(
+                "LEOSS / Academic Labs (SPHN)",
+                "Sharing COVID-19 tabular data with a trusted university lab. Evaluated under the strict SPHN framework.",
+                sphnDA,
+                sphnRAs.get(0),
+                new HashSet<>(Set.of("anna.mueller")),
+                project
+        );
 
         // Scenario 2: Academic evaluated under El Emam
-        DataSharingActivity act2 = new DataSharingActivity();
-        act2.setCreatorUsername("user");
-        act2.setName("LEOSS / Academic Labs (El Emam)");
-        act2.setDescription("Direct comparison of the Academic transfer, evaluated under El Emam instead of SPHN.");
-        act2.setDatasetAssessment(elEmamDA);
-        act2.setRecipientAssessment(elEmamRAs.get(0));
-        dataSharingActivityRepository.save(act2);
+        ensureDemoDataSharingActivity(
+                "LEOSS / Academic Labs (El Emam)",
+                "Direct comparison of the Academic transfer, evaluated under El Emam instead of SPHN.",
+                elEmamDA,
+                elEmamRAs.get(0),
+                Collections.emptySet(),
+                project
+        );
 
 
         // =========================================================================
@@ -760,22 +806,24 @@ public class DataLoader implements CommandLineRunner {
         // =========================================================================
 
         // Scenario 5: Public Release evaluated under El Emam
-        DataSharingActivity act5 = new DataSharingActivity();
-        act5.setCreatorUsername("user");
-        act5.setName("LEOSS / Open Data Portal (El Emam)");
-        act5.setDescription("Public data release evaluated using the El Emam Risk Exposure Model. Highlights high context and threat risk.");
-        act5.setDatasetAssessment(elEmamDA);
-        act5.setRecipientAssessment(elEmamRAs.get(2));
-        dataSharingActivityRepository.save(act5);
+        ensureDemoDataSharingActivity(
+                "LEOSS / Open Data Portal (El Emam)",
+                "Public data release evaluated using the El Emam Risk Exposure Model. Highlights high context and threat risk.",
+                elEmamDA,
+                elEmamRAs.get(2),
+                Collections.emptySet(),
+                project
+        );
 
         // Scenario 6: Public Release evaluated under SPHN
-        DataSharingActivity act6 = new DataSharingActivity();
-        act6.setCreatorUsername("user");
-        act6.setName("LEOSS / Open Data Portal (SPHN)");
-        act6.setDescription("Evaluating a totally open data release against the strict clinical IT and contextual standards of the SPHN framework.");
-        act6.setDatasetAssessment(sphnDA);
-        act6.setRecipientAssessment(sphnRAs.get(2));
-        dataSharingActivityRepository.save(act6);
+        ensureDemoDataSharingActivity(
+                "LEOSS / Open Data Portal (SPHN)",
+                "Evaluating a totally open data release against the strict clinical IT and contextual standards of the SPHN framework.",
+                sphnDA,
+                sphnRAs.get(2),
+                Collections.emptySet(),
+                project
+        );
 
 
         // =========================================================================
@@ -783,23 +831,100 @@ public class DataLoader implements CommandLineRunner {
         // =========================================================================
 
         // Scenario 7: Commercial evaluated under El Emam
-        DataSharingActivity act7 = new DataSharingActivity();
-        act7.setCreatorUsername("user");
-        act7.setName("LEOSS / HealthTech Solutions (El Emam)");
-        act7.setDescription("Commercial data sharing agreement. Evaluated using the El Emam Risk Exposure Model for standard re-identification risks.");
-        act7.setDatasetAssessment(elEmamDA);
-        act7.setRecipientAssessment(elEmamRAs.get(1));
-        act7.setSharedUsernames(new HashSet<>(Set.of("max.mustermann", "sophie.becker")));
-        dataSharingActivityRepository.save(act7);
+        ensureDemoDataSharingActivity(
+                "LEOSS / HealthTech Solutions (El Emam)",
+                "Commercial data sharing agreement. Evaluated using the El Emam Risk Exposure Model for standard re-identification risks.",
+                elEmamDA,
+                elEmamRAs.get(1),
+                new HashSet<>(Set.of("max.mustermann", "sophie.becker")),
+                project
+        );
 
         // Scenario 8: Commercial evaluated under SPHN
-        DataSharingActivity act8 = new DataSharingActivity();
-        act8.setCreatorUsername("user");
-        act8.setName("LEOSS / HealthTech Solutions (SPHN)");
-        act8.setDescription("Commercial data sharing agreement evaluated under the SPHN framework, with strong controls but elevated likelihood due to hospital-affiliated staff with EHR access.");
-        act8.setDatasetAssessment(sphnDA);
-        act8.setRecipientAssessment(sphnRAs.get(1));
-        act8.setSharedUsernames(new HashSet<>(Set.of("max.mustermann", "sophie.becker")));
-        dataSharingActivityRepository.save(act8);
+        ensureDemoDataSharingActivity(
+                "LEOSS / HealthTech Solutions (SPHN)",
+                "Commercial data sharing agreement evaluated under the SPHN framework, with strong controls but elevated likelihood due to hospital-affiliated staff with EHR access.",
+                sphnDA,
+                sphnRAs.get(1),
+                new HashSet<>(Set.of("max.mustermann", "sophie.becker")),
+                project
+        );
     }
+
+    private DataSharingActivity ensureDemoDataSharingActivity(
+            String name,
+            String description,
+            DatasetAssessment datasetAssessment,
+            RecipientAssessment recipientAssessment,
+            Set<String> sharedUsernames,
+            Project project
+    ) {
+        DataSharingActivity activity = findActivityByNormalizedName(name)
+                .orElseGet(() -> {
+                    DataSharingActivity created = new DataSharingActivity();
+                    created.setCreatorUsername(DEMO_CREATOR);
+                    created.setName(name);
+                    created.setDescription(description);
+                    created.setDatasetAssessment(datasetAssessment);
+                    created.setRecipientAssessment(recipientAssessment);
+                    created.setSharedUsernames(sharedUsernames);
+                    return created;
+        });
+
+        activity.setProject(project);
+        if (project != null) {
+            addActivityIfMissing(project, activity);
+        }
+        return dataSharingActivityRepository.save(activity);
+    }
+
+    private void addActivityIfMissing(Project project, DataSharingActivity activity) {
+        boolean exists = project.getDataSharingActivities().stream()
+                .anyMatch(existing -> existing == activity
+                        || (existing.getId() != null && Objects.equals(existing.getId(), activity.getId())));
+        if (!exists) {
+            project.getDataSharingActivities().add(activity);
+        }
+    }
+
+    private Optional<Dataset> findDatasetByNormalizedName(String name) {
+        String normalizedName = EntityNameNormalizer.normalizeForComparison(name);
+        return datasetRepo.findAll().stream()
+                .filter(dataset -> normalizedName.equals(dataset.getNormalizedName())
+                        || normalizedName.equals(EntityNameNormalizer.normalizeForComparison(dataset.getName())))
+                .findFirst();
+    }
+
+    private Optional<Recipient> findRecipientByNormalizedName(String name) {
+        String normalizedName = EntityNameNormalizer.normalizeForComparison(name);
+        return recipientRepository.findAll().stream()
+                .filter(recipient -> normalizedName.equals(recipient.getNormalizedName())
+                        || normalizedName.equals(EntityNameNormalizer.normalizeForComparison(recipient.getName())))
+                .findFirst();
+    }
+
+    private Optional<DataSharingActivity> findActivityByNormalizedName(String name) {
+        String normalizedName = EntityNameNormalizer.normalizeForComparison(name);
+        return dataSharingActivityRepository.findAll().stream()
+                .filter(activity -> normalizedName.equals(activity.getNormalizedName())
+                        || normalizedName.equals(EntityNameNormalizer.normalizeForComparison(activity.getName())))
+                .findFirst();
+    }
+
+    private Optional<DatasetAssessment> findDatasetAssessment(Dataset dataset, String name) {
+        return assessmentRepo.findAll().stream()
+                .filter(assessment -> Objects.equals(assessment.getName(), name))
+                .filter(assessment -> assessment.getDataset() != null
+                        && Objects.equals(assessment.getDataset().getId(), dataset.getId()))
+                .findFirst();
+    }
+
+    private Optional<RecipientAssessment> findRecipientAssessment(Recipient recipient, String name) {
+        return recipientAssessmentRepository.findAll().stream()
+                .filter(assessment -> Objects.equals(assessment.getName(), name))
+                .filter(assessment -> assessment.getRecipient() != null
+                        && Objects.equals(assessment.getRecipient().getId(), recipient.getId()))
+                .findFirst();
+    }
+
 }

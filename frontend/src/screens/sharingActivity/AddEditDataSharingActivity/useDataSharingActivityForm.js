@@ -15,6 +15,7 @@ import { useUsersApi } from "api/users";
 import { useActiveLock } from "hooks/locks/useActiveLock";
 import { fetchDatasets } from "store/datasets/datasetsThunks";
 import { fetchRecipients } from "store/recipients/recipientsThunks";
+import { fetchProjects } from "store/projects/projectsThunks";
 import { fetchDatasetAssessments } from "store/datasetAssessments/datasetAssessmentsThunks";
 import { fetchRecipientAssessments } from "store/recipientAssessments/recipientAssessmentsThunks";
 import {
@@ -57,6 +58,8 @@ export function useDataSharingActivityForm() {
     (state) => state.datasetAssessments.items || []
   );
   const recipients = useSelector((state) => state.recipients.items || []);
+  const projects = useSelector((state) => state.projects.items || []);
+  const projectStatus = useSelector((state) => state.projects.status);
   const allRecipientAssessments = useSelector(
     (state) => state.recipientAssessments.items || []
   );
@@ -78,6 +81,7 @@ export function useDataSharingActivityForm() {
   const [datasetAssessmentId, setDatasetAssessmentId] = useState("");
   const [recipientId, setRecipientId] = useState("");
   const [recipientAssessmentId, setRecipientAssessmentId] = useState("");
+  const [projectId, setProjectId] = useState("");
   const [overrideTables, setOverrideTables] = useState(false);
   const [tables, setTables] = useState([]);
   const [sharedUsernames, setSharedUsernames] = useState([]);
@@ -240,6 +244,7 @@ export function useDataSharingActivityForm() {
 
     dispatch(fetchDatasets(token));
     dispatch(fetchRecipients(token));
+    dispatch(fetchProjects(token));
     dispatch(fetchDatasetAssessments(token));
     dispatch(fetchRecipientAssessments(token));
     dispatch(fetchDataSharingActivities(token));
@@ -270,6 +275,7 @@ export function useDataSharingActivityForm() {
     setRecipientAssessmentId(
       String(existingActivity.recipientAssessmentId || "")
     );
+    setProjectId(String(existingActivity.projectId || ""));
     setSharedUsernames(existingActivity.sharedUsernames || []);
     setOverrideTables(hasTableOverrides);
 
@@ -379,6 +385,58 @@ export function useDataSharingActivityForm() {
     setSharedUsernames(nextUsers.map((user) => user.username));
   }, []);
 
+  const selectedProject = useMemo(
+    () =>
+      projects.find((project) => String(project.id) === String(projectId)) ||
+      null,
+    [projectId, projects]
+  );
+  const selectedProjectDatasetIds = useMemo(
+    () => new Set((selectedProject?.datasetIds || []).map(String)),
+    [selectedProject]
+  );
+  const selectedProjectRecipientIds = useMemo(
+    () => new Set((selectedProject?.recipientIds || []).map(String)),
+    [selectedProject]
+  );
+  const noProjectsAvailable =
+    projectStatus === "succeeded" && projects.length === 0;
+  const canSelectAssessments = Boolean(selectedProject);
+
+  const handleProjectChange = useCallback(
+    (event) => {
+      const nextProjectId = event.target.value;
+      if (String(nextProjectId) === String(projectId)) return;
+
+      const nextProject =
+        projects.find((project) => String(project.id) === String(nextProjectId)) ||
+        null;
+      const nextDatasetIds = new Set((nextProject?.datasetIds || []).map(String));
+      const nextRecipientIds = new Set(
+        (nextProject?.recipientIds || []).map(String)
+      );
+
+      setProjectId(nextProjectId);
+
+      if (!nextProject || (datasetId && !nextDatasetIds.has(String(datasetId)))) {
+        setDatasetId("");
+        setDatasetAssessmentId("");
+        setOverrideTables(false);
+        setTables([]);
+        overrideSourceAssessmentIdRef.current = null;
+      }
+
+      if (
+        !nextProject ||
+        (recipientId && !nextRecipientIds.has(String(recipientId)))
+      ) {
+        setRecipientId("");
+        setRecipientAssessmentId("");
+      }
+    },
+    [datasetId, projectId, projects, recipientId]
+  );
+
   const handleDatasetChange = useCallback(
     (event) => {
       const nextDatasetId = event.target.value;
@@ -410,6 +468,11 @@ export function useDataSharingActivityForm() {
           String(assessment.id) === String(nextDatasetAssessmentId)
       );
 
+      setDatasetId(
+        nextDatasetAssessment?.datasetId
+          ? String(nextDatasetAssessment.datasetId)
+          : ""
+      );
       setDatasetAssessmentId(nextDatasetAssessmentId);
       setTables(mapDatasetAssessmentTables(nextDatasetAssessment));
       overrideSourceAssessmentIdRef.current =
@@ -436,9 +499,23 @@ export function useDataSharingActivityForm() {
     [recipientId]
   );
 
-  const handleRecipientAssessmentChange = useCallback((event) => {
-    setRecipientAssessmentId(event.target.value);
-  }, []);
+  const handleRecipientAssessmentChange = useCallback(
+    (event) => {
+      const nextRecipientAssessmentId = event.target.value;
+      const nextRecipientAssessment = allRecipientAssessments.find(
+        (assessment) =>
+          String(assessment.id) === String(nextRecipientAssessmentId)
+      );
+
+      setRecipientId(
+        nextRecipientAssessment?.recipientId
+          ? String(nextRecipientAssessment.recipientId)
+          : ""
+      );
+      setRecipientAssessmentId(nextRecipientAssessmentId);
+    },
+    [allRecipientAssessments]
+  );
 
   const handleOverrideTablesChange = useCallback(
     (event) => {
@@ -476,12 +553,14 @@ export function useDataSharingActivityForm() {
 
   const formValidation = useMemo(() => {
     const hasName = Boolean(name.trim());
+    const hasProject = Boolean(selectedProject);
     const hasDataset = Boolean(datasetId);
     const hasDatasetAssessment = Boolean(datasetAssessmentId);
     const hasRecipient = Boolean(recipientId);
     const hasRecipientAssessment = Boolean(recipientAssessmentId);
     const hasRequiredFields =
       hasName &&
+      hasProject &&
       hasDataset &&
       hasDatasetAssessment &&
       hasRecipient &&
@@ -493,6 +572,7 @@ export function useDataSharingActivityForm() {
 
     return {
       hasName,
+      hasProject,
       hasDataset,
       hasDatasetAssessment,
       hasRecipient,
@@ -509,6 +589,7 @@ export function useDataSharingActivityForm() {
     name,
     recipientAssessmentId,
     recipientId,
+    selectedProject,
   ]);
 
   const handleSubmit = useCallback(
@@ -524,6 +605,11 @@ export function useDataSharingActivityForm() {
 
       if (!formValidation.hasName) {
         setErrorMessage(t("dataSharingActivities.form.nameRequired"));
+        return;
+      }
+
+      if (!formValidation.hasProject) {
+        setErrorMessage(t("dataSharingActivities.form.projectRequired"));
         return;
       }
 
@@ -544,6 +630,7 @@ export function useDataSharingActivityForm() {
           name,
           description,
           sharedUsernames,
+          projectId,
           datasetAssessmentId,
           recipientAssessmentId,
           overrideTables,
@@ -583,6 +670,7 @@ export function useDataSharingActivityForm() {
       name,
       navigate,
       overrideTables,
+      projectId,
       recipientAssessmentId,
       sharedUsernames,
       t,
@@ -593,11 +681,16 @@ export function useDataSharingActivityForm() {
 
   const datasetOptions = useMemo(
     () =>
-      datasets.map((dataset) => ({
-        value: String(dataset.id),
-        label: <LabeledAvatar value={dataset.name} variant="dataset" />,
-      })),
-    [datasets]
+      datasets
+        .filter(
+          (dataset) =>
+            selectedProject && selectedProjectDatasetIds.has(String(dataset.id))
+        )
+        .map((dataset) => ({
+          value: String(dataset.id),
+          label: <LabeledAvatar value={dataset.name} variant="dataset" />,
+        })),
+    [datasets, selectedProject, selectedProjectDatasetIds]
   );
 
   const datasetAssessmentOptions = useMemo(
@@ -605,7 +698,8 @@ export function useDataSharingActivityForm() {
       allDatasetAssessments
         .filter(
           (datasetAssessment) =>
-            String(datasetAssessment.datasetId) === String(datasetId)
+            selectedProject &&
+            selectedProjectDatasetIds.has(String(datasetAssessment.datasetId))
         )
         .map((datasetAssessment) => ({
           value: String(datasetAssessment.id),
@@ -616,16 +710,21 @@ export function useDataSharingActivityForm() {
             />
           ),
         })),
-    [allDatasetAssessments, datasetId]
+    [allDatasetAssessments, selectedProject, selectedProjectDatasetIds]
   );
 
   const recipientOptions = useMemo(
     () =>
-      recipients.map((recipient) => ({
-        value: String(recipient.id),
-        label: <LabeledAvatar value={recipient.name} variant="recipient" />,
-      })),
-    [recipients]
+      recipients
+        .filter(
+          (recipient) =>
+            selectedProject && selectedProjectRecipientIds.has(String(recipient.id))
+        )
+        .map((recipient) => ({
+          value: String(recipient.id),
+          label: <LabeledAvatar value={recipient.name} variant="recipient" />,
+        })),
+    [recipients, selectedProject, selectedProjectRecipientIds]
   );
 
   const recipientAssessmentOptions = useMemo(
@@ -633,7 +732,8 @@ export function useDataSharingActivityForm() {
       allRecipientAssessments
         .filter(
           (recipientAssessment) =>
-            String(recipientAssessment.recipientId) === String(recipientId)
+            selectedProject &&
+            selectedProjectRecipientIds.has(String(recipientAssessment.recipientId))
         )
         .map((recipientAssessment) => ({
           value: String(recipientAssessment.id),
@@ -644,16 +744,35 @@ export function useDataSharingActivityForm() {
             />
           ),
         })),
-    [allRecipientAssessments, recipientId]
+    [allRecipientAssessments, selectedProject, selectedProjectRecipientIds]
   );
 
   const isSubmitDisabled = !formValidation.canSubmit;
+
+  const projectOptions = useMemo(
+    () => [
+      {
+        value: "",
+        label: t("dataSharingActivities.form.noProjectOption"),
+      },
+      ...projects.map((project) => ({
+        value: String(project.id),
+        label: <LabeledAvatar value={project.name} variant="configuration" />,
+      })),
+    ],
+    [projects, t]
+  );
+
+  const handleCreateProjectClick = useCallback(() => {
+    navigate("/projects/new");
+  }, [navigate]);
 
   return {
     isEdit,
     status,
     name,
     description,
+    projectId,
     datasetId,
     datasetAssessmentId,
     recipientId,
@@ -668,6 +787,9 @@ export function useDataSharingActivityForm() {
     selectedScoringSystem,
     attributeEvidenceById,
     originalAssessmentValuesByAttributeId,
+    noProjectsAvailable,
+    canSelectAssessments,
+    projectOptions,
     datasetOptions,
     datasetAssessmentOptions,
     recipientOptions,
@@ -675,12 +797,14 @@ export function useDataSharingActivityForm() {
     handleNameCommit,
     handleDescriptionCommit,
     handleSharedUsersChange,
+    handleProjectChange,
     handleDatasetChange,
     handleDatasetAssessmentChange,
     handleRecipientChange,
     handleRecipientAssessmentChange,
     handleOverrideTablesChange,
     handleTablesChange,
+    handleCreateProjectClick,
     handleSubmit,
     setErrorMessage,
     setLockError,

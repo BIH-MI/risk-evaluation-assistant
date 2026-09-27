@@ -5,11 +5,14 @@ import org.bihealth.mi.risk_assessment_api.model.activity.DataSharingActivity;
 import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
 import org.bihealth.mi.risk_assessment_api.model.dataset.Dataset;
 import org.bihealth.mi.risk_assessment_api.model.qid.QidDiscoveryConfiguration;
+import org.bihealth.mi.risk_assessment_api.model.project.Project;
 import org.bihealth.mi.risk_assessment_api.model.recipient.Recipient;
 import org.bihealth.mi.risk_assessment_api.model.scoring.AttributeScoringSystem;
 import org.bihealth.mi.risk_assessment_api.repository.activity.DataSharingActivityRepository;
 import org.bihealth.mi.risk_assessment_api.repository.configuration.RiskConfigurationRepository;
 import org.bihealth.mi.risk_assessment_api.repository.dataset.DatasetRepository;
+import org.bihealth.mi.risk_assessment_api.repository.project.ProjectRepository;
+import org.bihealth.mi.risk_assessment_api.repository.project.ProjectTemplateRepository;
 import org.bihealth.mi.risk_assessment_api.repository.qid.QidDiscoveryConfigurationRepository;
 import org.bihealth.mi.risk_assessment_api.repository.recipient.RecipientRepository;
 import org.bihealth.mi.risk_assessment_api.repository.scoring.AttributeScoringSystemRepository;
@@ -37,6 +40,8 @@ public class NamedResourceNormalizedNameBackfill implements CommandLineRunner {
 
     private final DatasetRepository datasetRepository;
     private final RecipientRepository recipientRepository;
+    private final ProjectRepository projectRepository;
+    private final ProjectTemplateRepository projectTemplateRepository;
     private final DataSharingActivityRepository dataSharingActivityRepository;
     private final RiskConfigurationRepository riskConfigurationRepository;
     private final QidDiscoveryConfigurationRepository qidDiscoveryConfigurationRepository;
@@ -45,6 +50,8 @@ public class NamedResourceNormalizedNameBackfill implements CommandLineRunner {
     public NamedResourceNormalizedNameBackfill(
             DatasetRepository datasetRepository,
             RecipientRepository recipientRepository,
+            ProjectRepository projectRepository,
+            ProjectTemplateRepository projectTemplateRepository,
             DataSharingActivityRepository dataSharingActivityRepository,
             RiskConfigurationRepository riskConfigurationRepository,
             QidDiscoveryConfigurationRepository qidDiscoveryConfigurationRepository,
@@ -52,6 +59,8 @@ public class NamedResourceNormalizedNameBackfill implements CommandLineRunner {
     ) {
         this.datasetRepository = datasetRepository;
         this.recipientRepository = recipientRepository;
+        this.projectRepository = projectRepository;
+        this.projectTemplateRepository = projectTemplateRepository;
         this.dataSharingActivityRepository = dataSharingActivityRepository;
         this.riskConfigurationRepository = riskConfigurationRepository;
         this.qidDiscoveryConfigurationRepository = qidDiscoveryConfigurationRepository;
@@ -63,6 +72,8 @@ public class NamedResourceNormalizedNameBackfill implements CommandLineRunner {
     public void run(String... args) {
         backfill("dataset", datasetRepository);
         backfill("recipient", recipientRepository);
+        backfill("project", projectRepository);
+        backfill("project template", projectTemplateRepository);
         backfill("data sharing activity", dataSharingActivityRepository);
         backfill("configuration", riskConfigurationRepository);
         backfill("QID discovery configuration", qidDiscoveryConfigurationRepository);

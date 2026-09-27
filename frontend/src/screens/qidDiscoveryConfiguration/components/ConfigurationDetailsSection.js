@@ -5,7 +5,7 @@ import { FormControlLabel, Grid, Switch } from "@mui/material";
 
 import RAInput from "components/input/RAInput";
 import RATypography from "components/display/RATypography";
-import FormSection from "./FormSection";
+import FormSection from "components/layout/FormSection";
 
 export default function ConfigurationDetailsSection({
   form,

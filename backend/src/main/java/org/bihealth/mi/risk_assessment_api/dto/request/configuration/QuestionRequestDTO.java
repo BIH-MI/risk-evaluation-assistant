@@ -19,6 +19,9 @@ public class QuestionRequestDTO {
     // Code of the RiskCategory that owns and scores this question.
     private String categoryCode;
 
+    // Optional stable question code used by mitigation mappings.
+    private String code;
+
     // Default question text shown when no translation is selected.
     private String text;
 

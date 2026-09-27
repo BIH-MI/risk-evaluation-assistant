@@ -47,8 +47,8 @@ ValueOption.propTypes = {
   preferred: PropTypes.bool.isRequired,
 };
 
-// Nothing is pre-selected and incompatible values are disabled, so an incompatible parameter is
-// never chosen silently.
+// A value is pre-selected only when it is the single Project-compatible one; otherwise the researcher
+// must choose. Incompatible values are disabled, so an incompatible parameter is never chosen.
 export default function ActionParameterChooser({ parameters, choices, onChoose }) {
   const { t } = useTranslation();
   if (parameters.length === 0) return null;
@@ -76,6 +76,14 @@ export default function ActionParameterChooser({ parameters, choices, onChoose }
         ) : (
           <RABox key={parameter.parameterCode}>
             <SectionLabel>{formatParameterLabel(parameter.parameterCode)}</SectionLabel>
+            {!choices[parameter.parameterCode] && (
+              <RATypography variant="caption" display="block" sx={{ color: "error.main" }}>
+                {t(
+                  "mitigationPlanner.actions.parameterRequired",
+                  "Required: choose a value before evaluating the Custom Plan."
+                )}
+              </RATypography>
+            )}
             <RadioGroup
               value={choices[parameter.parameterCode] || ""}
               onChange={(event) => onChoose(parameter.parameterCode, event.target.value)}

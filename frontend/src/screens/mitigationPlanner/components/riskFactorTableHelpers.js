@@ -17,14 +17,15 @@ export const CENTER_CELL_SX = {
   textAlign: "center",
 };
 
-export function RiskPriorityChip({ priority }) {
+export function RiskPriorityChip({ priority, count }) {
   if (!priority) return "—";
   const color = priority === "CRITICAL" ? "error" : priority === "HIGH" ? "warning" : "default";
-  return <Chip size="small" variant="outlined" color={color} label={formatRiskDriverPriority(priority)} />;
+  const label = formatRiskDriverPriority(priority);
+  return <Chip size="small" variant="outlined" color={color} label={count > 1 ? `${label} (${count})` : label} />;
 }
 
-RiskPriorityChip.propTypes = { priority: PropTypes.string };
-RiskPriorityChip.defaultProps = { priority: null };
+RiskPriorityChip.propTypes = { priority: PropTypes.string, count: PropTypes.number };
+RiskPriorityChip.defaultProps = { priority: null, count: 1 };
 
 export function actionIdKey(actionId) {
   return String(actionId);

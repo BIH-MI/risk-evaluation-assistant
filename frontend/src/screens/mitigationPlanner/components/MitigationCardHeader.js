@@ -89,12 +89,12 @@ export default function MitigationCardHeader({ action, selected, onToggleAction 
           value={setup}
         />
         {onToggleAction && (
-          <Tooltip title={t("mitigationPlanner.actions.includeInPlan", "Include in candidate mitigation plan")}>
+          <Tooltip title={t("mitigationPlanner.actions.addToCustomPlan", "Add to Custom Plan")}>
             <Checkbox
               checked={selected}
               onChange={() => onToggleAction(action.actionId)}
               inputProps={{
-                "aria-label": t("mitigationPlanner.actions.selectAction", "Select {{name}}", {
+                "aria-label": t("mitigationPlanner.actions.addActionToCustomPlan", "Add {{name}} to Custom Plan", {
                   name: action.actionName,
                 }),
               }}
@@ -110,7 +110,7 @@ export default function MitigationCardHeader({ action, selected, onToggleAction 
 MitigationCardHeader.propTypes = {
   action: PropTypes.object.isRequired,
   selected: PropTypes.bool.isRequired,
-  // Null outside manual plan construction: actions are then shown read-only.
+  // Adds the action to the Custom Plan; when omitted the action is shown read-only.
   onToggleAction: PropTypes.func,
 };
 

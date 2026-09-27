@@ -35,9 +35,8 @@ export default function AddEditDataSharingActivity() {
     status,
     name,
     description,
-    datasetId,
+    projectId,
     datasetAssessmentId,
-    recipientId,
     recipientAssessmentId,
     overrideTables,
     tables,
@@ -49,23 +48,28 @@ export default function AddEditDataSharingActivity() {
     selectedScoringSystem,
     attributeEvidenceById,
     originalAssessmentValuesByAttributeId,
-    datasetOptions,
+    noProjectsAvailable,
+    canSelectAssessments,
+    projectOptions,
     datasetAssessmentOptions,
-    recipientOptions,
     recipientAssessmentOptions,
     handleNameCommit,
     handleDescriptionCommit,
     handleSharedUsersChange,
-    handleDatasetChange,
+    handleProjectChange,
     handleDatasetAssessmentChange,
-    handleRecipientChange,
     handleRecipientAssessmentChange,
     handleOverrideTablesChange,
     handleTablesChange,
+    handleCreateProjectClick,
     handleSubmit,
     setErrorMessage,
     setLockError,
   } = useDataSharingActivityForm();
+
+  const assessmentHelperText = !canSelectAssessments
+    ? t("dataSharingActivities.form.selectProjectFirst")
+    : "";
 
   return (
     <>
@@ -86,6 +90,62 @@ export default function AddEditDataSharingActivity() {
             ? t("dataSharingActivities.form.editTitle")
             : t("dataSharingActivities.form.createTitle")}
         </RATypography>
+
+        <RASelect
+          label={t("dataSharingActivities.form.projectLabel")}
+          value={projectId}
+          onChange={handleProjectChange}
+          options={projectOptions}
+          fullWidth
+          required
+          helperText={
+            noProjectsAvailable
+              ? t("dataSharingActivities.form.noProjectsAvailable")
+              : ""
+          }
+          sx={selectSx}
+          disabled={isReadOnly || noProjectsAvailable}
+        />
+
+        {noProjectsAvailable && (
+          <RABox display="flex" alignItems="center" gap={2} flexWrap="wrap">
+            <RATypography variant="body2">
+              {t("dataSharingActivities.form.createProjectPrompt")}
+            </RATypography>
+            <RAButton
+              type="button"
+              variant="outlined"
+              color="info"
+              onClick={handleCreateProjectClick}
+            >
+              {t("dataSharingActivities.form.createProjectButton")}
+            </RAButton>
+          </RABox>
+        )}
+
+        <RASelect
+          label={t("dataSharingActivities.form.datasetAssessmentLabel")}
+          value={canSelectAssessments ? datasetAssessmentId : ""}
+          onChange={handleDatasetAssessmentChange}
+          options={datasetAssessmentOptions}
+          fullWidth
+          required
+          disabled={!canSelectAssessments || isReadOnly || noProjectsAvailable}
+          helperText={assessmentHelperText}
+          sx={selectSx}
+        />
+
+        <RASelect
+          label={t("dataSharingActivities.form.recipientAssessmentLabel")}
+          value={canSelectAssessments ? recipientAssessmentId : ""}
+          onChange={handleRecipientAssessmentChange}
+          options={recipientAssessmentOptions}
+          fullWidth
+          required
+          disabled={!canSelectAssessments || isReadOnly || noProjectsAvailable}
+          helperText={assessmentHelperText}
+          sx={selectSx}
+        />
 
         <OnBlurRAInput
           label={t("dataSharingActivities.form.activityNameLabel")}
@@ -117,47 +177,7 @@ export default function AddEditDataSharingActivity() {
           disabled={isReadOnly}
         />
 
-        <RASelect
-          label={t("dataSharingActivities.form.recipientLabel")}
-          value={recipientId}
-          onChange={handleRecipientChange}
-          options={recipientOptions}
-          fullWidth
-          sx={selectSx}
-          disabled={isReadOnly}
-        />
-
-        <RASelect
-          label={t("dataSharingActivities.form.recipientAssessmentLabel")}
-          value={recipientAssessmentId}
-          onChange={handleRecipientAssessmentChange}
-          options={recipientAssessmentOptions}
-          fullWidth
-          disabled={!recipientId || isReadOnly}
-          sx={selectSx}
-        />
-
-        <RASelect
-          label={t("dataSharingActivities.form.datasetLabel")}
-          value={datasetId}
-          onChange={handleDatasetChange}
-          options={datasetOptions}
-          fullWidth
-          sx={selectSx}
-          disabled={isReadOnly}
-        />
-
-        <RASelect
-          label={t("dataSharingActivities.form.datasetAssessmentLabel")}
-          value={datasetAssessmentId}
-          onChange={handleDatasetAssessmentChange}
-          options={datasetAssessmentOptions}
-          fullWidth
-          disabled={!datasetId || isReadOnly}
-          sx={selectSx}
-        />
-
-        {datasetAssessmentId && (
+        {canSelectAssessments && datasetAssessmentId && (
           <FormControlLabel
             control={
               <Checkbox
@@ -171,7 +191,7 @@ export default function AddEditDataSharingActivity() {
           />
         )}
 
-        {overrideTables && (
+        {canSelectAssessments && overrideTables && (
           <RABox>
             <RATypography variant="h6" align="center" mt={2}>
               {t("dataSharingActivities.form.datasetTablesAssessment")}

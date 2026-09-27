@@ -176,6 +176,7 @@ public class ConfigurationResponseDTO {
     public static class QuestionDTO {
         private Long id;
         private String categoryCode;
+        private String code;
         private String text;
         private Map<String, String> textTranslations;
         private boolean required;
@@ -188,6 +189,7 @@ public class ConfigurationResponseDTO {
         public QuestionDTO(Question question) {
             this.id = question.getId();
             this.categoryCode = question.getCategoryCode();
+            this.code = question.getCode();
             this.text = question.getText();
             this.textTranslations = question.getTextTranslations() == null
                     ? new HashMap<>()
@@ -208,6 +210,7 @@ public class ConfigurationResponseDTO {
     @NoArgsConstructor
     public static class QuestionOptionDTO {
         private Long id;
+        private String code;
         private String text;
         private Map<String, String> textTranslations;
         private double score;
@@ -218,6 +221,7 @@ public class ConfigurationResponseDTO {
 
         public QuestionOptionDTO(QuestionOption option) {
             this.id = option.getId();
+            this.code = option.getCode();
             this.text = option.getText();
             this.textTranslations = option.getTextTranslations() == null
                     ? new HashMap<>()

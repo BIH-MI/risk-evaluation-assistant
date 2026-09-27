@@ -4,7 +4,7 @@ import typography from "assets/theme-dark/base/typography";
 
 import rgba from "assets/theme-dark/functions/rgba";
 
-const { info, inputBorderColor, dark, grey, white } = colors;
+const { info, inputBorderColor, text } = colors;
 const { size } = typography;
 const { borderWidth } = borders;
 
@@ -12,7 +12,11 @@ const input = {
   styleOverrides: {
     root: {
       fontSize: size.sm,
-      color: dark.main,
+      color: text.primary || text.main,
+
+      "&.Mui-disabled": {
+        color: text.disabled,
+      },
 
       "&:hover:not(.Mui-disabled):before": {
         borderBottom: `${borderWidth[1]} solid ${rgba(inputBorderColor, 0.6)}`,
@@ -27,10 +31,20 @@ const input = {
       },
 
       input: {
-        color: white.main,
+        color: "inherit",
+
+        "&.Mui-disabled": {
+          color: text.disabled,
+          WebkitTextFillColor: text.disabled,
+        },
 
         "&::-webkit-input-placeholder": {
-          color: grey[100],
+          color: text.secondary,
+          opacity: 0.72,
+        },
+        "&::placeholder": {
+          color: text.secondary,
+          opacity: 0.72,
         },
       },
     },

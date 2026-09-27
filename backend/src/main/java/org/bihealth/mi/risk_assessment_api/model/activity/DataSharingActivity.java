@@ -11,6 +11,7 @@ import org.bihealth.mi.risk_assessment_api.model.NamedResourceEntity;
 import org.bihealth.mi.risk_assessment_api.model.assessment.activity.DataSharingActivityTableAssessment;
 import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetAssessment;
 import org.bihealth.mi.risk_assessment_api.model.assessment.recipient.RecipientAssessment;
+import org.bihealth.mi.risk_assessment_api.model.project.Project;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
@@ -57,6 +58,11 @@ public class DataSharingActivity extends NamedResourceEntity {
     @JoinColumn(name = "recipient_assessment_id")
     @OnDelete(action = OnDeleteAction.CASCADE)
     private RecipientAssessment recipientAssessment;
+
+    // Optional project workspace that constrains valid dataset/recipient membership.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id")
+    private Project project;
 
     // Optional activity-specific table/attribute overrides.
     @OneToMany(

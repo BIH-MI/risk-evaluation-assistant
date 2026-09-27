@@ -29,7 +29,8 @@ public class DataSharingActivityController {
 
     /**
      * Creates the controller with the service that owns activity access checks
-     * and DTO mapping.
+     * and DTO mapping. Mitigation planner endpoints live in
+     * {@code mitigationplanner.api.MitigationPlannerController}.
      */
     public DataSharingActivityController(DataSharingActivityService sharingService) {
         this.sharingService = sharingService;

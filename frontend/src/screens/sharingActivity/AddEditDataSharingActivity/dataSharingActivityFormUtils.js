@@ -375,6 +375,7 @@ export function buildDataSharingActivityPayload({
   name,
   description,
   sharedUsernames,
+  projectId,
   datasetAssessmentId,
   recipientAssessmentId,
   overrideTables,
@@ -384,6 +385,7 @@ export function buildDataSharingActivityPayload({
     name: name.trim(),
     description: description.trim(),
     sharedUsernames,
+    projectId: projectId ? Number(projectId) : null,
     datasetAssessmentId: Number(datasetAssessmentId),
     recipientAssessmentId: Number(recipientAssessmentId),
     tableAssessments: overrideTables

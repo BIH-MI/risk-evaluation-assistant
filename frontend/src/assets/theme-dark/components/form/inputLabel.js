@@ -8,11 +8,15 @@ const inputLabel = {
   styleOverrides: {
     root: {
       fontSize: size.sm,
-      color: text.main,
+      color: text.secondary || text.main,
       lineHeight: 0.9,
 
       "&.Mui-focused": {
         color: info.main,
+      },
+
+      "&.Mui-disabled": {
+        color: text.disabled,
       },
 
       "&.MuiInputLabel-shrink": {

@@ -62,6 +62,11 @@ public class Question {
     @NotNull
     private String text;
 
+    // Optional stable machine identifier used by mitigation mappings.
+    // Legacy/custom configurations may temporarily leave this null.
+    @Column(name = "code", length = 160)
+    private String code;
+
     // Optional translated display text keyed by language code.
     @ElementCollection
     @CollectionTable(name = "question_text_translations", joinColumns = @JoinColumn(name = "question_id"))

@@ -1,11 +1,13 @@
 package org.bihealth.mi.risk_assessment_api.dto.request.activity;
 
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import org.bihealth.mi.risk_assessment_api.model.activity.DataSharingActivity;
 import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetAssessment;
 import org.bihealth.mi.risk_assessment_api.model.assessment.recipient.RecipientAssessment;
+import org.bihealth.mi.risk_assessment_api.model.project.Project;
 import org.bihealth.mi.risk_assessment_api.repository.assessment.dataset.DatasetTableAssessmentAttributeRepository;
 import org.bihealth.mi.risk_assessment_api.repository.assessment.dataset.DatasetTableAssessmentRepository;
 
@@ -34,6 +36,10 @@ public class DataSharingActivityRequestDTO {
     // Recipient assessment selected as the recipient/context-side input.
     private Long recipientAssessmentId;
 
+    // Required project workspace containing the selected dataset and recipient.
+    @NotNull(message = "Project is required for Data Sharing Activities.")
+    private Long projectId;
+
     // Optional activity-specific table overrides.
     private List<DataSharingActivityTableAssessmentRequestDTO> tableAssessments;
 
@@ -50,6 +56,7 @@ public class DataSharingActivityRequestDTO {
             String creatorUsername,
             DatasetAssessment da,
             RecipientAssessment ra,
+            Project project,
             DatasetTableAssessmentRepository tableRepo,
             DatasetTableAssessmentAttributeRepository attributeRepo
     ) {
@@ -62,6 +69,7 @@ public class DataSharingActivityRequestDTO {
                 : Collections.emptySet());
         act.setDatasetAssessment(da);
         act.setRecipientAssessment(ra);
+        act.setProject(project);
 
         if (tableAssessments != null) {
             for (var taDto : tableAssessments) {

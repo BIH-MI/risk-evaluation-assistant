@@ -37,6 +37,11 @@ public class QuestionOption {
     @Column(length = 1024, nullable = false)
     private String text;
 
+    // Optional stable machine identifier used by conditional logic and mitigation mappings.
+    // Legacy/custom configurations may temporarily leave this null.
+    @Column(name = "code", length = 160)
+    private String code;
+
     // Optional translated display text keyed by language code.
     @ElementCollection
     @CollectionTable(name = "question_option_translations", joinColumns = @JoinColumn(name = "option_id"))

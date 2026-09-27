@@ -22,6 +22,9 @@ public class QuestionResponseDTO {
     // Owning risk category code.
     private String categoryCode;
 
+    // Stable code for internal configuration-dependent workflows.
+    private String code;
+
     // Display text and optional explanatory help.
     private String text;
     private String explanation;
@@ -43,6 +46,7 @@ public class QuestionResponseDTO {
         if (entity != null) {
             this.id = entity.getId();
             this.categoryCode = entity.getCategory() != null ? entity.getCategory().getCode() : null;
+            this.code = entity.getCode();
             this.text = entity.getText();
             this.isRequired = entity.isRequired();
             this.dependsOnOptionCode = entity.getDependsOnOptionCode();

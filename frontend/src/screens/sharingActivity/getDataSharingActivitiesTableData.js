@@ -25,13 +25,27 @@ export default function getDataSharingActivitiesTableData(
     {
       Header: t("dataSharingActivities.table.name"),
       accessor: "name",
-      width: "20%",
+      width: "18%",
       align: "left",
+    },
+    {
+      Header: t("dataSharingActivities.table.project"),
+      accessor: "projectName",
+      width: "12%",
+      align: "left",
+      Cell: ({ value }) =>
+        value ? (
+          <LabeledAvatar value={value} variant="configuration" shape="square" />
+        ) : (
+          <RATypography variant="caption" color="text">
+            {t("dataSharingActivities.table.noProject")}
+          </RATypography>
+        ),
     },
     {
       Header: t("dataSharingActivities.table.datasetAssessment"),
       accessor: "datasetAssessmentName",
-      width: "15%",
+      width: "14%",
       align: "left",
       Cell: ({ value }) => (
         <Tooltip title={value || ""} placement="top-start" arrow>
@@ -60,7 +74,7 @@ export default function getDataSharingActivitiesTableData(
     {
       Header: t("dataSharingActivities.table.recipientAssessment"),
       accessor: "recipientAssessmentName",
-      width: "15%",
+      width: "14%",
       align: "left",
       Cell: ({ value }) => (
         <Tooltip title={value || ""} placement="top-start" arrow>
@@ -100,7 +114,7 @@ export default function getDataSharingActivitiesTableData(
     {
       Header: t("dataSharingActivities.table.createdBy"),
       accessor: "creatorUsername",
-      width: "15%",
+      width: "12%",
       align: "center",
       Cell: ({ value }) => <LabeledAvatar value={value} variant="user" />,
     },
@@ -189,6 +203,7 @@ export default function getDataSharingActivitiesTableData(
     ),
     datasetAssessmentName: a.datasetAssessmentName,
     recipientAssessmentName: a.recipientAssessmentName,
+    projectName: a.projectName,
     creationDate: a.creationDate,
     lastModifiedDate: a.lastModifiedDate,
     creatorUsername: a.creatorUsername || "—",

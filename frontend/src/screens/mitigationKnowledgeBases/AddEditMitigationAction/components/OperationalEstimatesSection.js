@@ -10,7 +10,7 @@ import { FIELD_HELP } from "./fieldHelp";
 import MitigationActionSection from "./MitigationActionSection";
 
 const DESCRIPTION =
-  "Implementation cost and setup-time estimates used to compare future mitigation plans with Project budget and timing constraints. Provide values when they are known; missing values are treated as unknown, not zero.";
+  "Optionally provide the expected implementation cost and setup time. Leave these fields empty when an estimate is not available; missing values are treated as unknown, not zero.";
 
 // Missing operational estimates represent UNKNOWN values, not zero-cost or
 // zero-time implementations.

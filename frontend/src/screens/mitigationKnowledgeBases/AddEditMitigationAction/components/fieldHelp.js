@@ -9,8 +9,6 @@ export const FIELD_HELP = {
     "Describe what would need to be implemented if this action is selected in a future mitigation plan.",
   verificationCriteria:
     "Describe what evidence would be required to confirm that the action has actually been implemented. A future counterfactual assessment must not assume a control is present until this evidence is available.",
-  evidenceReference:
-    "Optional source supporting the applicability or implementation of this mitigation action, for example a guideline, standard, policy, or publication.",
   costEstimate:
     "Optional estimated implementation cost range. Leave blank when unknown; blank values do not mean zero.",
   setupTime:

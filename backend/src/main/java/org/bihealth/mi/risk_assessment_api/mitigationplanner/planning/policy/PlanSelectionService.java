@@ -37,11 +37,11 @@ public class PlanSelectionService {
                 ? List.of()
                 : policy.getEnabledCriteria();
 
+        // Feasibility is not a preference: INVALID and INCOMPATIBLE plans are never recommended or
+        // offered as alternatives, even if a policy omits the REJECT_* criteria.
         List<EvaluatedCandidatePlan> selectable = evaluated.stream()
-                .filter(candidate -> !criteria.contains("REJECT_INVALID")
-                        || candidate.evaluation().getStatus() != MitigationPlanStatus.INVALID)
-                .filter(candidate -> !criteria.contains("REJECT_INCOMPATIBLE")
-                        || candidate.evaluation().getStatus() != MitigationPlanStatus.INCOMPATIBLE)
+                .filter(candidate -> candidate.evaluation().getStatus() != MitigationPlanStatus.INVALID)
+                .filter(candidate -> candidate.evaluation().getStatus() != MitigationPlanStatus.INCOMPATIBLE)
                 .sorted(comparator(criteria))
                 .toList();
 

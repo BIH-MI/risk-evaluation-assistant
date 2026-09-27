@@ -1,4 +1,5 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import PropTypes from "prop-types";
 import { CircularProgress } from "@mui/material";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import { useTranslation } from "react-i18next";
@@ -8,36 +9,75 @@ import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
 import BaselineRiskSummary from "./components/BaselineRiskSummary";
 import CandidatePlanTable from "./components/CandidatePlanTable";
+import CustomPlanBar from "./components/CustomPlanBar";
 import MitigationPlannerHeader from "./components/MitigationPlannerHeader";
 import MitigationPlanning from "./components/MitigationPlanning";
-import PlanRecommendationPanel from "./components/PlanRecommendationPanel";
 import PlannerSection from "./components/PlannerSection";
 import ProjectRequirementSummary from "./components/ProjectRequirementSummary";
 import SelectedPlanAssessment from "./components/SelectedPlanAssessment";
-import useMitigationPlanBuilder from "./useMitigationPlanBuilder";
+import useMitigationPlanBuilder, { CUSTOM_PLAN_KEY } from "./useMitigationPlanBuilder";
 import useMitigationPlanner from "./useMitigationPlanner";
 import useMitigationPlanRecommendation, { RECOMMENDED_PLAN_KEY } from "./useMitigationPlanRecommendation";
+import { riskDriversById } from "./utils/mitigationPlanRows";
 
-// One continuous report-style page (no tabs): Project requirements, baseline, risk factors and
-// applicable mitigation options, generated plans (recommended + alternatives), and the selected
-// plan's assessment. Generation, evaluation and selection happen on the backend against the
-// Project's pinned Knowledge Base version; plans are not persisted and assessments never change.
+function Notice({ children }) {
+  return (
+    <RABox display="flex" alignItems="flex-start" gap={1}>
+      <WarningAmberIcon fontSize="small" sx={{ color: "warning.main" }} />
+      <RATypography variant="body2">{children}</RATypography>
+    </RABox>
+  );
+}
+
+Notice.propTypes = { children: PropTypes.node.isRequired };
+
+// One continuous report-style page: Project requirements, baseline, risk factors with applicable
+// mitigation options (tickable into an optional Custom Plan), the automatically generated plans
+// (Recommended Plan first, then alternatives, in backend order) plus any evaluated Custom Plan,
+// and the selected plan's assessment. Generation, evaluation and
+// selection run on the backend against the Project's pinned Knowledge Base version; plans are not
+// persisted and assessments are never modified.
 export default function MitigationPlannerPage() {
   const { t } = useTranslation();
   const { activityId, token, manualRiskThreshold, overview, loading, errorMessage, clearError } =
     useMitigationPlanner();
+  const recommendation = useMitigationPlanRecommendation({
+    activityId,
+    token,
+    manualRiskThreshold,
+    ready: Boolean(overview?.project),
+  });
   const builder = useMitigationPlanBuilder({ activityId, token, manualRiskThreshold, overview });
-  const recommendation = useMitigationPlanRecommendation({ activityId, token, manualRiskThreshold });
-  const { selectPlan } = builder;
+  const { result, generating } = recommendation;
+  const [selectedPlanKey, setSelectedPlanKey] = useState(null);
 
-  const plans = useMemo(() => [...recommendation.plans, ...builder.plans], [recommendation.plans, builder.plans]);
-  const selectedPlan = plans.find((plan) => plan.key === builder.selectedPlanKey) ?? null;
+  // Generated plans keep backend order; the Custom Plan is appended and never ranked.
+  const plans = useMemo(
+    () => (builder.customPlan ? [...recommendation.plans, builder.customPlan] : recommendation.plans),
+    [builder.customPlan, recommendation.plans]
+  );
 
-  // A fresh generation selects the recommended plan for review.
+  // Each completed generation selects the Recommended Plan for review.
   useEffect(() => {
-    if (recommendation.result?.recommendedPlan) selectPlan(RECOMMENDED_PLAN_KEY);
-  }, [recommendation.result, selectPlan]);
+    setSelectedPlanKey(result?.recommendedPlan ? RECOMMENDED_PLAN_KEY : null);
+  }, [result]);
 
+  // If the selected plan disappears (e.g. the Custom Plan was cleared), fall back to the Recommended Plan.
+  useEffect(() => {
+    if (selectedPlanKey && !plans.some((plan) => plan.key === selectedPlanKey)) {
+      setSelectedPlanKey(result?.recommendedPlan ? RECOMMENDED_PLAN_KEY : null);
+    }
+  }, [plans, result, selectedPlanKey]);
+
+  const { evaluate } = builder;
+  const evaluateCustomPlan = useCallback(async () => {
+    const customPlan = await evaluate();
+    if (customPlan) setSelectedPlanKey(CUSTOM_PLAN_KEY);
+  }, [evaluate]);
+
+  const selectedPlan = plans.find((plan) => plan.key === selectedPlanKey) ?? null;
+  const driversById = useMemo(() => riskDriversById(overview), [overview]);
+  const noFeasiblePlan = Boolean(result) && !result.recommendedPlan;
   const warnings = overview?.warnings || [];
 
   return (
@@ -56,10 +96,7 @@ export default function MitigationPlannerPage() {
             {warnings.length > 0 && (
               <RABox display="flex" flexDirection="column" gap={0.5}>
                 {warnings.map((warning) => (
-                  <RABox key={warning} display="flex" alignItems="flex-start" gap={1}>
-                    <WarningAmberIcon fontSize="small" sx={{ color: "warning.main" }} />
-                    <RATypography variant="body2">{warning}</RATypography>
-                  </RABox>
+                  <Notice key={warning}>{warning}</Notice>
                 ))}
               </RABox>
             )}
@@ -81,35 +118,66 @@ export default function MitigationPlannerPage() {
                 "Risk factors from the current assessment are matched to configured mitigation options. Project requirements are used to identify compatible choices and unresolved constraints."
               )}
             >
-              <MitigationPlanning overview={overview} builder={builder} />
-            </PlannerSection>
-
-            <PlannerSection
-              id="plans"
-              framed={false}
-              title={t("mitigationPlanner.sections.plans", "Candidate Mitigation Plans")}
-            >
-              <RABox display="flex" flexDirection="column" gap={2}>
-                <PlanRecommendationPanel overview={overview} recommendation={recommendation} selectedPlan={selectedPlan} />
-                <CandidatePlanTable
-                  plans={plans}
-                  selectedPlanKey={builder.selectedPlanKey}
-                  onSelect={builder.selectPlan}
-                  coverageTotals={{
-                    critical: recommendation.result?.criticalDriverTotal ?? 0,
-                    high: recommendation.result?.highDriverTotal ?? 0,
-                  }}
+              <RABox display="flex" flexDirection="column" gap={3}>
+                <MitigationPlanning overview={overview} builder={builder} />
+                <CustomPlanBar
+                  selectedCount={builder.selectedActionIds.length}
+                  canEvaluate={builder.canEvaluate}
+                  issues={builder.issues}
+                  evaluating={builder.evaluating}
+                  onEvaluate={evaluateCustomPlan}
+                  onClear={builder.clear}
                 />
               </RABox>
             </PlannerSection>
 
-            {selectedPlan && (
+            {overview.project && (
+              <PlannerSection
+                id="plans"
+                framed={false}
+                mt={1}
+                title={t("mitigationPlanner.sections.plans", "Candidate Mitigation Plans")}
+              >
+                <RABox display="flex" flexDirection="column" gap={2}>
+                  {generating && (
+                    <RABox display="flex" alignItems="center" gap={1.5}>
+                      <CircularProgress size={20} />
+                      <RATypography variant="body2">
+                        {t("mitigationPlanner.plans.generating", "Generating mitigation plans...")}
+                      </RATypography>
+                    </RABox>
+                  )}
+
+                  {!generating && noFeasiblePlan && (
+                    <Notice>
+                      {t(
+                        "mitigationPlanner.plans.noFeasiblePlan",
+                        "No feasible mitigation plan could be generated under the current Knowledge Base and Project constraints."
+                      )}
+                    </Notice>
+                  )}
+
+                  {!generating && plans.length > 0 && (
+                    <CandidatePlanTable
+                      plans={plans}
+                      selectedPlanKey={selectedPlanKey}
+                      onSelect={setSelectedPlanKey}
+                    />
+                  )}
+                </RABox>
+              </PlannerSection>
+            )}
+
+            {!generating && selectedPlan && (
               <PlannerSection
                 id="assessment"
                 framed={false}
                 title={t("mitigationPlanner.sections.assessment", "Assessment Report")}
               >
-                <SelectedPlanAssessment plan={selectedPlan} baselineRisk={overview.baselineRisk} />
+                <SelectedPlanAssessment
+                  plan={selectedPlan}
+                  driversById={driversById}
+                />
               </PlannerSection>
             )}
           </>
@@ -119,7 +187,7 @@ export default function MitigationPlannerPage() {
       <RAFloatingAlertStack
         alerts={[
           { id: "mitigationPlannerError", color: "error", message: errorMessage, onClose: clearError },
-          { id: "mitigationPlanBuilderError", color: "error", message: builder.errorMessage, onClose: builder.clearError },
+          { id: "customPlanError", color: "error", message: builder.errorMessage, onClose: builder.clearError },
           {
             id: "mitigationPlanRecommendationError",
             color: "error",

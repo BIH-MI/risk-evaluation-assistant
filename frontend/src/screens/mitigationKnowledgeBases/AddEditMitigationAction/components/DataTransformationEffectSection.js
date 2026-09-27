@@ -20,7 +20,7 @@ export default function DataTransformationEffectSection({
   return (
     <MitigationActionSection
       title="Data Transformation Effect"
-      description="Describe the data representation produced by this action. These fields are used for deterministic Project checks; they are not risk-reduction estimates."
+      description="Describe how this action changes the released data so REA can check it against the Project requirements. These fields describe the expected data form and record retention; they do not estimate privacy-risk reduction."
     >
       <Grid container spacing={2}>
         <Grid item xs={12} md={6}>

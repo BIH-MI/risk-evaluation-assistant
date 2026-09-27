@@ -36,8 +36,16 @@ export default function QuestionnaireApplicabilitySection({
 
   return (
     <MitigationActionSection
-      title="Questionnaire Applicability"
-      description="Connect this action to existing assessment questions. Dataset mappings suggest proposed transformations; recipient mappings can also define verified counterfactual answers. Stored assessments are never changed by catalogue mappings."
+      title={
+        actionType === "DATA_TRANSFORMATION"
+          ? "Dataset Questionnaire Applicability"
+          : "Recipient Questionnaire Applicability"
+      }
+      description={
+        actionType === "DATA_TRANSFORMATION"
+          ? "Rules on Dataset Assessment answers. When the current answer matches, this transformation is proposed as applicable. Data transformations do not project questionnaire answers."
+          : "Rules on Recipient Assessment answers. When the current answer matches, this control is applicable, and the verified answer is used only in memory for counterfactual context evaluation. Stored assessments are never changed."
+      }
     >
       <RABox display="flex" flexDirection="column" gap={2}>
         {mappings.map((mapping, index) => (

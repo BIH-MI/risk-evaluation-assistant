@@ -23,23 +23,20 @@ export default function DataTransformationAccordion({ evidenceDrivers, dataRows,
   const evidence = visibleRiskFactors(evidenceDrivers);
 
   return (
-    <RABox sx={{ border: 1, borderColor: "divider", borderRadius: 1 }}>
+    <RABox>
       <ButtonBase
         onClick={() => setOpen((current) => !current)}
         aria-expanded={open}
         aria-controls={PANEL_ID}
-        sx={{ width: "100%", justifyContent: "space-between", px: 2, py: 1.5, textAlign: "left", borderRadius: 1 }}
+        sx={{ width: "100%", justifyContent: "space-between", py: 1.5, textAlign: "left", borderRadius: 1 }}
       >
         <RATypography variant="subtitle1" fontWeight="bold">
           {t("mitigationPlanner.data.transformationsTitle", "Data Transformations")}
-          <RATypography component="span" variant="body2" sx={{ color: "text.secondary", ml: 1 }}>
-            ({dataRows.length})
-          </RATypography>
         </RATypography>
         {open ? <ExpandLessIcon /> : <ExpandMoreIcon />}
       </ButtonBase>
       <Collapse in={open} unmountOnExit>
-        <RABox id={PANEL_ID} display="flex" flexDirection="column" gap={2} px={2} pb={2}>
+        <RABox id={PANEL_ID} display="flex" flexDirection="column" gap={2} pb={2}>
           <RATypography variant="body2" sx={{ color: "text.secondary" }}>
             {t(
               "mitigationPlanner.data.transformationsNotice",

@@ -105,6 +105,31 @@ export function emptyActionForm() {
   };
 }
 
+export function assessmentScopeForActionType(actionType) {
+  return actionType === "DATA_TRANSFORMATION" ? "DATASET" : "RECIPIENT";
+}
+
+/**
+ * Changing the type of a new action discards configuration that only made sense for the previous
+ * type. Questionnaire rules are scope-bound (Dataset vs Recipient Assessment), so rules written
+ * for the other scope are removed rather than silently reinterpreted.
+ */
+export function switchActionType(form, actionType) {
+  const scope = assessmentScopeForActionType(actionType);
+  const dataFields =
+    actionType === "DATA_TRANSFORMATION"
+      ? {}
+      : { resultingDataForm: "", recordRetentionEffect: "", attributeMappings: [], parameterDefinitions: [] };
+  return {
+    ...form,
+    ...dataFields,
+    actionType,
+    questionMappings: (form.questionMappings || []).filter(
+      (mapping) => (mapping.assessmentScope || scope) === scope
+    ),
+  };
+}
+
 export function withClientId(item) {
   return {
     ...item,
@@ -198,12 +223,15 @@ export function buildActionPayload(form) {
       }) => ({
         id: mapping.id,
         configurationId: numberOrNull(mapping.configurationId),
-        assessmentScope:
-          mapping.assessmentScope || (actionType === "DATA_TRANSFORMATION" ? "DATASET" : "RECIPIENT"),
+        assessmentScope: mapping.assessmentScope || assessmentScopeForActionType(actionType),
         categoryCode: emptyToNull(mapping.categoryCode),
         questionCode: emptyToNull(mapping.questionCode),
         triggerOptionCode: emptyToNull(mapping.triggerOptionCode),
-        projectedOptionCode: emptyToNull(mapping.projectedOptionCode),
+        // Only recipient (context-control) rules project a counterfactual answer.
+        projectedOptionCode:
+          (mapping.assessmentScope || assessmentScopeForActionType(actionType)) === "RECIPIENT"
+            ? emptyToNull(mapping.projectedOptionCode)
+            : null,
       })
     ),
     attributeMappings:

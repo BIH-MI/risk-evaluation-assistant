@@ -201,27 +201,13 @@ export function projectConstraintColor(result) {
   return "warning";
 }
 
-/** Display prefix of candidate plans (presentation label only, not an identifier). */
-export const STRATEGY_PLAN_PREFIX = { DATA: "A", CONTEXT: "B", HYBRID: "C" };
-
-export function formatPlanAction(action) {
-  const parameterValues = (action.parameters || [])
-    .map((parameter) => (parameter.resolved ? formatOptionValue(parameter.value) : null))
-    .filter(Boolean);
-
-  return parameterValues.length > 0
-    ? `${action.actionName} (${parameterValues.join(", ")})`
-    : action.actionName;
-}
-
-export const formatPlanActions = (actions = []) => actions.map(formatPlanAction);
-
 /** Plan-level cost text from the backend aggregation; unknown/partial are never shown as zero. */
 export function formatPlanCost(cost) {
   if (cost?.availability === "KNOWN") {
     return formatCostEstimate({ costMin: cost.min, costMax: cost.max, currency: cost.currency });
   }
-  return cost?.availability === "PARTIAL" ? "Incomplete estimate" : NOT_AVAILABLE;
+  // Missing estimates are unknown, never zero.
+  return cost?.availability === "PARTIAL" ? "Incomplete estimate" : "Unknown";
 }
 
 export function formatPlanSetup(setup) {
@@ -229,7 +215,7 @@ export function formatPlanSetup(setup) {
     return formatSetupEstimate({ setupDaysMin: setup.minDays, setupDaysMax: setup.maxDays });
   }
   if (setup?.availability === "PARTIAL") return "Incomplete estimate";
-  return setup?.availability === "REQUIRES_ESTIMATE" ? "Requires estimate" : NOT_AVAILABLE;
+  return setup?.availability === "REQUIRES_ESTIMATE" ? "Requires estimate" : "Unknown";
 }
 
 // Short category names used in counterfactual explanations; the configured name is the fallback.

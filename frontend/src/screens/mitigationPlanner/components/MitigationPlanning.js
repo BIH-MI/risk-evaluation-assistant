@@ -1,9 +1,8 @@
 import PropTypes from "prop-types";
 import { useTranslation } from "react-i18next";
-import { CircularProgress, Divider, FormControlLabel, Switch } from "@mui/material";
+import { Divider } from "@mui/material";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 
-import RAButton from "components/input/RAButton";
 import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
 import DataTransformationAccordion from "./DataTransformationAccordion";
@@ -42,8 +41,8 @@ UnavailableNotice.defaultProps = { section: null };
  * Risk factors and configured mitigation options:
  *   Data Risk: Impact factors and data transformations (collapsed)
  *   Context Risk: Controls and Likelihood factors
- * Options are read-only unless manual plan construction is switched on; selection identity is
- * always the action id.
+ * Plans are generated automatically by the backend; ticking an action only adds it to the
+ * researcher's Custom Plan and never changes the Recommended Plan.
  */
 export default function MitigationPlanning({ overview, builder }) {
   const { t } = useTranslation();
@@ -87,33 +86,6 @@ export default function MitigationPlanning({ overview, builder }) {
           builder={builder}
         />
       </RABox>
-
-      <RABox display="flex" flexDirection="column" alignItems="center" gap={1}>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={builder.manualMode}
-              onChange={(event) => builder.setManualMode(event.target.checked)}
-            />
-          }
-          label={t("mitigationPlanner.planning.manualMode", "Build a plan manually (advanced)")}
-        />
-        {builder.manualMode && (
-          <>
-            <RAButton
-              variant="outlined"
-              disabled={builder.creating || builder.selectedActionIds.length === 0}
-              onClick={builder.createPlan}
-              startIcon={builder.creating ? <CircularProgress size={18} /> : null}
-            >
-              {t("mitigationPlanner.planning.createManual", "Create manual plan")}
-            </RAButton>
-            <RATypography variant="caption" sx={{ color: "text.secondary" }}>
-              {t("mitigationPlanner.planning.selectedCount", "{{count}} action(s) selected", { count: builder.selectedActionIds.length })}
-            </RATypography>
-          </>
-        )}
-      </RABox>
     </RABox>
   );
 }
@@ -127,13 +99,5 @@ MitigationPlanning.propTypes = {
   builder: PropTypes.shape({
     dataRows: PropTypes.array.isRequired,
     contextRows: PropTypes.array.isRequired,
-    selectedActionIds: PropTypes.array.isRequired,
-    parameterChoices: PropTypes.object.isRequired,
-    manualMode: PropTypes.bool.isRequired,
-    setManualMode: PropTypes.func.isRequired,
-    creating: PropTypes.bool.isRequired,
-    toggleAction: PropTypes.func.isRequired,
-    chooseParameter: PropTypes.func.isRequired,
-    createPlan: PropTypes.func.isRequired,
   }).isRequired,
 };

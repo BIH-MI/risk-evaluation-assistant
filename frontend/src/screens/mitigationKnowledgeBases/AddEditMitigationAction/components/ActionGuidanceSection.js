@@ -3,7 +3,7 @@ import Grid from "@mui/material/Grid";
 
 import RAInput from "components/input/RAInput";
 
-import AdminField, { compactInputSx } from "./AdminField";
+import AdminField from "./AdminField";
 import { FIELD_HELP } from "./fieldHelp";
 import MitigationActionSection from "./MitigationActionSection";
 
@@ -42,21 +42,6 @@ export default function ActionGuidanceSection({ form, onChange }) {
               fullWidth
               multiline
               minRows={3}
-            />
-          </AdminField>
-        </Grid>
-        <Grid item xs={12}>
-          <AdminField
-            label="Evidence / Reference"
-            info={FIELD_HELP.evidenceReference}
-          >
-            <RAInput
-              value={form.source}
-              onChange={(event) => onChange("source", event.target.value)}
-              inputProps={{ "aria-label": "Evidence / Reference" }}
-              fullWidth
-              size="small"
-              sx={compactInputSx}
             />
           </AdminField>
         </Grid>

@@ -1,28 +1,31 @@
 import PropTypes from "prop-types";
 import { useTranslation } from "react-i18next";
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
+import RequirementHelpTooltip from "components/display/RequirementHelpTooltip";
 import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
 import ProjectConstraintChip from "./ProjectConstraintChip";
 
-function comparableText(value) {
-  return String(value || "")
-    .trim()
-    .replace(/\s+/g, " ")
-    .toLowerCase();
-}
-
-function planEvidenceLines(check) {
-  const planEvidence = String(check.planEvidence || "").trim();
+/** Status chip; the backend's explanation (check.note) is available in a tooltip. */
+function CheckStatus({ check }) {
   const note = String(check.note || "").trim();
-  const lines = [];
+  if (!note) return <ProjectConstraintChip result={check.status} />;
 
-  if (planEvidence) lines.push(planEvidence);
-  if (note && comparableText(note) !== comparableText(planEvidence)) lines.push(note);
-
-  return lines;
+  return (
+    <RequirementHelpTooltip title={note}>
+      <RABox component="span" display="inline-flex" alignItems="center" gap={0.5} sx={{ cursor: "help" }}>
+        <ProjectConstraintChip result={check.status} />
+        <InfoOutlinedIcon fontSize="small" sx={{ color: "text.secondary" }} />
+      </RABox>
+    </RequirementHelpTooltip>
+  );
 }
+
+CheckStatus.propTypes = {
+  check: PropTypes.shape({ status: PropTypes.string, note: PropTypes.string }).isRequired,
+};
 
 // Every check was computed by the backend; this component only renders it.
 export default function ProjectConstraintChecks({ checks }) {
@@ -49,32 +52,16 @@ export default function ProjectConstraintChecks({ checks }) {
               </TableRow>
             </TableHead>
             <TableBody>
-              {checks.map((check) => {
-                const evidenceLines = planEvidenceLines(check);
-
-                return (
-                  <TableRow key={check.key}>
-                    <TableCell>{check.label}</TableCell>
-                    <TableCell sx={{ overflowWrap: "anywhere" }}>{check.required}</TableCell>
-                    <TableCell>
-                      {evidenceLines.length === 0
-                        ? "—"
-                        : evidenceLines.map((line, index) => (
-                            <RATypography
-                              key={`${check.key}:evidence:${index}`}
-                              variant="body2"
-                              sx={index === 0 ? undefined : { color: "text.secondary" }}
-                            >
-                              {line}
-                            </RATypography>
-                          ))}
-                    </TableCell>
-                    <TableCell>
-                      <ProjectConstraintChip result={check.status} />
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+              {checks.map((check) => (
+                <TableRow key={check.key}>
+                  <TableCell>{check.label}</TableCell>
+                  <TableCell sx={{ overflowWrap: "anywhere" }}>{check.required}</TableCell>
+                  <TableCell>{check.planEvidence || "—"}</TableCell>
+                  <TableCell>
+                    <CheckStatus check={check} />
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </TableContainer>

@@ -31,16 +31,19 @@ function Notice({ children }) {
 
 Notice.propTypes = { children: PropTypes.node.isRequired };
 
-// One continuous report-style page: Project requirements, baseline, risk factors with applicable
-// mitigation options (tickable into an optional Custom Plan), the automatically generated plans
-// (Recommended Plan first, then alternatives, in backend order) plus any evaluated Custom Plan,
-// and the selected plan's assessment. Generation, evaluation and
-// selection run on the backend against the Project's pinned Knowledge Base version; plans are not
-// persisted and assessments are never modified.
+
 export default function MitigationPlannerPage() {
   const { t } = useTranslation();
-  const { activityId, token, manualRiskThreshold, overview, loading, errorMessage, clearError } =
-    useMitigationPlanner();
+
+  const {
+    activityId,
+    token,
+    manualRiskThreshold,
+    overview,
+    loading,
+    errorMessage,
+    clearError } = useMitigationPlanner();
+
   const recommendation = useMitigationPlanRecommendation({
     activityId,
     token,

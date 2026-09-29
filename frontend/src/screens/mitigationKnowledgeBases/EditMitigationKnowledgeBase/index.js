@@ -166,7 +166,9 @@ export default function EditMitigationKnowledgeBase() {
       p={2}
     >
       <RATypography variant="h4" fontWeight="bold" align="center">
-        {isEditMode ? "Edit Mitigation Knowledge Base" : "Create Mitigation Knowledge Base"}
+        {isEditMode
+          ? "Edit Mitigation Knowledge Base"
+          : "Create Mitigation Knowledge Base"}
       </RATypography>
 
       <Paper sx={sectionSx}>
@@ -193,7 +195,9 @@ export default function EditMitigationKnowledgeBase() {
                 <Switch
                   checked={form.active}
                   disabled={isPersistedDefault}
-                  onChange={(event) => updateField("active", event.target.checked)}
+                  onChange={(event) =>
+                    updateField("active", event.target.checked)
+                  }
                 />
               }
               label="Active"
@@ -214,18 +218,6 @@ export default function EditMitigationKnowledgeBase() {
         </RABox>
       </Paper>
 
-      <RABox display="flex" justifyContent="center">
-        <RAButton
-          type="submit"
-          variant="contained"
-          color="primary"
-          disabled={saving}
-          sx={{ minWidth: 160 }}
-        >
-          {saving ? "Saving..." : "Save"}
-        </RAButton>
-      </RABox>
-
       {isEditMode && (
         <RABox display="flex" flexDirection="column" gap={2}>
           <RATypography variant="h6">Actions</RATypography>
@@ -243,6 +235,18 @@ export default function EditMitigationKnowledgeBase() {
           />
         </RABox>
       )}
+
+      <RABox display="flex" justifyContent="center">
+        <RAButton
+          type="submit"
+          variant="contained"
+          color="primary"
+          disabled={saving}
+          sx={{ minWidth: 160 }}
+        >
+          {saving ? "Saving..." : "Save"}
+        </RAButton>
+      </RABox>
 
       <RAFloatingAlertStack
         alerts={[

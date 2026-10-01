@@ -105,6 +105,12 @@ export default function getProjectsTableData(
         const id = row.original.id;
         const locker = locks[id];
         const isMine = locker === me || isAdmin;
+        // Sharing a Project grants read access only; editing and deleting are for the creator or an admin.
+        const canModify = isAdmin || row.original.creatorUsername === me;
+
+        if (!canModify) {
+          return null;
+        }
 
         if (locker && !isMine) {
           return (

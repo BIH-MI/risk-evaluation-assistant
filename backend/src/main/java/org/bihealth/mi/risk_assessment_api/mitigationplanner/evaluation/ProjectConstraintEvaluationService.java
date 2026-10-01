@@ -42,6 +42,10 @@ import org.springframework.stereotype.Service;
  * <p>Checks are conservative: unknown transformation results, unknown estimates, and free-text
  * utility requirements produce {@code NEEDS_EVALUATION}; they are never interpreted as pass or
  * zero effort.</p>
+ *
+ * <p>Each check reports its own outcome, including FAIL for an unmet preference. Only a failing
+ * HARD_CONSTRAINT makes the plan-level result FAIL (and the plan INCOMPATIBLE); an unmet
+ * preference is a trade-off that needs a decision, so it contributes NEEDS_EVALUATION.</p>
  */
 @Service
 public class ProjectConstraintEvaluationService {
@@ -63,7 +67,7 @@ public class ProjectConstraintEvaluationService {
     ) {
         List<ProjectCheck> checks = buildChecks(plan, constraints);
         ProjectConstraintResult result = checks.stream()
-                .map(ProjectCheck::getStatus)
+                .map(check -> compatibilityService.planLevelResult(check.getStatus(), check.getConstraintType()))
                 .reduce(ProjectConstraintResult.PASS, compatibilityService::worst);
         boolean dataRiskEvaluationRequired = requiresDataRiskEvaluation(plan, constraints);
         return new Evaluation(checks, result, dataRiskEvaluationRequired);

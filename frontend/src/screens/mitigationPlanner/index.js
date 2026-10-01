@@ -82,6 +82,8 @@ export default function MitigationPlannerPage() {
   const driversById = useMemo(() => riskDriversById(overview), [overview]);
   const noFeasiblePlan = Boolean(result) && !result.recommendedPlan;
   const warnings = overview?.warnings || [];
+  // Generation-specific warnings (e.g. an uncoverable Critical finding); overview warnings are shown above.
+  const generationWarnings = (result?.warnings || []).filter((warning) => !warnings.includes(warning));
 
   return (
     <>
@@ -118,7 +120,7 @@ export default function MitigationPlannerPage() {
               title={t("mitigationPlanner.sections.planning", "Mitigation Planning")}
               description={t(
                 "mitigationPlanner.sections.planningDescription",
-                "Risk factors from the current assessment are matched to configured mitigation options. Project requirements are used to identify compatible choices and unresolved constraints."
+                "Risk factors from the current assessment are matched to mitigation options configured in the Knowledge Base. An option is listed because it applies to the finding; that does not show it will be effective. Project requirements are used to identify compatible choices and unresolved constraints."
               )}
             >
               <RABox display="flex" flexDirection="column" gap={3}>
@@ -150,6 +152,9 @@ export default function MitigationPlannerPage() {
                       </RATypography>
                     </RABox>
                   )}
+
+                  {!generating &&
+                    generationWarnings.map((warning) => <Notice key={warning}>{warning}</Notice>)}
 
                   {!generating && noFeasiblePlan && (
                     <Notice>

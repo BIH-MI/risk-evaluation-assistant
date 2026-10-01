@@ -10,18 +10,23 @@ import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.Counte
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlanDraftEvaluationDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlanDraftEvaluationDTO.PlanAction;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlanDraftEvaluationDTO.PlanActionParameter;
+import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlanDraftEvaluationDTO.ProjectCheck;
+import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlanDraftEvaluationDTO.UnresolvedFinding;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.DataOpportunity;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.Opportunity;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.ParameterValue;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.PlanParameter;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.ProjectConstraint;
+import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.RiskDriverDTO;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationActionType;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationParameterCode;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationPlanStatus;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationPlanStrategy;
 import org.bihealth.mi.risk_assessment_api.enums.ParameterValueCompatibility;
 import org.bihealth.mi.risk_assessment_api.enums.ProjectConstraintResult;
+import org.bihealth.mi.risk_assessment_api.enums.ProjectTemplateRequirementConstraintType;
+import org.bihealth.mi.risk_assessment_api.enums.RiskDriverPriority;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.model.CandidatePlan;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.model.CandidatePlan.ParameterSelection;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.model.MitigationPlanningContext;
@@ -45,6 +50,12 @@ import java.util.stream.Stream;
  * <p>The evaluator preserves the existing REA boundaries: context plans use the
  * counterfactual context evaluator, while data transformations leave residual
  * q unevaluated and return a follow-up measurement item.</p>
+ *
+ * <p>Status semantics: INVALID means the plan cannot be evaluated (unknown action, unknown
+ * parameter value, conflicting projections); INCOMPATIBLE means a hard Project constraint
+ * fails; EVALUATION_REQUIRED means at least one remaining evaluation item is open;
+ * READY_FOR_REVIEW means nothing more can be evaluated before a human review. None of them
+ * means safe or approved.</p>
  */
 @Service
 @Transactional(readOnly = true)
@@ -119,6 +130,7 @@ public class MitigationPlanEvaluator {
             plan.getActions().add(action);
         }
         plan.getAddressedRiskDriverIds().addAll(addressedDriverIds);
+        plan.getUnresolvedCriticalFindings().addAll(unresolvedCriticalFindings(context, available, addressedDriverIds));
 
         MitigationPlannerOverviewDTO.BaselineRisk baselineRisk = context.baselineRisk();
         Double baselineRAnon = baselineRisk == null ? null : baselineRisk.getAnonymizationThreshold();
@@ -163,6 +175,10 @@ public class MitigationPlanEvaluator {
         }
         plan.getRemainingEvaluationItems().addAll(buildRemainingEvaluationItems(plan, unresolvedParameters));
         plan.getStatusReasons().addAll(plan.getRemainingEvaluationItems());
+        if (plan.isContextActionsApplied()) {
+            plan.getVerificationSteps().add("After implementation, verify each proposed context control against its "
+                    + "verification criteria; only then update the Recipient Assessment.");
+        }
         plan.setNextStep(nextStep(plan));
         plan.setStatus(plan.getRemainingEvaluationItems().isEmpty()
                 && plan.getProjectConstraintResult() == ProjectConstraintResult.PASS
@@ -227,9 +243,16 @@ public class MitigationPlanEvaluator {
         if (plan.isDataRiskEvaluationRequired()) {
             items.add("Measure residual re-identification risk q and compare it with the required data-risk threshold R_anon.");
         }
-        if (plan.isContextActionsApplied()) {
-            items.add("Verify the proposed context controls before updating the Recipient Assessment.");
-        }
+        plan.getUnresolvedCriticalFindings().stream()
+                .filter(UnresolvedFinding::isMitigationAvailable)
+                .map(finding -> "Critical finding \"" + finding.getTitle() + "\" is not addressed although an "
+                        + "applicable mitigation action exists; add it or document why it is not used.")
+                .forEach(items::add);
+        plan.getProjectChecks().stream()
+                .filter(check -> check.getStatus() == ProjectConstraintResult.FAIL && !isHardConstraint(check))
+                .map(check -> "The plan does not meet the Project preference \"" + check.getLabel()
+                        + "\"; confirm this trade-off with the Project lead.")
+                .forEach(items::add);
         plan.getProjectChecks().stream()
                 .filter(check -> check.getStatus() == ProjectConstraintResult.NEEDS_EVALUATION)
                 .map(check -> switch (check.getKey()) {
@@ -242,6 +265,50 @@ public class MitigationPlanEvaluator {
                 .filter(Objects::nonNull)
                 .forEach(items::add);
         return items.stream().distinct().collect(Collectors.toList());
+    }
+
+    /**
+     * Critical findings the plan does not structurally address. Findings without any applicable
+     * action stay part of the (baseline or projected) risk result and are listed for the reviewer;
+     * only an omitted applicable action becomes a remaining evaluation item.
+     */
+    private List<UnresolvedFinding> unresolvedCriticalFindings(
+            MitigationPlanningContext context,
+            Map<Long, Opportunity> available,
+            Set<String> addressedDriverIds
+    ) {
+        Set<String> coverable = available.values().stream()
+                .flatMap(opportunity -> opportunity.getAddressedRiskDriverIds().stream())
+                .collect(Collectors.toSet());
+        return Stream.concat(
+                        context.inference().dataRiskDrivers().stream(),
+                        context.inference().contextRiskDrivers().stream())
+                .filter(driver -> driver.getPriority() == RiskDriverPriority.CRITICAL)
+                .filter(driver -> !addressedDriverIds.contains(driver.getId()))
+                .map(driver -> toUnresolvedFinding(driver, coverable.contains(driver.getId())))
+                .collect(Collectors.toList());
+    }
+
+    private UnresolvedFinding toUnresolvedFinding(RiskDriverDTO driver, boolean mitigationAvailable) {
+        UnresolvedFinding finding = new UnresolvedFinding();
+        finding.setRiskDriverId(driver.getId());
+        finding.setCategoryCode(driver.getCategoryCode());
+        finding.setCategoryLabel(driver.getCategoryLabel());
+        boolean questionFinding = driver.getQuestionText() != null;
+        finding.setTitle(questionFinding ? driver.getQuestionText() : String.join(" + ", driver.getAttributeNames()));
+        finding.setCurrentState(questionFinding
+                ? driver.getSelectedOptionText()
+                : driver.getAttributeRole() == null ? null : driver.getAttributeRole().name());
+        finding.setMitigationAvailable(mitigationAvailable);
+        finding.setReason(mitigationAvailable
+                ? "An applicable mitigation action exists but is not part of this plan."
+                : "No configured mitigation action is applicable to this finding; it remains part of the risk "
+                        + "calculation for this plan.");
+        return finding;
+    }
+
+    private boolean isHardConstraint(ProjectCheck check) {
+        return ProjectTemplateRequirementConstraintType.HARD_CONSTRAINT.name().equals(check.getConstraintType());
     }
 
     private String nextStep(MitigationPlanDraftEvaluationDTO plan) {

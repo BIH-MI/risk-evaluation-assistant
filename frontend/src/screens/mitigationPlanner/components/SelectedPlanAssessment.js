@@ -63,9 +63,8 @@ SelectedActions.propTypes = {
 };
 
 // Detailed view of the plan selected in the Candidate Mitigation Plans table (generated or
-// Custom): its actions and the Risk Drivers they address, the context comparison where relevant and
-// the Project checks. Cost and setup are compared in the table; backend follow-up detail such as
-// remainingEvaluationItems stays in the API response and is reflected by the Project checks.
+// Custom): its actions and the Risk Drivers they address, the projected context where relevant and
+// the Project checks. Cost and setup are compared in the table.
 export default function SelectedPlanAssessment({ plan, driversById }) {
   const { evaluation, label } = plan;
   // Context and hybrid plans show the counterfactual context comparison. Data-only plans have none:

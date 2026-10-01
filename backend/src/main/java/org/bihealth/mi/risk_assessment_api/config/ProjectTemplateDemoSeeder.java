@@ -80,13 +80,16 @@ public class ProjectTemplateDemoSeeder implements CommandLineRunner {
 
     private static final String DEMO_ADMIN = "admin";
     private static final String DEMO_CREATOR = "user";
-    private static final String LEOSS_DATASET_NAME = "LEOSS Public Use File";
+    private static final String LEOSS_DATASET_NAME = DemoDatasetEvidenceSeeder.LEOSS_DATASET_NAME;
+    private static final String LEGACY_LEOSS_DATASET_NAME = DemoDatasetEvidenceSeeder.LEGACY_LEOSS_DATASET_NAME;
     private static final String LEGACY_LEOSS_PROJECT_NAME = "LEOSS Mitigation Planning Demo";
     private static final String ACADEMIC_RECIPIENT_NAME = "Academic Research Institute";
     private static final String COMMERCIAL_RECIPIENT_NAME = "Commercial Partner";
     private static final String PUBLIC_RECIPIENT_NAME = "Public Open Data Portal";
+    private static final String AGREEMENT_PENDING_RECIPIENT_NAME = DataLoader.AGREEMENT_PENDING_RECIPIENT_NAME;
     private static final String SPHN_DATASET_ASSESSMENT_NAME = "LEOSS Assessment (SPHN)";
-    private static final String ACADEMIC_SPHN_RECIPIENT_ASSESSMENT_NAME = "Academic Research Institute (SPHN)";
+    // Dedicated assessment: the Secure Analysis project analyses a 100-1,000 patient subset.
+    private static final String SECURE_ENVIRONMENT_ASSESSMENT_NAME = DataLoader.SECURE_ENVIRONMENT_ASSESSMENT_NAME;
 
     private static final String PUBLIC_RELEASE_TEMPLATE_NAME = "Public Data Release";
     private static final String CONTROLLED_TEMPLATE_NAME = "Controlled Data Transfer";
@@ -157,13 +160,16 @@ public class ProjectTemplateDemoSeeder implements CommandLineRunner {
             return;
         }
 
-        Dataset leossDataset = findDatasetByNormalizedName(LEOSS_DATASET_NAME).orElse(null);
+        Dataset leossDataset = findDatasetByNormalizedName(LEOSS_DATASET_NAME)
+                .or(() -> findDatasetByNormalizedName(LEGACY_LEOSS_DATASET_NAME))
+                .orElse(null);
         Recipient academic = findRecipientByNormalizedName(ACADEMIC_RECIPIENT_NAME).orElse(null);
         Recipient commercial = findRecipientByNormalizedName(COMMERCIAL_RECIPIENT_NAME).orElse(null);
         Recipient publicPortal = findRecipientByNormalizedName(PUBLIC_RECIPIENT_NAME).orElse(null);
+        Recipient researchInstitute = findRecipientByNormalizedName(AGREEMENT_PENDING_RECIPIENT_NAME).orElse(null);
 
         Project controlledProject =
-                ensureControlledResearchProject(controlledTemplate, leossDataset, academic, commercial);
+                ensureControlledResearchProject(controlledTemplate, leossDataset, academic, commercial, researchInstitute);
         Project publicReleaseProject =
                 ensurePublicReleaseProject(publicReleaseTemplate, leossDataset, publicPortal);
         Project secureAnalysisProject =
@@ -422,7 +428,11 @@ public class ProjectTemplateDemoSeeder implements CommandLineRunner {
     // -------------------------------------------------------------------
 
     private Project ensureControlledResearchProject(
-            ProjectTemplateResponseDTO template, Dataset dataset, Recipient academic, Recipient commercial
+            ProjectTemplateResponseDTO template,
+            Dataset dataset,
+            Recipient academic,
+            Recipient commercial,
+            Recipient researchInstitute
     ) {
         Optional<Project> existing = findProjectByNormalizedName(CONTROLLED_PROJECT_NAME);
         if (existing.isPresent()) {
@@ -441,8 +451,14 @@ public class ProjectTemplateDemoSeeder implements CommandLineRunner {
                         + "LEOSS-like clinical dataset."
         );
         request.setTemplateVersionId(template.getVersionId());
+        // The LEOSS collaborators who share the dataset and this study's transfers (Academic,
+        // Swiss Research Institute: anna.mueller; HealthTech: max.mustermann, sophie.becker) read
+        // the study context their activities' Mitigation Planner needs. Project sharing is read-only.
+        request.setSharedUsernames(Set.of("anna.mueller", "max.mustermann", "sophie.becker"));
         request.setDatasetIds(List.of(dataset.getId()));
-        request.setRecipientIds(List.of(academic.getId(), commercial.getId()));
+        request.setRecipientIds(researchInstitute == null
+                ? List.of(academic.getId(), commercial.getId())
+                : List.of(academic.getId(), commercial.getId(), researchInstitute.getId()));
         request.setRequirementResponses(List.of(
                 textResponse(ids, "projectLead", "Demo Investigator"),
                 textResponse(ids, "studyProtocolReference", "LEOSS-DEMO-001"),
@@ -496,7 +512,7 @@ public class ProjectTemplateDemoSeeder implements CommandLineRunner {
                 selectResponse(ids, "requiredTemporalResolution", List.of("MONTH")),
                 decimalResponse(ids, "minimumCohortRetentionPercent", BigDecimal.valueOf(90), "PERCENT"),
                 textResponse(ids, "criticalUtilityRequirement",
-                        "Monthly age bands and outcome summaries must remain usable for external replication."),
+                        "Age groups, month-level diagnosis dates and outcome summaries must remain usable for external replication."),
                 integerResponse(ids, "maximumSetupTimeDays", 45L, "DAYS")
         ));
 
@@ -518,8 +534,8 @@ public class ProjectTemplateDemoSeeder implements CommandLineRunner {
         ProjectRequestDTO request = new ProjectRequestDTO();
         request.setName(SECURE_ANALYSIS_PROJECT_NAME);
         request.setDescription(
-                "Example project in which researchers analyse detailed clinical data inside a controlled "
-                        + "processing environment."
+                "Example project in which researchers analyse a subset (100-1,000 patients) of the LEOSS-inspired "
+                        + "demo table inside a controlled processing environment."
         );
         request.setTemplateVersionId(template.getVersionId());
         request.setDatasetIds(List.of(dataset.getId()));
@@ -552,11 +568,10 @@ public class ProjectTemplateDemoSeeder implements CommandLineRunner {
     // -------------------------------------------------------------------
 
     /**
-     * Points the unambiguous existing LEOSS demo activities at the more
-     * specific demo Project whose dataset/recipient membership matches them.
-     * Activities whose recipient fits more than one demo Project (the two
-     * "Academic Labs" activities fit both the Controlled Research and Secure
-     * Analysis projects) are left on the legacy project rather than guessed.
+     * Points the existing LEOSS demo activities at the demo Project whose sharing model matches
+     * them. The Academic and Commercial transfers are controlled data transfers; the Secure
+     * Analysis project has its own dedicated activity, so the "Academic Labs" activities are not
+     * ambiguous. Activities a user already moved to another Project are left untouched.
      */
     private void linkDemoDataSharingActivities(
             Project controlledProject,
@@ -566,8 +581,11 @@ public class ProjectTemplateDemoSeeder implements CommandLineRunner {
         Project legacyProject = findProjectByNormalizedName(LEGACY_LEOSS_PROJECT_NAME).orElse(null);
 
         if (controlledProject != null) {
+            linkActivityIfSafe("LEOSS / Academic Labs (SPHN)", controlledProject, legacyProject);
+            linkActivityIfSafe("LEOSS / Academic Labs (El Emam)", controlledProject, legacyProject);
             linkActivityIfSafe("LEOSS / HealthTech Solutions (El Emam)", controlledProject, legacyProject);
             linkActivityIfSafe("LEOSS / HealthTech Solutions (SPHN)", controlledProject, legacyProject);
+            linkActivityIfSafe(DataLoader.AGREEMENT_PENDING_ACTIVITY_NAME, controlledProject, legacyProject);
         }
         if (publicReleaseProject != null) {
             linkActivityIfSafe("LEOSS / Open Data Portal (El Emam)", publicReleaseProject, legacyProject);
@@ -587,7 +605,7 @@ public class ProjectTemplateDemoSeeder implements CommandLineRunner {
 
         DatasetAssessment datasetAssessment = findDatasetAssessmentByName(SPHN_DATASET_ASSESSMENT_NAME).orElse(null);
         RecipientAssessment recipientAssessment =
-                findRecipientAssessmentByName(ACADEMIC_SPHN_RECIPIENT_ASSESSMENT_NAME).orElse(null);
+                findRecipientAssessmentByName(SECURE_ENVIRONMENT_ASSESSMENT_NAME).orElse(null);
         if (datasetAssessment == null || recipientAssessment == null) {
             return;
         }
@@ -596,7 +614,8 @@ public class ProjectTemplateDemoSeeder implements CommandLineRunner {
         activity.setCreatorUsername(DEMO_CREATOR);
         activity.setName(SECURE_ANALYSIS_ACTIVITY_NAME);
         activity.setDescription(
-                "Dedicated secure-analysis scenario using the LEOSS-like dataset and a trusted academic recipient under the SPHN framework."
+                "Academic team analyses a 100-1,000 patient subset of the demo table in a BioMedIT-compliant secure "
+                        + "environment; only aggregates leave it. The project DTUA is not yet executed (CIT-01 to CIT-05)."
         );
         activity.setDatasetAssessment(datasetAssessment);
         activity.setRecipientAssessment(recipientAssessment);

@@ -209,16 +209,17 @@ public class CounterfactualContextEvaluator {
         }
 
         // Projected recipient answers are evaluated in memory only; the persisted Recipient
-        // Assessment always represents the verified current state. The copies are never attached
-        // to it or saved. Replacing a high-risk trigger option removes that trigger from the
-        // in-memory answer set, and RiskComputationService recalculates the category normally.
+        // Assessment always represents the verified current state. The copies have no owning
+        // assessment, so they cannot be cascaded into it or saved. Replacing a high-risk trigger
+        // option removes that trigger from the in-memory answer set, and RiskComputationService
+        // recalculates the category normally.
         List<Answer> hypotheticalAnswers = actualAnswers.stream()
                 .map(answer -> {
                     Map<Long, ProjectedChange> options = changesByQuestion.get(answer.getQuestion().getId());
                     if (options == null) {
                         return answer;
                     }
-                    return new Answer(assessment, answer.getQuestion(), options.values().iterator().next().projectedOption());
+                    return new Answer(null, answer.getQuestion(), options.values().iterator().next().projectedOption());
                 })
                 .collect(Collectors.toList());
 

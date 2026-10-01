@@ -64,7 +64,9 @@ public class MitigationWorkingMemoryFactory {
             throw new IllegalArgumentException("manualRiskThreshold must be a fraction between 0 and 1.");
         }
 
-        DataSharingActivity activity = activityService.getAccessibleActivityEntity(activityId, username, isAdmin);
+        // The planner exposes Project requirements, constraints and the pinned Knowledge Base, so
+        // Project read access is required in addition to Activity read access.
+        DataSharingActivity activity = activityService.getAccessibleActivityWithProject(activityId, username, isAdmin);
         Project project = activity.getProject();
         List<String> warnings = new ArrayList<>();
 

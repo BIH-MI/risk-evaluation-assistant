@@ -27,7 +27,7 @@ export default function RiskFactorTable({ drivers, actionRows, builder, currentH
             <TableCell sx={CENTER_CELL_SX}>{t("mitigationPlanner.factors.priority", "Priority")}</TableCell>
             <TableCell sx={BODY_CELL_SX}>{t("mitigationPlanner.factors.riskFactor", "Risk Factor")}</TableCell>
             <TableCell sx={BODY_CELL_SX}>{currentHeader || t("mitigationPlanner.factors.current", "Current answer")}</TableCell>
-            <TableCell sx={CENTER_CELL_SX}>{t("mitigationPlanner.factors.possibleMitigation", "Possible mitigation")}</TableCell>
+            <TableCell sx={CENTER_CELL_SX}>{t("mitigationPlanner.factors.possibleMitigation", "Mitigation options")}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>

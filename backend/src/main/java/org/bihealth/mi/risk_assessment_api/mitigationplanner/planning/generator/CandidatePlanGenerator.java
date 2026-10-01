@@ -43,16 +43,45 @@ import java.util.stream.Stream;
  * closed transitively from the Knowledge Base snapshot, conflicting pairs are
  * rejected, and actions with a hard Project FAIL or only incompatible parameter
  * values are excluded. Actionable Critical drivers must always be covered.</p>
+ *
+ * <p>Automatic generation is deliberately conservative: an action whose every parameter value
+ * contradicts a Project requirement (hard or preference) is not proposed. A researcher can
+ * still add it to a Custom Plan, where an unmet preference is reported as a trade-off.</p>
  */
 @Service
 public class CandidatePlanGenerator {
 
-    /** Upper bound on actions chosen to cover drivers (dependencies may add more). */
-    static final int MAX_CHOSEN_ACTIONS = 6;
-    /** Upper bound on generated candidates; the search stops deterministically once reached. */
-    static final int MAX_CANDIDATES = 200;
+    /**
+     * Upper bound on actions chosen to cover drivers (dependencies may add more). It bounds the
+     * search depth only: every chosen action must cover a driver no other chosen action covers,
+     * and most drivers are addressed by a single action, so the branching stays small. It must
+     * exceed the number of distinct data and context actions a realistic case needs (the seeded
+     * SPHN demo needs 8 for full Critical + High coverage); a lower bound silently drops plans.
+     */
+    static final int MAX_CHOSEN_ACTIONS = 10;
+    /**
+     * Upper bound on generated candidates; the search stops deterministically once reached and
+     * the planning response carries a warning. Only the Recommended Plan and three alternatives
+     * are shown, so a larger pool would only cost evaluation time (one REA risk calculation per
+     * context plan).
+     */
+    public static final int MAX_CANDIDATES = 200;
 
     private enum Pool { ALL, DATA, CONTEXT }
+
+    /**
+     * Actionable Critical drivers that no feasible (non-hard-failing) action addresses. When this
+     * is non-empty, {@link #generate} returns no plan.
+     */
+    public List<RiskDriverDTO> uncoverableCriticalDrivers(MitigationPlanningContext context) {
+        Set<String> coverable = applicableOpportunities(context).values().stream()
+                .flatMap(opportunity -> opportunity.getAddressedRiskDriverIds().stream())
+                .collect(Collectors.toSet());
+        return actionableDrivers(context).stream()
+                .filter(driver -> driver.getPriority() == RiskDriverPriority.CRITICAL)
+                .filter(driver -> !coverable.contains(driver.getId()))
+                .toList();
+    }
 
     public List<CandidatePlan> generate(MitigationPlanningContext context) {
         Map<Long, Opportunity> applicable = applicableOpportunities(context);
@@ -64,14 +93,11 @@ public class CandidatePlanGenerator {
         Set<String> conflicts = conflicts(context);
         List<RiskDriverDTO> drivers = actionableDrivers(context);
 
-        Set<String> coverable = applicable.values().stream()
-                .flatMap(opportunity -> opportunity.getAddressedRiskDriverIds().stream())
-                .collect(Collectors.toSet());
-        Set<String> critical = driverIds(drivers, EnumSet.of(RiskDriverPriority.CRITICAL), null);
-        if (!coverable.containsAll(critical)) {
+        if (!uncoverableCriticalDrivers(context).isEmpty()) {
             // An actionable Critical driver has no feasible action left; no plan can cover it.
             return List.of();
         }
+        Set<String> critical = driverIds(drivers, EnumSet.of(RiskDriverPriority.CRITICAL), null);
 
         Search search = new Search(applicable, dependencies, conflicts);
         List<EnumSet<RiskDriverPriority>> targets = List.of(

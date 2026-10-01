@@ -57,6 +57,7 @@ public class MitigationPlanningService {
                 planningContextFactory.create(activityId, username, isAdmin, manualRiskThreshold);
 
         List<CandidatePlan> candidates = candidatePlanGenerator.generate(context);
+        List<String> generationWarnings = generationWarnings(context, candidates);
         List<MitigationPlanDraftEvaluationDTO> evaluations = planEvaluator.evaluateAll(context, candidates);
         List<EvaluatedCandidatePlan> evaluated = new ArrayList<>();
         for (int i = 0; i < candidates.size(); i++) {
@@ -65,7 +66,26 @@ public class MitigationPlanningService {
 
         PlanRecommendation recommendation =
                 planSelectionService.select(evaluated, context.knowledge().selectionPolicy());
-        return toResponse(context, candidates.size(), recommendation);
+        MitigationCandidatePlanResponseDTO response = toResponse(context, candidates.size(), recommendation);
+        response.getWarnings().addAll(generationWarnings);
+        return response;
+    }
+
+    private List<String> generationWarnings(MitigationPlanningContext context, List<CandidatePlan> candidates) {
+        List<String> warnings = new ArrayList<>();
+        for (RiskDriverDTO driver : candidatePlanGenerator.uncoverableCriticalDrivers(context)) {
+            warnings.add("No plan was generated: Critical finding \"" + driverTitle(driver) + "\" has configured "
+                    + "mitigation actions, but none of them is feasible under the Project constraints.");
+        }
+        if (candidates.size() >= CandidatePlanGenerator.MAX_CANDIDATES) {
+            warnings.add("Candidate generation stopped at " + CandidatePlanGenerator.MAX_CANDIDATES
+                    + " plans; the ranking considers only these candidates.");
+        }
+        return warnings;
+    }
+
+    private String driverTitle(RiskDriverDTO driver) {
+        return driver.getQuestionText() != null ? driver.getQuestionText() : String.join(" + ", driver.getAttributeNames());
     }
 
     private EvaluatedCandidatePlan toEvaluated(

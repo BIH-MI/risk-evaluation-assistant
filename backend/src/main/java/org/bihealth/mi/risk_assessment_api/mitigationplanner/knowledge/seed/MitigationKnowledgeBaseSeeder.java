@@ -8,6 +8,7 @@ import org.bihealth.mi.risk_assessment_api.enums.MitigationEstimateScope;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationParameterCode;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationRecordRetentionEffect;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationResultingDataForm;
+import org.bihealth.mi.risk_assessment_api.enums.MitigationSharingArrangement;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationKnowledgeBase;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationKnowledgeBaseVersion;
 import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
@@ -28,15 +29,20 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * Seeds version 1 of the default mitigation Knowledge Base. After bootstrap, administrators
  * maintain knowledge through the Knowledge Base API; the seeder is not a runtime configuration source.
  *
  * <p>These records describe actions and applicability. They intentionally do
- * not assign risk-reduction percentages.
+ * not assign risk-reduction percentages. Context controls bind or verify an identified
+ * recipient, so they are not applicable to a public release, where the only mitigation
+ * options are data transformations. Operational estimates are illustrative placeholders
+ * and are labelled as such through their estimate source.
  */
 // Runs after ConfigLoader (1) and before ProjectTemplateDemoSeeder (4), whose Projects pin the default KB.
 @Order(3)
@@ -49,6 +55,10 @@ public class MitigationKnowledgeBaseSeeder implements CommandLineRunner {
     private static final String ILLUSTRATIVE_ESTIMATE_SOURCE = "REA illustrative operational estimate";
     private static final String EL_EMAM_NAME = "El Emam Risk Exposure Model";
     private static final String SPHN_NAME = "SPHN Risk Assessment Framework (v2.1.2)";
+    private static final Set<MitigationSharingArrangement> RECIPIENT_BOUND_ARRANGEMENTS = EnumSet.of(
+            MitigationSharingArrangement.CONTROLLED_DATA_TRANSFER,
+            MitigationSharingArrangement.SECURE_REMOTE_ANALYSIS,
+            MitigationSharingArrangement.MANAGED_QUERY);
 
     private final MitigationKnowledgeBaseRepository knowledgeBaseRepository;
     private final MitigationKnowledgeBaseVersionService versionService;
@@ -247,7 +257,8 @@ public class MitigationKnowledgeBaseSeeder implements CommandLineRunner {
                 "Create or amend a legal agreement that regulates the conditions under which data are disclosed.",
                 MitigationActionType.CONTEXT_CONTROL,
                 "Put a legally reviewed data-sharing or processing agreement in place for the sharing activity.",
-                "Evidence of an executed agreement that covers permitted uses, responsibilities, and disclosure conditions.",
+                "Evidence of an executed agreement that covers permitted uses, responsibilities, and disclosure conditions, "
+                        + "and a legal review confirming it is enforceable in every jurisdiction where the recipient will use the data.",
                 "Contractual safeguards affect context controls and must be evaluated through questionnaire answers."
         );
         ensureQuestionMapping(introduceAgreement, EL_EMAM_NAME, "CONTROLS_DATA_SHARING_AGREEMENT_ENFORCEABLE", "NO", "YES");
@@ -301,8 +312,11 @@ public class MitigationKnowledgeBaseSeeder implements CommandLineRunner {
                 "Enable external audit rights",
                 "Add enforceable rights for external review of data management, privacy, and security practices.",
                 MitigationActionType.CONTEXT_CONTROL,
-                "Amend the agreement or governance terms so external audits of data management and privacy/security practices may be performed.",
-                "Executed agreement, governance approval, or audit clause showing that external audits are permitted and operationally supported.",
+                "Amend the agreement so that the recipient's data and record management practices may be audited externally, "
+                        + "including unannounced audits, and so that regular third-party audits of its privacy and security "
+                        + "practices are performed.",
+                "Executed agreement clauses permitting unannounced external audits and requiring regular third-party privacy "
+                        + "and security audits, with audit logistics agreed with the recipient.",
                 "External audit rights are contractual context controls recorded by the recipient-control questionnaire."
         );
         ensureQuestionMapping(externalAuditRights, SPHN_NAME,
@@ -311,6 +325,10 @@ public class MitigationKnowledgeBaseSeeder implements CommandLineRunner {
         ensureQuestionMapping(externalAuditRights, SPHN_NAME,
                 "DOES_THE_LEGAL_AGREEMENT_STIPULATE_THAT_REGULAR_EXTERNAL_AUDITS_OF_PRIVACY_AND_SECURITY_PRACTICES_MAY_BE_PERFORMED",
                 "NO", "YES");
+        ensureQuestionMapping(externalAuditRights, EL_EMAM_NAME,
+                "THE_DATA_SHARING_AGREEMENT_WILL_ALLOW_SURPRISE_AUDITS_OF_THE_RECIPIENT_S_RECORD_MANAGEMENT_SYSTEM_AND_PRACTICES", "NO", "YES");
+        ensureQuestionMapping(externalAuditRights, EL_EMAM_NAME,
+                "THE_DATA_SHARING_AGREEMENT_STIPULATES_THAT_REGULAR_THIRD_PARTY_PRIVACY_AND_SECURITY_AUDITS_NEED_TO_BE_PERFORMED", "NO", "YES");
         ensureEstimate(externalAuditRights, 1000, 4000, 2, 5,
                 "Illustrative estimate for adding external-audit clauses to an existing agreement and confirming audit logistics. Replace with local legal and governance costing.");
 
@@ -413,8 +431,9 @@ public class MitigationKnowledgeBaseSeeder implements CommandLineRunner {
                 "Use approved secure infrastructure",
                 "Store and process the data on infrastructure approved for the sharing activity.",
                 MitigationActionType.CONTEXT_CONTROL,
-                "Move processing to an approved hospital-controlled or compliant secure infrastructure.",
-                "Evidence that project data are stored and processed on approved infrastructure.",
+                "Move storage and processing to external infrastructure that complies with the BioMedIT Information Security Policy.",
+                "Evidence that project data are stored and processed only on infrastructure that complies with the BioMedIT "
+                        + "Information Security Policy.",
                 "Infrastructure choice affects context controls; it does not directly alter data-level re-identification metrics."
         );
         ensureQuestionMapping(approvedInfrastructure, SPHN_NAME, "SPHN_CIT_08_APPROVED_INFRASTRUCTURE",
@@ -449,6 +468,9 @@ public class MitigationKnowledgeBaseSeeder implements CommandLineRunner {
         action.setVerificationDescription(verificationDescription);
         action.setSource(SEED_SOURCE);
         action.setRationale(rationale);
+        if (actionType == MitigationActionType.CONTEXT_CONTROL) {
+            action.getApplicableSharingArrangements().addAll(RECIPIENT_BOUND_ARRANGEMENTS);
+        }
         seedVersion.addAction(action);
         return action;
     }

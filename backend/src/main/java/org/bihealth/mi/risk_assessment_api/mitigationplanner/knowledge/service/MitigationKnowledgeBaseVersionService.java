@@ -2,6 +2,7 @@ package org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.service;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.bihealth.mi.risk_assessment_api.enums.PlanSelectionCriterion;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationAction;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationActionConflict;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationActionDependency;
@@ -293,17 +294,18 @@ public class MitigationKnowledgeBaseVersionService {
     }
 
     private java.util.List<String> defaultPolicyCriteria() {
-        return java.util.List.of(
-                "REJECT_INVALID",
-                "REJECT_INCOMPATIBLE",
-                "COVER_ACTIONABLE_CRITICAL_DRIVERS",
-                "PREFER_HIGH_DRIVER_COVERAGE",
-                "PREFER_FEWER_UNRESOLVED_PROJECT_CHECKS",
-                "PREFER_FEWER_ACTIONS",
-                "PREFER_LOWER_KNOWN_COST",
-                "PREFER_SHORTER_KNOWN_SETUP_TIME",
-                "STABLE_ACTION_CODE_TIE_BREAK"
-        );
+        return java.util.stream.Stream.of(
+                        PlanSelectionCriterion.REJECT_INVALID,
+                        PlanSelectionCriterion.REJECT_INCOMPATIBLE,
+                        PlanSelectionCriterion.COVER_ACTIONABLE_CRITICAL_DRIVERS,
+                        PlanSelectionCriterion.PREFER_HIGH_DRIVER_COVERAGE,
+                        PlanSelectionCriterion.PREFER_FEWER_UNRESOLVED_PROJECT_CHECKS,
+                        PlanSelectionCriterion.PREFER_FEWER_ACTIONS,
+                        PlanSelectionCriterion.PREFER_LOWER_KNOWN_COST,
+                        PlanSelectionCriterion.PREFER_SHORTER_KNOWN_SETUP_TIME,
+                        PlanSelectionCriterion.STABLE_ACTION_CODE_TIE_BREAK)
+                .map(Enum::name)
+                .toList();
     }
 
     private String normalizeCode(String value) {

@@ -34,7 +34,14 @@ public class MitigationPlanDraftEvaluationDTO {
     private boolean dataRiskEvaluationRequired;
     // Why the status is not READY_FOR_REVIEW (or why it is INVALID/INCOMPATIBLE).
     private List<String> statusReasons = new ArrayList<>();
+    // Open questions that must be answered before the plan can be reviewed; each keeps the
+    // status at EVALUATION_REQUIRED.
     private List<String> remainingEvaluationItems = new ArrayList<>();
+    // Steps that only become possible once the plan is implemented, e.g. verifying proposed
+    // controls before the Recipient Assessment is updated. They do not block review.
+    private List<String> verificationSteps = new ArrayList<>();
+    // Critical findings of the current assessments that this plan does not structurally address.
+    private List<UnresolvedFinding> unresolvedCriticalFindings = new ArrayList<>();
 
     private List<PlanAction> actions = new ArrayList<>();
     private List<String> addressedRiskDriverIds = new ArrayList<>();
@@ -67,6 +74,21 @@ public class MitigationPlanDraftEvaluationDTO {
         private MitigationRecordRetentionEffect recordRetentionEffect;
         private List<PlanActionParameter> parameters = new ArrayList<>();
         private List<String> addressedRiskDriverIds = new ArrayList<>();
+    }
+
+    @Data
+    @NoArgsConstructor
+    public static class UnresolvedFinding {
+        private String riskDriverId;
+        private String categoryCode;
+        private String categoryLabel;
+        // Question text, or the attribute names for Dataset Assessment evidence.
+        private String title;
+        // Selected answer, or the attribute classification.
+        private String currentState;
+        // True when the Knowledge Base offers an applicable action that this plan does not include.
+        private boolean mitigationAvailable;
+        private String reason;
     }
 
     @Data

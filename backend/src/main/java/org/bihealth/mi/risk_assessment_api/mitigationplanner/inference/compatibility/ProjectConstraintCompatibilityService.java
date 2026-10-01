@@ -12,6 +12,7 @@ import org.bihealth.mi.risk_assessment_api.enums.DateResolution;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationParameterCode;
 import org.bihealth.mi.risk_assessment_api.enums.ParameterValueCompatibility;
 import org.bihealth.mi.risk_assessment_api.enums.ProjectConstraintResult;
+import org.bihealth.mi.risk_assessment_api.enums.ProjectTemplateRequirementConstraintType;
 import org.springframework.stereotype.Service;
 
 /**
@@ -81,7 +82,7 @@ public class ProjectConstraintCompatibilityService {
         if (budget != null) {
             ProjectConstraintResult budgetResult = budgetResult(estimate, budget);
             feasibility.getReasons().add("Budget: " + label(budgetResult));
-            result = worst(result, budgetResult);
+            result = worst(result, planLevelResult(budgetResult, budget.getConstraintType()));
         }
         if (maximumSetupDays != null) {
             ProjectConstraintResult setupResult = compareRangeWithLimit(
@@ -89,10 +90,22 @@ public class ProjectConstraintCompatibilityService {
                     days(estimate == null ? null : upperBound(estimate.getSetupDaysMin(), estimate.getSetupDaysMax())),
                     decimal(maximumSetupDays.getValue()));
             feasibility.getReasons().add("Setup time: " + label(setupResult));
-            result = worst(result, setupResult);
+            result = worst(result, planLevelResult(setupResult, maximumSetupDays.getConstraintType()));
         }
         feasibility.setResult(result);
         return feasibility;
+    }
+
+    /**
+     * Contribution of one check to a plan-level or action-level result: only a hard constraint can
+     * make it FAIL; an unmet preference or informational requirement needs a trade-off decision.
+     */
+    public ProjectConstraintResult planLevelResult(ProjectConstraintResult checkResult, String constraintType) {
+        if (checkResult == ProjectConstraintResult.FAIL
+                && !ProjectTemplateRequirementConstraintType.HARD_CONSTRAINT.name().equals(constraintType)) {
+            return ProjectConstraintResult.NEEDS_EVALUATION;
+        }
+        return checkResult;
     }
 
     public ProjectConstraintResult worst(ProjectConstraintResult left, ProjectConstraintResult right) {

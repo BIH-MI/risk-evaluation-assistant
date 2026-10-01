@@ -96,12 +96,37 @@ public class DataSharingActivityService {
                 .orElseThrow(() -> new EntityNotFoundException("Activity not found: " + id));
 
         // Read access allows owner, explicitly shared users, and admins.
-        if (!isAdmin && !act.getCreatorUsername().equals(username) &&
-                (act.getSharedUsernames() == null || !act.getSharedUsernames().contains(username))) {
+        if (!canReadActivity(act, username, isAdmin)) {
             throw new SecurityException("Access denied to activity: " + id);
         }
 
         return act;
+    }
+
+    /** Read rule: owner, explicitly shared users, and admins. Non-throwing, e.g. for lock status. */
+    public boolean canReadActivity(DataSharingActivity activity, String username, boolean isAdmin) {
+        return isAdmin
+                || Objects.equals(activity.getCreatorUsername(), username)
+                || (activity.getSharedUsernames() != null && activity.getSharedUsernames().contains(username));
+    }
+
+    /** Write rule: owner and admins; shared users are read-only. Non-throwing, e.g. for edit locks. */
+    public boolean canWriteActivity(DataSharingActivity activity, String username, boolean isAdmin) {
+        return isAdmin || Objects.equals(activity.getCreatorUsername(), username);
+    }
+
+    /**
+     * Loads an activity for read-only views that also use its Project (Mitigation Planner): the
+     * caller needs read access to the activity and, when the activity belongs to a Project, read
+     * access to that Project. Activity sharing alone does not grant Project information.
+     */
+    @Transactional(readOnly = true)
+    public DataSharingActivity getAccessibleActivityWithProject(Long id, String username, boolean isAdmin) {
+        DataSharingActivity activity = getAccessibleActivityEntity(id, username, isAdmin);
+        if (activity.getProject() != null) {
+            projectService.verifyProjectReadAccess(activity.getProject(), username, isAdmin);
+        }
+        return activity;
     }
 
     /**
@@ -120,7 +145,8 @@ public class DataSharingActivityService {
         RecipientAssessment ra = recipientAssessmentRepo.findById(dto.getRecipientAssessmentId())
                 .orElseThrow(() -> new EntityNotFoundException("Recipient Assessment not found"));
 
-        Project project = resolveRequiredProject(dto.getProjectId(), username, isAdmin);
+        // Creating an activity adds a member to the project: project write access is required.
+        Project project = resolveProjectForNewMember(dto.getProjectId(), username, isAdmin);
         projectService.validateActivityMembership(project, da, ra, username, isAdmin);
 
         DataSharingActivity act = dto.toEntity(
@@ -144,7 +170,7 @@ public class DataSharingActivityService {
                 .orElseThrow(() -> new EntityNotFoundException("Activity not found: " + id));
 
         // Mutations are owner-only unless the caller is an admin.
-        if (!isAdmin && !existing.getCreatorUsername().equals(username)) {
+        if (!canWriteActivity(existing, username, isAdmin)) {
             throw new SecurityException("Not owner of activity: " + id);
         }
 
@@ -163,7 +189,14 @@ public class DataSharingActivityService {
                 .flatMap(recipientAssessmentRepo::findById)
                 .orElse(existing.getRecipientAssessment());
 
-        Project project = resolveRequiredProject(dto.getProjectId(), username, isAdmin);
+        // Editing within the same project follows the activity write rule and only needs the
+        // project as readable context. Moving the activity adds a member to the target project, so
+        // the target needs write access. The source project needs none: activity membership is
+        // owned by the activity side, and its owner may already delete the activity.
+        Long currentProjectId = existing.getProject() == null ? null : existing.getProject().getId();
+        Project project = Objects.equals(currentProjectId, dto.getProjectId())
+                ? resolveRequiredProject(dto.getProjectId(), username, isAdmin)
+                : resolveProjectForNewMember(dto.getProjectId(), username, isAdmin);
         projectService.validateActivityMembership(project, da, ra, username, isAdmin);
 
         if (da != null && ra != null) {
@@ -247,7 +280,7 @@ public class DataSharingActivityService {
                 .orElseThrow(() -> new EntityNotFoundException("Activity not found: " + id));
 
         // Mutations are owner-only unless the caller is an admin.
-        if (!isAdmin && !act.getCreatorUsername().equals(username)) {
+        if (!canWriteActivity(act, username, isAdmin)) {
             throw new SecurityException("Not owner of activity: " + id);
         }
 
@@ -365,6 +398,13 @@ public class DataSharingActivityService {
             throw new IllegalArgumentException("Project is required for Data Sharing Activities.");
         }
         return projectService.getAccessibleProjectEntity(projectId, username, isAdmin);
+    }
+
+    private Project resolveProjectForNewMember(Long projectId, String username, boolean isAdmin) {
+        if (projectId == null) {
+            throw new IllegalArgumentException("Project is required for Data Sharing Activities.");
+        }
+        return projectService.getWritableProjectEntity(projectId, username, isAdmin);
     }
 
     private void ensureActivityNameAvailable(String name, Long excludeId) {

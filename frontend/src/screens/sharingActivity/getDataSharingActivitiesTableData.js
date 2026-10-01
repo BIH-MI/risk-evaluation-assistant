@@ -128,6 +128,8 @@ export default function getDataSharingActivitiesTableData(
         const locker = locks[id];
 
         const isLockedByOther = !isAdmin && !!locker && locker !== me;
+        // Shared users may read the activity (report); editing and deleting are for the creator or an admin.
+        const canModify = isAdmin || row.original.creatorUsername === me;
 
         if (isLockedByOther) {
           return (
@@ -166,28 +168,32 @@ export default function getDataSharingActivitiesTableData(
                 />
               </span>
             </Tooltip>
-            <Tooltip
-              title={t(
-                "dataSharingActivities.table.editActivityTooltip",
-                "Edit Activity"
-              )}
-              arrow
-            >
-              <span>
-                <EditIconButton size="small" onClick={() => onEdit(id)} />
-              </span>
-            </Tooltip>
-            <Tooltip
-              title={t(
-                "dataSharingActivities.table.deleteActivityTooltip",
-                "Delete Activity"
-              )}
-              arrow
-            >
-              <span>
-                <CancelIconButton size="small" onClick={() => onDelete(id)} />
-              </span>
-            </Tooltip>
+            {canModify && (
+              <>
+                <Tooltip
+                  title={t(
+                    "dataSharingActivities.table.editActivityTooltip",
+                    "Edit Activity"
+                  )}
+                  arrow
+                >
+                  <span>
+                    <EditIconButton size="small" onClick={() => onEdit(id)} />
+                  </span>
+                </Tooltip>
+                <Tooltip
+                  title={t(
+                    "dataSharingActivities.table.deleteActivityTooltip",
+                    "Delete Activity"
+                  )}
+                  arrow
+                >
+                  <span>
+                    <CancelIconButton size="small" onClick={() => onDelete(id)} />
+                  </span>
+                </Tooltip>
+              </>
+            )}
           </RABox>
         );
       },

@@ -5,7 +5,6 @@ import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
 import { formatPercentageValue } from "screens/dataSharingReport/reportDataUtils";
 import { buildMatrixModel, matrixCellColor } from "../utils/contextRiskMatrixModel";
-import { formatUnchangedMatrixPosition } from "../utils/mitigationPlannerFormatters";
 
 const BAND_LABEL_WIDTH = 84;
 const CELL_MIN_HEIGHT = 80;
@@ -27,12 +26,12 @@ function markerFor(model, row, col) {
  * Layout is a 3x3 grid (axis title | band labels | cells) x (Controls title | band labels | cells),
  * so the vertical Likelihood title is centred on the cells rather than on the whole figure.
  */
-export default function ContextRiskMatrix({ matrix, baseline, projected, planLabel, categoryOutcomes }) {
+export default function ContextRiskMatrix({ matrix, baseline, projected, planLabel }) {
   const { t } = useTranslation();
   const model = buildMatrixModel(matrix, baseline, projected);
   const controlsLabel = t("mitigationPlanner.matrix.controls", "Controls");
   const likelihoodLabel = t("mitigationPlanner.matrix.likelihood", "Likelihood");
-  const planName = `${t("mitigationPlanner.matrix.selectedPlan", "Selected plan")} ${planLabel}`.trim();
+  const planName = `${t("mitigationPlanner.matrix.selectedPlan", "Projected with")} ${planLabel}`.trim();
   const rowTemplate = `repeat(${model.likelihood.length}, minmax(${CELL_MIN_HEIGHT}px, auto))`;
   const axisLabelSx = { color: "text.secondary" };
 
@@ -133,12 +132,12 @@ export default function ContextRiskMatrix({ matrix, baseline, projected, planLab
       <RABox display="flex" gap={3} mt={1} flexWrap="wrap">
         {model.sameCell ? (
           <RATypography variant="caption">
-            {MARKER.COMBINED} {t("mitigationPlanner.matrix.legendCombined", "Baseline and")} {planName}
+            {MARKER.COMBINED} {`${t("mitigationPlanner.matrix.legendCombined", "Current and projected position")} ${planLabel}`.trim()}
           </RATypography>
         ) : (
           <>
             <RATypography variant="caption">
-              {MARKER.BASELINE} {t("mitigationPlanner.matrix.legendBaseline", "Baseline")}
+              {MARKER.BASELINE} {t("mitigationPlanner.matrix.legendBaseline", "Current (assessed)")}
             </RATypography>
             <RATypography variant="caption">
               {MARKER.PLAN} {planName}
@@ -146,11 +145,6 @@ export default function ContextRiskMatrix({ matrix, baseline, projected, planLab
           </>
         )}
       </RABox>
-      {model.sameCell && (
-        <RATypography variant="body2" mt={0.5} sx={{ color: "text.secondary" }}>
-          {formatUnchangedMatrixPosition(categoryOutcomes)}
-        </RATypography>
-      )}
     </RABox>
   );
 }
@@ -170,10 +164,8 @@ ContextRiskMatrix.propTypes = {
   baseline: stateShape.isRequired,
   projected: stateShape.isRequired,
   planLabel: PropTypes.string,
-  categoryOutcomes: PropTypes.arrayOf(PropTypes.shape({ categoryCode: PropTypes.string, reason: PropTypes.string })),
 };
 
 ContextRiskMatrix.defaultProps = {
   planLabel: "",
-  categoryOutcomes: [],
 };

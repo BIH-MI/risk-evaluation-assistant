@@ -24,7 +24,7 @@ function PossibleMitigationCell({ driver, actions, expanded, controlsId, onToggl
       <RATypography variant="caption" textAlign="center" display="block" sx={{ color: "text.secondary" }}>
         {t(
           "mitigationPlanner.factors.noConfiguredAction",
-          "No configured mitigation action currently addresses this finding."
+          "No configured mitigation option applies to this finding under the Project's sharing model. It remains part of the risk result."
         )}
       </RATypography>
     );

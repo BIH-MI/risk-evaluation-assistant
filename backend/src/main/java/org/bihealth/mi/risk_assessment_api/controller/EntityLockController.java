@@ -46,12 +46,10 @@ public class EntityLockController {
         String username = SecurityUtils.getUsername(token);
         boolean isAdmin = SecurityUtils.isAdminRole(token);
 
-        // Stored lock types are normalized to uppercase everywhere else in this
-        // controller; normalizing here too prevents a mixed-case caller from
-        // acquiring a lock row distinct from the one unlock()/who() would see.
-        // The service enforces ownership of existing locks. Admins are passed
-        // through so they can override lock behavior where supported.
-        lockService.acquireLock(type.toUpperCase(), id, username, isAdmin);
+        // The service accepts only supported entity types (case-insensitive, 400 otherwise),
+        // requires write permission to the entity and enforces ownership of existing locks.
+        // Admins are passed through so they can override a valid lock.
+        lockService.acquireLock(type, id, username, isAdmin);
         return ResponseEntity.ok().build();
     }
 
@@ -72,9 +70,8 @@ public class EntityLockController {
         String username = SecurityUtils.getUsername(token);
         boolean isAdmin = SecurityUtils.isAdminRole(token);
 
-        // Stored lock types are normalized to uppercase. Accepting any case in
-        // the path keeps the frontend routes simple.
-        lockService.releaseLock(entityType.toUpperCase(), entityId, username, isAdmin);
+        // Only the lock owner or an admin may release; entity permission is not required.
+        lockService.releaseLock(entityType, entityId, username, isAdmin);
         return ResponseEntity.ok().build();
     }
 
@@ -88,9 +85,12 @@ public class EntityLockController {
     @GetMapping("/{type}/{id}")
     public ResponseEntity<Map<String,String>> who(
             @PathVariable("type") String entityType,
-            @PathVariable("id")   String entityId
+            @PathVariable("id")   String entityId,
+            JwtAuthenticationToken token
     ) {
-        return lockService.whoHasLock(entityType.toUpperCase(), entityId)
+        // Lock status reveals who is editing, so it requires read access to the entity.
+        return lockService.whoHasLock(entityType, entityId,
+                        SecurityUtils.getUsername(token), SecurityUtils.isAdminRole(token))
                 .map(user -> ResponseEntity.ok(Map.of("lockedBy", user)))
                 .orElse(ResponseEntity.noContent().build());
     }
@@ -105,13 +105,14 @@ public class EntityLockController {
     @PostMapping("/{type}")
     public List<Map<String,Object>> getLocks(
             @PathVariable("type") String entityType,
-            @RequestBody List<String> ids
+            @RequestBody List<String> ids,
+            JwtAuthenticationToken token
     ) {
         // Batch lookup lets list views decorate many rows with lock state in one
-        // request instead of issuing one GET per row.
-        return lockService.findAllLocks().stream()
-                .filter(lock -> lock.getEntityType().equalsIgnoreCase(entityType)
-                        && ids.contains(lock.getEntityId()))
+        // request instead of issuing one GET per row. Only valid locks on entities
+        // the caller may read are returned.
+        return lockService.findReadableLocks(entityType, ids,
+                        SecurityUtils.getUsername(token), SecurityUtils.isAdminRole(token)).stream()
                 .map(lock -> Map.<String,Object>of(
                         "entityType", lock.getEntityType(),
                         "entityId", lock.getEntityId(),

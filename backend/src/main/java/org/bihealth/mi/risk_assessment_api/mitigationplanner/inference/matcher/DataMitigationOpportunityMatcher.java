@@ -173,7 +173,10 @@ public class DataMitigationOpportunityMatcher {
             double identifiabilityThreshold,
             double sensitivityThreshold
     ) {
-        if (column.isExcluded()) {
+        // "Excluded" only removes a column from quantitative QID profiling; the column is still
+        // part of the dataset. Direct identifiers are excluded by default, so they must keep their
+        // role here or their removal would never be proposed.
+        if (column.isExcluded() && !directIdentifier) {
             return;
         }
         boolean candidateQid = false;

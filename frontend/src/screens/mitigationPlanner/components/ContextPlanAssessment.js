@@ -24,7 +24,6 @@ export default function ContextPlanAssessment({ evaluation, planLabel }) {
           baseline={context.baseline}
           projected={context.projected}
           planLabel={planLabel}
-          categoryOutcomes={context.categoryOutcomes || []}
         />
       )}
     </RABox>

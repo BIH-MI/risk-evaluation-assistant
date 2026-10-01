@@ -81,7 +81,7 @@ public class ProjectService {
     public ProjectResponseDTO getProject(Long id, String username, boolean isAdmin) {
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Project not found: " + id));
-        verifyProjectAccess(project, username, isAdmin);
+        verifyProjectReadAccess(project, username, isAdmin);
         return new ProjectResponseDTO(project);
     }
 
@@ -116,7 +116,7 @@ public class ProjectService {
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Project not found: " + id));
 
-        verifyProjectAccess(project, username, isAdmin);
+        verifyProjectWriteAccess(project, username, isAdmin);
 
         String name = requiredProjectName(dto.getName());
         ensureProjectNameAvailable(name, id);
@@ -160,7 +160,7 @@ public class ProjectService {
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Project not found: " + id));
 
-        verifyProjectAccess(project, username, isAdmin);
+        verifyProjectWriteAccess(project, username, isAdmin);
 
         if (!project.getDataSharingActivities().isEmpty()) {
             throw new IllegalStateException(
@@ -175,13 +175,27 @@ public class ProjectService {
     }
 
     /**
-     * Loads a project for activity creation/update and verifies access.
+     * Loads a project and verifies read access, e.g. as the context of an activity that stays in
+     * its project while being edited.
      */
     @Transactional(readOnly = true)
     public Project getAccessibleProjectEntity(Long id, String username, boolean isAdmin) {
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Project not found: " + id));
-        verifyProjectAccess(project, username, isAdmin);
+        verifyProjectReadAccess(project, username, isAdmin);
+        return project;
+    }
+
+    /**
+     * Loads a project and verifies write access (creator or admin). Adding a Data Sharing Activity
+     * to a project, by creating it there or moving it there, changes the project's membership and
+     * therefore requires write access; read-only shared users cannot.
+     */
+    @Transactional(readOnly = true)
+    public Project getWritableProjectEntity(Long id, String username, boolean isAdmin) {
+        Project project = projectRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Project not found: " + id));
+        verifyProjectWriteAccess(project, username, isAdmin);
         return project;
     }
 
@@ -660,14 +674,36 @@ public class ProjectService {
         }
     }
 
-    private void verifyProjectAccess(Project project, String username, boolean isAdmin) {
-        if (isAdmin) {
-            return;
-        }
-
-        if (!Objects.equals(project.getCreatorUsername(), username)
-                && (project.getSharedUsernames() == null || !project.getSharedUsernames().contains(username))) {
+    /**
+     * Read access: creator, explicitly shared users ("Shared With") and admins. Used for Project
+     * views and for read-only views that expose Project information, such as the Mitigation
+     * Planner, which must not bypass the Project's own boundary via Activity sharing.
+     */
+    public void verifyProjectReadAccess(Project project, String username, boolean isAdmin) {
+        if (!canReadProject(project, username, isAdmin)) {
             throw new SecurityException("No access to project: " + project.getId());
+        }
+    }
+
+    /** Non-throwing form of {@link #verifyProjectReadAccess}, e.g. for filtering lock status. */
+    public boolean canReadProject(Project project, String username, boolean isAdmin) {
+        return isAdmin
+                || Objects.equals(project.getCreatorUsername(), username)
+                || (project.getSharedUsernames() != null && project.getSharedUsernames().contains(username));
+    }
+
+    /** Non-throwing form of the write rule, e.g. for acquiring an edit lock. */
+    public boolean canWriteProject(Project project, String username, boolean isAdmin) {
+        return isAdmin || Objects.equals(project.getCreatorUsername(), username);
+    }
+
+    /**
+     * Write access: creator and admins only. Sharing a Project grants read access, as for Data
+     * Sharing Activities; it does not allow editing, re-sharing or deleting the Project.
+     */
+    private void verifyProjectWriteAccess(Project project, String username, boolean isAdmin) {
+        if (!canWriteProject(project, username, isAdmin)) {
+            throw new SecurityException("Not owner of project: " + project.getId());
         }
     }
 

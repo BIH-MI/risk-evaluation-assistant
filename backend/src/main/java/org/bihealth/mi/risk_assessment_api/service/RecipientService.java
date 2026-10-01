@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -46,10 +47,19 @@ public class RecipientService {
         // Admins bypass recipient ownership and sharing checks.
         if (isAdmin) return;
 
-        if (!recipient.getCreatorUsername().equals(username) &&
-                (recipient.getSharedUsernames() == null || !recipient.getSharedUsernames().contains(username))) {
+        if (!canAccessRecipient(recipient, username, false)) {
             throw new AccessDeniedException("No access to recipient: " + recipient.getId());
         }
+    }
+
+    /**
+     * Recipient read and write rule: owner, explicitly shared users, and admins (shared users may
+     * edit recipients). Non-throwing, e.g. for edit locks. Recipient Assessments use the same rule.
+     */
+    public boolean canAccessRecipient(Recipient recipient, String username, boolean isAdmin) {
+        return isAdmin
+                || Objects.equals(recipient.getCreatorUsername(), username)
+                || (recipient.getSharedUsernames() != null && recipient.getSharedUsernames().contains(username));
     }
 
     /**

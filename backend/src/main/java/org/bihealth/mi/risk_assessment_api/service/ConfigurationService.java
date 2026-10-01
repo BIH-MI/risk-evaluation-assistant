@@ -24,6 +24,7 @@ import org.bihealth.mi.risk_assessment_api.repository.assessment.recipient.Recip
 import org.bihealth.mi.risk_assessment_api.repository.configuration.ConfigurationVersionRepository;
 import org.bihealth.mi.risk_assessment_api.repository.configuration.RiskConfigurationRepository;
 import org.bihealth.mi.risk_assessment_api.utils.EntityNameNormalizer;
+import org.bihealth.mi.risk_assessment_api.utils.QuestionnaireCodes;
 import org.springframework.core.NestedExceptionUtils;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -349,7 +350,7 @@ public class ConfigurationService {
         for (QuestionRequestDTO dto : dtos) {
             Question question = new Question();
             question.setCategoryCode(dto.getCategoryCode());
-            question.setCode(stableCodeOrGenerated(dto.getCode(), dto.getText(), "QUESTION"));
+            question.setCode(QuestionnaireCodes.stableCodeOrGenerated(dto.getCode(), dto.getText(), "QUESTION"));
             question.setText(dto.getText());
             question.setTextTranslations(dto.getTextTranslations() == null
                     ? new HashMap<>()
@@ -360,7 +361,7 @@ public class ConfigurationService {
             if (dto.getOptions() != null) {
                 for (QuestionOptionRequestDTO optionDto : dto.getOptions()) {
                     QuestionOption option = new QuestionOption();
-                    option.setCode(stableCodeOrGenerated(optionDto.getCode(), optionDto.getText(), "OPTION"));
+                    option.setCode(QuestionnaireCodes.stableCodeOrGenerated(optionDto.getCode(), optionDto.getText(), "OPTION"));
                     option.setText(optionDto.getText());
                     option.setTextTranslations(optionDto.getTextTranslations() == null
                             ? new HashMap<>()
@@ -525,7 +526,7 @@ public class ConfigurationService {
     private Question copyQuestion(Question source) {
         Question question = new Question();
         question.setCategoryCode(requiredText(source.getCategoryCode(), "Question category code is required."));
-        question.setCode(stableCodeOrGenerated(source.getCode(), source.getText(), "QUESTION"));
+        question.setCode(QuestionnaireCodes.stableCodeOrGenerated(source.getCode(), source.getText(), "QUESTION"));
         question.setText(requiredText(source.getText(), "Question text is required."));
         question.setTextTranslations(source.getTextTranslations() == null
                 ? new HashMap<>()
@@ -537,7 +538,7 @@ public class ConfigurationService {
         if (source.getOptions() != null) {
             for (QuestionOption sourceOption : source.getOptions()) {
                 QuestionOption option = new QuestionOption();
-                option.setCode(stableCodeOrGenerated(sourceOption.getCode(), sourceOption.getText(), "OPTION"));
+                option.setCode(QuestionnaireCodes.stableCodeOrGenerated(sourceOption.getCode(), sourceOption.getText(), "OPTION"));
                 option.setText(requiredText(sourceOption.getText(), "Question option text is required."));
                 option.setTextTranslations(sourceOption.getTextTranslations() == null
                         ? new HashMap<>()
@@ -680,29 +681,6 @@ public class ConfigurationService {
 
     private String normalizeReference(String value) {
         return value == null ? "" : value.trim().toUpperCase(Locale.ROOT);
-    }
-
-    private String stableCodeOrGenerated(String currentCode, String text, String fallbackPrefix) {
-        String normalizedCode = trimToNull(currentCode);
-        if (normalizedCode != null) {
-            return normalizedCode.trim().toUpperCase(Locale.ROOT);
-        }
-
-        String source = trimToNull(text);
-        if (source == null) {
-            return null;
-        }
-
-        String generated = source
-                .replaceAll("\\[[^]]*]", " ")
-                .replaceAll("[^A-Za-z0-9]+", "_")
-                .replaceAll("_+", "_")
-                .replaceAll("^_|_$", "")
-                .toUpperCase(Locale.ROOT);
-        if (generated.isEmpty()) {
-            return fallbackPrefix;
-        }
-        return generated.length() <= 120 ? generated : generated.substring(0, 120).replaceAll("_+$", "");
     }
 
     private Configuration saveConfigurationHandlingDuplicateName(Configuration config, String name) {

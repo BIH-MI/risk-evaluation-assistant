@@ -2,13 +2,12 @@ package org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.policy;
 
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlanDraftEvaluationDTO.EstimateAvailability;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationPlanStatus;
-import org.bihealth.mi.risk_assessment_api.enums.ProjectConstraintResult;
+import org.bihealth.mi.risk_assessment_api.enums.PlanSelectionCriterion;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.PlanSelectionPolicyDefinition;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.model.EvaluatedCandidatePlan;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.model.PlanRecommendation;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
@@ -33,9 +32,7 @@ public class PlanSelectionService {
             List<EvaluatedCandidatePlan> evaluated,
             PlanSelectionPolicyDefinition policy
     ) {
-        List<String> criteria = policy == null || policy.getEnabledCriteria() == null
-                ? List.of()
-                : policy.getEnabledCriteria();
+        List<PlanSelectionCriterion> criteria = criteria(policy);
 
         // Feasibility is not a preference: INVALID and INCOMPATIBLE plans are never recommended or
         // offered as alternatives, even if a policy omits the REJECT_* criteria.
@@ -70,76 +67,118 @@ public class PlanSelectionService {
         return new PlanRecommendation(recommended, alternatives, selectionReason(criteria, recommended, alternatives));
     }
 
+    /**
+     * Unknown criterion codes are rejected rather than ignored: an ignored criterion would silently
+     * change the ranking the administrator configured. The validator refuses such codes on save.
+     */
+    private List<PlanSelectionCriterion> criteria(PlanSelectionPolicyDefinition policy) {
+        if (policy == null || policy.getEnabledCriteria() == null) {
+            return List.of();
+        }
+        return policy.getEnabledCriteria().stream()
+                .map(code -> PlanSelectionCriterion.parse(code).orElseThrow(() -> new IllegalStateException(
+                        "Plan-selection policy uses unknown criterion '" + code + "'.")))
+                .toList();
+    }
+
     private String selectionReason(
-            List<String> criteria,
+            List<PlanSelectionCriterion> criteria,
             EvaluatedCandidatePlan recommended,
             List<EvaluatedCandidatePlan> alternatives
     ) {
-        String prefix = "Preferred according to the configured deterministic policy";
+        String prefix = "Preferred according to the configured deterministic selection policy, not a proven "
+                + "or optimal plan";
         if (alternatives.isEmpty()) {
-            return prefix + "; it is the only distinct feasible plan.";
+            return prefix + ". It is the only distinct feasible plan.";
         }
-        String decisive = criteria.stream()
-                .filter(criterion -> comparatorFor(criterion).compare(recommended, alternatives.get(0)) != 0)
+        EvaluatedCandidatePlan runnerUp = alternatives.get(0);
+        PlanSelectionCriterion decisive = criteria.stream()
+                .filter(criterion -> comparatorFor(criterion).compare(recommended, runnerUp) != 0)
                 .findFirst()
-                .orElse("STABLE_ACTION_CODE_TIE_BREAK");
-        return prefix + "; ranked ahead of the first alternative by " + decisive + ".";
+                .orElse(PlanSelectionCriterion.STABLE_ACTION_CODE_TIE_BREAK);
+        return prefix + ". It ranks ahead of Alternative 1 because " + explain(decisive, recommended, runnerUp)
+                + (decisive != PlanSelectionCriterion.STABLE_ACTION_CODE_TIE_BREAK && criteria.indexOf(decisive) > 0
+                        ? "; all earlier criteria tie." : ".");
     }
 
-    private Comparator<EvaluatedCandidatePlan> comparator(List<String> criteria) {
+    private String explain(PlanSelectionCriterion criterion, EvaluatedCandidatePlan left, EvaluatedCandidatePlan right) {
+        return switch (criterion) {
+            case COVER_ACTIONABLE_CRITICAL_DRIVERS -> "it structurally addresses more actionable Critical Risk Drivers ("
+                    + left.criticalDriverCoverage() + " vs " + right.criticalDriverCoverage() + ")";
+            case PREFER_HIGH_DRIVER_COVERAGE -> "it structurally addresses more actionable High Risk Drivers ("
+                    + left.highDriverCoverage() + " vs " + right.highDriverCoverage() + ")";
+            case PREFER_FEWER_UNRESOLVED_PROJECT_CHECKS -> "fewer Project checks still need evaluation ("
+                    + left.unresolvedProjectChecks() + " vs " + right.unresolvedProjectChecks() + ")";
+            case PREFER_FEWER_ACTIONS -> "it needs fewer actions (" + actionCount(left) + " vs " + actionCount(right) + ")";
+            case PREFER_LOWER_KNOWN_COST -> costKnown(left) && costKnown(right)
+                    ? "its maximum estimated cost is lower (" + left.knownCostMax().stripTrailingZeros().toPlainString()
+                            + " vs " + right.knownCostMax().stripTrailingZeros().toPlainString() + ")"
+                    : "its cost is fully estimated while the alternative's is not (unknown cost is never treated as zero)";
+            case PREFER_SHORTER_KNOWN_SETUP_TIME -> setupKnown(left) && setupKnown(right)
+                    ? "its maximum estimated setup time is shorter (" + left.knownSetupDaysMax() + " vs "
+                            + right.knownSetupDaysMax() + " days)"
+                    : "its setup time is fully estimated while the alternative's is not";
+            case REJECT_INVALID, REJECT_INCOMPATIBLE, STABLE_ACTION_CODE_TIE_BREAK ->
+                    "all configured criteria tie and the stable action-code order decides";
+        };
+    }
+
+    private Comparator<EvaluatedCandidatePlan> comparator(List<PlanSelectionCriterion> criteria) {
         Comparator<EvaluatedCandidatePlan> comparator = (left, right) -> 0;
-        for (String criterion : criteria) {
+        for (PlanSelectionCriterion criterion : criteria) {
             comparator = comparator.thenComparing(comparatorFor(criterion));
         }
         return comparator.thenComparing(EvaluatedCandidatePlan::stableActionCodeKey);
     }
 
-    private Comparator<EvaluatedCandidatePlan> comparatorFor(String criterion) {
+    private Comparator<EvaluatedCandidatePlan> comparatorFor(PlanSelectionCriterion criterion) {
         return switch (criterion) {
-            case "COVER_ACTIONABLE_CRITICAL_DRIVERS" ->
+            // Applied as a filter before sorting.
+            case REJECT_INVALID, REJECT_INCOMPATIBLE -> (left, right) -> 0;
+            case COVER_ACTIONABLE_CRITICAL_DRIVERS ->
                     Comparator.comparing(EvaluatedCandidatePlan::criticalDriverCoverage).reversed();
-            case "PREFER_HIGH_DRIVER_COVERAGE" ->
+            case PREFER_HIGH_DRIVER_COVERAGE ->
                     Comparator.comparing(EvaluatedCandidatePlan::highDriverCoverage).reversed();
-            case "PREFER_FEWER_UNRESOLVED_PROJECT_CHECKS" ->
+            case PREFER_FEWER_UNRESOLVED_PROJECT_CHECKS ->
                     Comparator.comparing(EvaluatedCandidatePlan::unresolvedProjectChecks);
-            case "PREFER_FEWER_ACTIONS" ->
-                    Comparator.comparing(candidate -> candidate.evaluation().getActions().size());
-            case "PREFER_LOWER_KNOWN_COST" -> this::compareKnownCost;
-            case "PREFER_SHORTER_KNOWN_SETUP_TIME" -> this::compareKnownSetup;
-            case "STABLE_ACTION_CODE_TIE_BREAK" ->
-                    Comparator.comparing(EvaluatedCandidatePlan::stableActionCodeKey);
-            default -> (left, right) -> 0;
+            case PREFER_FEWER_ACTIONS -> Comparator.comparing(this::actionCount);
+            case PREFER_LOWER_KNOWN_COST -> this::compareKnownCost;
+            case PREFER_SHORTER_KNOWN_SETUP_TIME -> this::compareKnownSetup;
+            case STABLE_ACTION_CODE_TIE_BREAK -> Comparator.comparing(EvaluatedCandidatePlan::stableActionCodeKey);
         };
     }
 
+    private int actionCount(EvaluatedCandidatePlan plan) {
+        return plan.evaluation().getActions().size();
+    }
+
+    /** Known before unknown; two unknown (or partial) estimates tie and are never compared as zero. */
     private int compareKnownCost(EvaluatedCandidatePlan left, EvaluatedCandidatePlan right) {
-        boolean leftKnown = left.evaluation().getCostEstimate().getAvailability() == EstimateAvailability.KNOWN;
-        boolean rightKnown = right.evaluation().getCostEstimate().getAvailability() == EstimateAvailability.KNOWN;
+        boolean leftKnown = costKnown(left);
+        boolean rightKnown = costKnown(right);
         if (leftKnown != rightKnown) {
             return leftKnown ? -1 : 1;
         }
-        if (!leftKnown) {
-            return 0;
-        }
-        return nullSafe(left.knownCostMax()).compareTo(nullSafe(right.knownCostMax()));
+        return leftKnown ? left.knownCostMax().compareTo(right.knownCostMax()) : 0;
     }
 
     private int compareKnownSetup(EvaluatedCandidatePlan left, EvaluatedCandidatePlan right) {
-        boolean leftKnown = left.evaluation().getSetupEstimate().getAvailability() == EstimateAvailability.KNOWN;
-        boolean rightKnown = right.evaluation().getSetupEstimate().getAvailability() == EstimateAvailability.KNOWN;
+        boolean leftKnown = setupKnown(left);
+        boolean rightKnown = setupKnown(right);
         if (leftKnown != rightKnown) {
             return leftKnown ? -1 : 1;
         }
-        if (!leftKnown) {
-            return 0;
-        }
-        return Integer.compare(
-                left.knownSetupDaysMax() == null ? Integer.MAX_VALUE : left.knownSetupDaysMax(),
-                right.knownSetupDaysMax() == null ? Integer.MAX_VALUE : right.knownSetupDaysMax());
+        return leftKnown ? Integer.compare(left.knownSetupDaysMax(), right.knownSetupDaysMax()) : 0;
     }
 
-    private BigDecimal nullSafe(BigDecimal value) {
-        return value == null ? new BigDecimal("999999999999") : value;
+    private boolean costKnown(EvaluatedCandidatePlan plan) {
+        return plan.evaluation().getCostEstimate().getAvailability() == EstimateAvailability.KNOWN
+                && plan.knownCostMax() != null;
+    }
+
+    private boolean setupKnown(EvaluatedCandidatePlan plan) {
+        return plan.evaluation().getSetupEstimate().getAvailability() == EstimateAvailability.KNOWN
+                && plan.knownSetupDaysMax() != null;
     }
 
     private boolean isUnnecessarySuperset(EvaluatedCandidatePlan candidate, EvaluatedCandidatePlan preferred) {

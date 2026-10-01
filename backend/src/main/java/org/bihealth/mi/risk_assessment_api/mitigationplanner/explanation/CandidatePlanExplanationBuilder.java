@@ -80,6 +80,11 @@ public class CandidatePlanExplanationBuilder {
             lines.add("Structurally covers " + plan.highDriverCoverage() + " of " + highDriverTotal
                     + " actionable High Risk Drivers.");
         }
+        long unresolvedCritical = evaluation.getUnresolvedCriticalFindings().size();
+        if (unresolvedCritical > 0) {
+            lines.add(unresolvedCritical + " Critical finding(s) are not addressed by this plan and remain part of the "
+                    + "risk calculation.");
+        }
         long failed = evaluation.getProjectChecks().stream()
                 .filter(check -> check.getStatus() == ProjectConstraintResult.FAIL).count();
         lines.add(failed == 0

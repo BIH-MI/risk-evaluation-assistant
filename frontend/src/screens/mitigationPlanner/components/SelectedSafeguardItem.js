@@ -4,8 +4,13 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import RequirementHelpTooltip from "components/display/RequirementHelpTooltip";
 import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
-import { addressedDriverGroups, planActionParameterLines } from "../utils/mitigationPlanRows";
+import {
+  addressedDriverGroups,
+  planActionParameterLines,
+  transformationTooltipDetails,
+} from "../utils/mitigationPlanRows";
 import { RiskPriorityChip } from "./riskFactorTableHelpers";
+import { formatAttributeList } from "../utils/mitigationPlannerFormatters";
 
 function appliesToAction(change, action) {
   if ((change.actionIds || []).map(Number).includes(Number(action.actionId))) return true;
@@ -79,23 +84,62 @@ SafeguardTooltipContent.propTypes = {
   changes: PropTypes.array.isRequired,
 };
 
+function TransformationTooltipContent({ details }) {
+  return (
+    <RABox color="inherit" display="flex" flexDirection="column" gap={1}>
+      <RATypography variant="body2" color="inherit" sx={{ fontWeight: 600 }}>
+        {formatAttributeList(details.attributeNames)}
+      </RATypography>
+      {details.parameters.map(({ label, value }) => (
+        <LabelledValue key={label} label={label} value={value} />
+      ))}
+    </RABox>
+  );
+}
+
+TransformationTooltipContent.propTypes = {
+  details: PropTypes.shape({
+    attributeNames: PropTypes.arrayOf(PropTypes.string).isRequired,
+    parameters: PropTypes.arrayOf(PropTypes.shape({ label: PropTypes.string, value: PropTypes.string })).isRequired,
+  }).isRequired,
+};
+
+function InfoTooltip({ title }) {
+  return (
+    <RequirementHelpTooltip title={title}>
+      <InfoOutlinedIcon
+        fontSize="small"
+        tabIndex={0}
+        aria-label="More information"
+        aria-hidden={false}
+        sx={{ color: "text.secondary", cursor: "help" }}
+      />
+    </RequirementHelpTooltip>
+  );
+}
+
+InfoTooltip.propTypes = { title: PropTypes.node.isRequired };
+
 export function changesForAction(action, changes = []) {
   return changes.filter((change) => appliesToAction(change, action));
 }
 
 /**
  * One selected action of the plan: its name, the Risk Driver categories it structurally addresses
- * (from the actual linked drivers) and, for context controls, the mapped questionnaire change in
- * a tooltip. "Addresses" is linkage, not proof the risk is eliminated.
+ * (from the actual linked drivers) and an info tooltip: for context controls the mapped
+ * questionnaire change, for data transformations the affected dataset attributes and parameters.
+ * "Addresses" is linkage, not proof the risk is eliminated.
  */
 export default function SelectedSafeguardItem({ action, appliedChanges, driversById }) {
   const actionChanges = changesForAction(action, appliedChanges);
   const groups = addressedDriverGroups(action, driversById);
+  const transformationDetails =
+    action.actionType === "DATA_TRANSFORMATION" ? transformationTooltipDetails(action, driversById) : null;
 
   return (
     <li>
       <RATypography variant="body2">{action.actionName}</RATypography>
-      {(groups.length > 0 || actionChanges.length > 0) && (
+      {(groups.length > 0 || actionChanges.length > 0 || transformationDetails) && (
         <RABox display="flex" alignItems="center" flexWrap="wrap" columnGap={1} rowGap={0.5} mt={0.25}>
           {groups.length > 0 && (
             <RATypography variant="body2" sx={{ color: "text.secondary" }}>
@@ -112,10 +156,9 @@ export default function SelectedSafeguardItem({ action, appliedChanges, driversB
               ))}
             </RABox>
           ))}
-          {actionChanges.length > 0 && (
-            <RequirementHelpTooltip title={<SafeguardTooltipContent changes={actionChanges} />}>
-              <InfoOutlinedIcon fontSize="small" sx={{ color: "text.secondary", cursor: "help" }} />
-            </RequirementHelpTooltip>
+          {actionChanges.length > 0 && <InfoTooltip title={<SafeguardTooltipContent changes={actionChanges} />} />}
+          {transformationDetails && (
+            <InfoTooltip title={<TransformationTooltipContent details={transformationDetails} />} />
           )}
         </RABox>
       )}
@@ -132,6 +175,7 @@ SelectedSafeguardItem.propTypes = {
   action: PropTypes.shape({
     actionId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
     actionName: PropTypes.string,
+    actionType: PropTypes.string,
     addressedRiskDriverIds: PropTypes.array,
   }).isRequired,
   appliedChanges: PropTypes.array,

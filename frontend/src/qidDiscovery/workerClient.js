@@ -5,6 +5,12 @@ import {
   profileTableFromSource,
   profileTableRows,
 } from "./qidProfiler";
+import {
+  elapsedMs,
+  isProfilingDiagnosticsEnabled,
+  logProfiling,
+  nowMs,
+} from "./profilingDiagnostics";
 
 let qidWorker = null;
 let qidWorkerUnavailable = false;
@@ -40,9 +46,15 @@ function getQidWorker() {
   }
 
   qidWorker.onmessage = ({ data }) => {
-    const { requestId, ok, payload, error } = data || {};
+    const { requestId, ok, payload, error, progress } = data || {};
     const pending = pendingRequests.get(requestId);
     if (!pending) return;
+
+    // Stage updates carry metadata only and do not settle the request.
+    if (progress) {
+      pending.onProgress?.(progress);
+      return;
+    }
 
     pendingRequests.delete(requestId);
 
@@ -66,7 +78,7 @@ function getQidWorker() {
   return qidWorker;
 }
 
-function postQidWorkerMessage(type, payload) {
+function postQidWorkerMessage(type, payload, { onProgress } = {}) {
   const worker = getQidWorker();
   if (!worker) {
     return Promise.reject(new Error("QID worker is not available."));
@@ -75,10 +87,17 @@ function postQidWorkerMessage(type, payload) {
   const requestId = `qid:${nextRequestId}`;
   nextRequestId += 1;
 
+  if (type === "PROFILE_TABLE") {
+    logProfiling(payload.logDiagnostics, payload.file?.name, "Worker request started", {
+      requestId,
+    });
+  }
+
   return new Promise((resolve, reject) => {
     pendingRequests.set(requestId, {
       resolve,
       reject,
+      onProgress,
     });
     worker.postMessage({
       requestId,
@@ -92,11 +111,31 @@ async function profileTableSynchronously(
   file,
   previewRowLimit,
   qidDiscoveryConfiguration,
-  qidOptions
+  qidOptions,
+  onProgress
 ) {
+  const logDiagnostics = isProfilingDiagnosticsEnabled();
+  logProfiling(logDiagnostics, file.name, "Worker unavailable; using synchronous fallback");
+
+  onProgress?.({ stage: "parsing" });
+  let startedAt = nowMs();
   const { rows, fields } = await parseCsvFile(file);
+  logProfiling(logDiagnostics, file.name, "CSV parsed", {
+    rows: rows.length,
+    columns: fields.length,
+    durationMs: elapsedMs(startedAt),
+  });
+
   const columnMeta = createColumnMetaFromFields(fields);
+  // The synchronous path builds the profiling source and runs QID discovery in one call.
+  onProgress?.({ stage: "qid-discovery", rows: rows.length, columns: fields.length });
+  startedAt = nowMs();
   const profile = profileTableRows(rows, columnMeta, qidOptions);
+  logProfiling(logDiagnostics, file.name, "Profiling source, statistics and QID discovery completed", {
+    mode: profile.qidSearchMode,
+    combinations: profile.qidCombinations?.length ?? 0,
+    durationMs: elapsedMs(startedAt),
+  });
 
   return {
     name: file.name,
@@ -133,6 +172,7 @@ export async function profileUploadedTable(file, options = {}) {
     previewRowLimit = CSV_PREVIEW_ROW_LIMIT,
     qidDiscoveryConfiguration,
     subjectKeySourceField,
+    onProgress,
   } = options;
 
   if (!qidDiscoveryConfiguration?.search) {
@@ -148,12 +188,18 @@ export async function profileUploadedTable(file, options = {}) {
   const worker = getQidWorker();
 
   if (worker) {
-    const profile = await postQidWorkerMessage("PROFILE_TABLE", {
-      file,
-      previewRowLimit,
-      qidDiscoveryConfiguration,
-      options: qidOptions,
-    });
+    const profile = await postQidWorkerMessage(
+      "PROFILE_TABLE",
+      {
+        file,
+        previewRowLimit,
+        qidDiscoveryConfiguration,
+        options: qidOptions,
+        // The worker cannot read localStorage, so the main thread decides.
+        logDiagnostics: isProfilingDiagnosticsEnabled(),
+      },
+      { onProgress }
+    );
 
     return {
       ...profile,
@@ -165,7 +211,8 @@ export async function profileUploadedTable(file, options = {}) {
     file,
     previewRowLimit,
     qidDiscoveryConfiguration,
-    qidOptions
+    qidOptions,
+    onProgress
   );
 }
 

@@ -2,6 +2,7 @@ package org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.validati
 
 import org.bihealth.mi.risk_assessment_api.enums.MitigationActionType;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationAssessmentScope;
+import org.bihealth.mi.risk_assessment_api.enums.PlanSelectionCriterion;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationAction;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationActionConflict;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationActionDependency;
@@ -58,6 +59,27 @@ public class MitigationKnowledgeBaseValidator {
         validateDependencyCycles(version, actionsByCode, result);
         validateQuestionMappings(version, result);
         validateRuleTypes(version, result);
+        validateSelectionPolicy(version, result);
+    }
+
+    /** An unknown criterion would silently drop out of the lexicographic ranking. */
+    private void validateSelectionPolicy(MitigationKnowledgeBaseVersion version, KnowledgeBaseValidationResult result) {
+        if (version.getSelectionPolicy() == null || version.getSelectionPolicy().getEnabledCriteria() == null) {
+            return;
+        }
+        Set<PlanSelectionCriterion> seen = new HashSet<>();
+        for (String code : version.getSelectionPolicy().getEnabledCriteria()) {
+            PlanSelectionCriterion criterion = PlanSelectionCriterion.parse(code).orElse(null);
+            if (criterion == null) {
+                error(result, "UNKNOWN_SELECTION_CRITERION",
+                        "Plan-selection policy uses unknown criterion '" + code + "'.",
+                        "PlanSelectionPolicyDefinition", version.getSelectionPolicy().getId());
+            } else if (!seen.add(criterion)) {
+                error(result, "DUPLICATE_SELECTION_CRITERION",
+                        "Plan-selection policy lists criterion " + criterion + " more than once.",
+                        "PlanSelectionPolicyDefinition", version.getSelectionPolicy().getId());
+            }
+        }
     }
 
     /**
@@ -275,6 +297,10 @@ public class MitigationKnowledgeBaseValidator {
                         .anyMatch(option -> same(option.getCode(), mapping.getProjectedOptionCode()));
                 if (!hasProjected) {
                     error(result, "INVALID_PROJECTED_OPTION", "Projected option does not belong to the referenced question.",
+                            "MitigationQuestionMapping", mapping.getId());
+                } else if (same(mapping.getProjectedOptionCode(), mapping.getTriggerOptionCode())) {
+                    error(result, "PROJECTION_EQUALS_TRIGGER",
+                            "Projected option must differ from the trigger option; the control would change nothing.",
                             "MitigationQuestionMapping", mapping.getId());
                 }
             }

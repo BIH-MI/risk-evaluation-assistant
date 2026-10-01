@@ -2,9 +2,12 @@ package org.bihealth.mi.risk_assessment_api.controller;
 
 import org.bihealth.mi.risk_assessment_api.dto.request.risk.RiskRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.report.GenericRiskResponseDTO;
+import org.bihealth.mi.risk_assessment_api.service.DataSharingActivityService;
 import org.bihealth.mi.risk_assessment_api.service.RiskService;
+import org.bihealth.mi.risk_assessment_api.security.SecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -20,14 +23,16 @@ import org.springframework.web.bind.annotation.*;
 public class RiskController {
 
     private final RiskService riskService;
+    private final DataSharingActivityService activityService;
 
     /**
      * Creates the controller with the service that performs the risk
      * calculation and report mapping.
      */
     @Autowired
-    public RiskController(RiskService riskService) {
+    public RiskController(RiskService riskService, DataSharingActivityService activityService) {
         this.riskService = riskService;
+        this.activityService = activityService;
     }
 
     /**
@@ -40,8 +45,16 @@ public class RiskController {
      */
     @PostMapping("/calculate")
     public ResponseEntity<GenericRiskResponseDTO> calculateTotalRisk(
-            @RequestBody RiskRequestDTO dto
+            @RequestBody RiskRequestDTO dto,
+            JwtAuthenticationToken token
     ) {
+        if (dto.getActivityId() == null) {
+            throw new IllegalArgumentException("activityId is required.");
+        }
+        // The result is derived from the activity's Dataset and Recipient Assessments, so the caller
+        // needs the same read access as for the activity itself (404 if missing, 403 if denied).
+        activityService.getAccessibleActivityEntity(
+                dto.getActivityId(), SecurityUtils.getUsername(token), SecurityUtils.isAdminRole(token));
         GenericRiskResponseDTO resp = riskService.calculateRisk(dto);
         return ResponseEntity.ok(resp);
     }

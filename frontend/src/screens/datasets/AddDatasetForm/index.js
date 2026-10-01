@@ -32,6 +32,10 @@ import {
   isDefaultExcludedIdentifierColumn,
   validateDirectIdentifierExclusions,
 } from "qidDiscovery/directIdentifierPolicy";
+import {
+  isProfilingDiagnosticsEnabled,
+  logProfiling,
+} from "qidDiscovery/profilingDiagnostics";
 
 const DATASET_NAME_ALREADY_EXISTS = "DATASET_NAME_ALREADY_EXISTS";
 
@@ -114,7 +118,7 @@ export default function AddDatasetForm() {
     );
   }, [selectedQidDiscoveryConfiguration]);
 
-  const { profileTable, refreshTable, changeSubjectKey, disposeTableProfile } =
+  const { profileTable, refreshTable, disposeTableProfile } =
     useDatasetTableProfiling({
       tables,
       setTables,
@@ -215,9 +219,14 @@ export default function AddDatasetForm() {
             _localTableId: localTableId,
             name: file.name,
             isParsing: true,
+            // Transient UI state; the dataset payload only maps name/columnMeta/qidCombinations.
+            processingStage: "queued",
             isManual: false,
           },
         ];
+      });
+      logProfiling(isProfilingDiagnosticsEnabled(), file.name, "Table created", {
+        tableId: localTableId,
       });
       return localTableId;
     },
@@ -236,12 +245,6 @@ export default function AddDatasetForm() {
     [profileTable, selectedQidDiscoveryConfiguration]
   );
 
-  const handleSubjectKeyChange = useCallback(
-    (tableId, sourceField) => {
-      changeSubjectKey(tableId, sourceField || null);
-    },
-    [changeSubjectKey]
-  );
 
   const handleAddManualTable = useCallback(() => {
     setTables((prev) => {
@@ -699,7 +702,6 @@ export default function AddDatasetForm() {
             onExcludedChange={handleExcludedChange}
             onAddColumn={handleAddColumn}
             onDeleteColumn={handleDeleteColumn}
-            onSubjectKeyChange={handleSubjectKeyChange}
           />
         ))}
 

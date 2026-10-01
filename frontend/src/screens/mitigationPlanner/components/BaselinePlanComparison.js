@@ -17,8 +17,8 @@ function contextChangeTone(baseline, projected) {
 }
 
 /**
- * Baseline versus the counterfactual context of the selected plan. Every value is a backend result
- * of RiskComputationService; a value is highlighted only when it actually differs.
+ * Current assessment versus the counterfactual (projected) context of the selected plan. Every value
+ * is a backend result of RiskComputationService; a value is highlighted only when it actually differs.
  */
 export default function BaselinePlanComparison({ context, planLabel }) {
   const { t } = useTranslation();
@@ -60,15 +60,15 @@ export default function BaselinePlanComparison({ context, planLabel }) {
   return (
     <RABox>
       <RATypography variant="subtitle1" fontWeight="bold" mb={1}>
-        {t("mitigationPlanner.risk.comparisonTitle", "Baseline vs Selected Mitigation Plan")}
+        {t("mitigationPlanner.risk.comparisonTitle", "Current assessment vs projected context")}
       </RATypography>
       <TableContainer sx={{ overflowX: "auto" }}>
-        <Table size="small" sx={{ minWidth: 480 }} aria-label={t("mitigationPlanner.risk.comparisonTitle", "Baseline vs Selected Mitigation Plan")}>
+        <Table size="small" sx={{ minWidth: 480 }} aria-label={t("mitigationPlanner.risk.comparisonTitle", "Current assessment vs projected context")}>
           <TableHead>
             <TableRow>
               <TableCell>{t("mitigationPlanner.risk.metric", "Metric")}</TableCell>
-              <TableCell>{t("mitigationPlanner.risk.baseline", "Baseline")}</TableCell>
-              <TableCell>{`${t("mitigationPlanner.risk.selectedPlan", "Selected Plan")} ${planLabel}`.trim()}</TableCell>
+              <TableCell>{t("mitigationPlanner.risk.baseline", "Current (assessed)")}</TableCell>
+              <TableCell>{`${t("mitigationPlanner.risk.projected", "Projected with")} ${planLabel}`.trim()}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

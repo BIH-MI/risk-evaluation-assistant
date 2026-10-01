@@ -1,21 +1,49 @@
 // src/screens/datasets/AddDatasetForm/PreviewTable.js
 import React, { useEffect, useMemo, useState } from "react";
-import { CircularProgress, IconButton, MenuItem } from "@mui/material";
+import { CircularProgress, IconButton, Tooltip } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import DeleteIcon from "@mui/icons-material/DeleteOutline";
 import { useTranslation } from "react-i18next";
 import DataTable from "components/display/Tables/DataTable";
 import RABox from "components/layout/RABox";
-import RAButton from "components/input/RAButton";
 import {
   MemoNameCell,
   MemoDataTypeCell,
   MemoCheckboxCell,
 } from "components/display/Tables/DataTable/CustomDataTableComponents/RowComponents";
 import RATypography from "../../../components/display/RATypography";
+import { describeExclusionDecision } from "qidDiscovery/directIdentifierPolicy";
 import RAInput from "../../../components/input/RAInput";
 
 const getColumnIdentity = (column = {}) => column.sourceField || column.field;
+
+/**
+ * Loader text for one uploading table. Stages come from the QID worker (or the synchronous
+ * fallback); there is no meaningful percentage, so the spinner stays indeterminate.
+ */
+function processingMessage(t, file) {
+  const name = file.name;
+  const rows = Number.isFinite(file.processingRowCount)
+    ? file.processingRowCount.toLocaleString()
+    : null;
+  switch (file.processingStage) {
+    case "queued":
+      return t("datasets.add.processingQueued", "Waiting to process {{name}}…", { name });
+    case "parsing":
+      return t("datasets.add.processingReading", "Reading {{name}}…", { name });
+    case "profiling":
+      return rows
+        ? t("datasets.add.processingProfilingRows", "Profiling {{rows}} rows of {{name}}…", { name, rows })
+        : t("datasets.add.processingProfiling", "Profiling {{name}}…", { name });
+    case "qid-discovery":
+      return t("datasets.add.processingQid", "Running QID discovery for {{name}}…", { name });
+    case "preparing":
+      return t("datasets.add.processingPreparing", "Preparing preview of {{name}}…", { name });
+    default:
+      return t("datasets.add.processing", "Processing {{name}}…", { name });
+  }
+}
 
 export const PreviewTable = React.memo(function PreviewTable({
   file,
@@ -26,61 +54,46 @@ export const PreviewTable = React.memo(function PreviewTable({
   onExcludedChange,
   onAddColumn,
   onDeleteColumn,
-  onSubjectKeyChange,
 }) {
   const { t } = useTranslation();
   const [bufferName, setBufferName] = useState(file.name);
-  const [showSubjectKeySelect, setShowSubjectKeySelect] = useState(false);
 
   useEffect(() => {
     setBufferName(file.name);
   }, [file.name]);
 
   const { columnMeta = [], data = [] } = file;
-  const suggestedSubjectKeys = useMemo(
-    () => new Set(file.suggestedSubjectKeySourceFields || []),
-    [file.suggestedSubjectKeySourceFields]
-  );
-  const subjectKeyOptions = useMemo(() => {
-    const seen = new Set();
-
-    return columnMeta
-      .map((column, index) => ({
-        sourceField: getColumnIdentity(column),
-        index,
-      }))
-      .filter(({ sourceField }) => {
-        if (!sourceField || seen.has(sourceField)) return false;
-        seen.add(sourceField);
-        return true;
-      })
-      .map((option) => ({
-        ...option,
-        suggested: suggestedSubjectKeys.has(option.sourceField),
-      }))
-      .sort((a, b) => {
-        if (a.suggested !== b.suggested) return a.suggested ? -1 : 1;
-        return a.index - b.index;
-      });
-  }, [columnMeta, suggestedSubjectKeys]);
-  const selectedSubjectKey = file.subjectKeySourceField || "";
-  const subjectKeyStatus = useMemo(() => {
-    if (file.isProfiling) return "Replicability key: updating...";
-    if (!selectedSubjectKey) return "Replicability key: not set";
-
-    const summary = file.repeatedMeasurementSummary;
-    const autoDetected = file.subjectKeyAutoDetected ? " (auto-detected)" : "";
-
-    if (summary?.hasRepeatedMeasurements) {
-      return `Replicability key: ${selectedSubjectKey}${autoDetected} · ${summary.subjectsWithRepeatedMeasurements}/${summary.subjectCount} repeated`;
+  const subjectKeySourceField = file.subjectKeySourceField || null;
+  // The subject key is chosen automatically during profiling and only groups repeated
+  // observations of the same subject for Replicability; it is shown in the tooltip of its
+  // attribute. It is not a QID candidate and may be excluded from QID discovery.
+  const replicabilityLines = useMemo(() => {
+    if (!subjectKeySourceField) return [];
+    if (file.isProfiling) {
+      return [t("datasets.add.subjectKeyUpdating", "Replicability subject key: updating…")];
     }
 
-    return `Replicability key: ${selectedSubjectKey}${autoDetected} · no repeated observations`;
+    const summary = file.repeatedMeasurementSummary;
+    const title = file.subjectKeyAutoDetected
+      ? t("datasets.add.subjectKeyAutoDetected", "Replicability subject key: {{field}} (auto-detected).", {
+          field: subjectKeySourceField,
+        })
+      : t("datasets.add.subjectKeySelected", "Replicability subject key: {{field}}.", {
+          field: subjectKeySourceField,
+        });
+    const detail = summary?.hasRepeatedMeasurements
+      ? t("datasets.add.subjectKeyRepeated", "{{repeated}} of {{subjects}} subjects have repeated observations.", {
+          repeated: summary.subjectsWithRepeatedMeasurements.toLocaleString(),
+          subjects: summary.subjectCount.toLocaleString(),
+        })
+      : t("datasets.add.subjectKeyNoRepeats", "No subject has repeated observations.");
+    return [title, detail];
   }, [
     file.isProfiling,
     file.repeatedMeasurementSummary,
     file.subjectKeyAutoDetected,
-    selectedSubjectKey,
+    subjectKeySourceField,
+    t,
   ]);
 
   const topValuesMap = useMemo(() => {
@@ -120,9 +133,15 @@ export const PreviewTable = React.memo(function PreviewTable({
         }}
       >
         <CircularProgress size={24} />
-        <RATypography variant="body2" sx={{ ml: 2 }}>
-          {t("datasets.add.parsing", { name: file.name })}
-        </RATypography>
+        <RABox sx={{ ml: 2 }}>
+          <RATypography variant="body2">{processingMessage(t, file)}</RATypography>
+          <RATypography variant="caption" display="block" sx={{ color: "text.secondary" }}>
+            {t(
+              "datasets.add.processingHint",
+              "Parsing and profiling run in the background. Large files may take a moment."
+            )}
+          </RATypography>
+        </RABox>
       </RABox>
     );
   }
@@ -202,18 +221,44 @@ export const PreviewTable = React.memo(function PreviewTable({
       Header: t("datasets.attributesTable.excluded"),
       accessor: "excluded",
       align: "center",
-      Cell: ({ row }) => (
-        <MemoCheckboxCell
-          initialValue={row.original.excluded}
-          onCommit={(checked) =>
-            onExcludedChange(
-              file._localTableId,
-              row.original.columnKey,
-              checked
-            )
-          }
-        />
-      ),
+      Cell: ({ row }) => {
+        const { exclusionInfo } = row.original;
+        return (
+          <RABox display="flex" alignItems="center" justifyContent="center" gap={0.5}>
+            <MemoCheckboxCell
+              initialValue={row.original.excluded}
+              onCommit={(checked) =>
+                onExcludedChange(
+                  file._localTableId,
+                  row.original.columnKey,
+                  checked
+                )
+              }
+            />
+            {exclusionInfo && (
+              <Tooltip
+                arrow
+                title={
+                  <RABox color="inherit">
+                    {exclusionInfo.lines.map((line) => (
+                      <RATypography key={line} variant="caption" color="inherit" display="block">
+                        {line}
+                      </RATypography>
+                    ))}
+                  </RABox>
+                }
+              >
+                <InfoOutlinedIcon
+                  fontSize="small"
+                  tabIndex={0}
+                  aria-label={exclusionInfo.lines.join(" ")}
+                  sx={{ cursor: "help", color: "info.main" }}
+                />
+              </Tooltip>
+            )}
+          </RABox>
+        );
+      },
     },
     {
       Header: t("datasets.attributesTable.delete"),
@@ -234,12 +279,24 @@ export const PreviewTable = React.memo(function PreviewTable({
     },
   ];
 
-  const rows = columnMeta.map((column) => ({
-    columnKey: getColumnIdentity(column),
-    field: column.field,
-    dataType: column.level,
-    excluded: Boolean(column.excluded),
-  }));
+  const rows = columnMeta.map((column) => {
+    // Automatic exclusion reason, plus the Replicability role when this attribute is the
+    // subject key. Attributes with neither get no info icon.
+    const exclusionReason = describeExclusionDecision(t, column);
+    const isSubjectKey =
+      Boolean(subjectKeySourceField) && getColumnIdentity(column) === subjectKeySourceField;
+    const lines = [
+      ...(exclusionReason ? [exclusionReason] : []),
+      ...(isSubjectKey ? replicabilityLines : []),
+    ];
+    return {
+      columnKey: getColumnIdentity(column),
+      field: column.field,
+      dataType: column.level,
+      excluded: Boolean(column.excluded),
+      exclusionInfo: lines.length > 0 ? { lines } : null,
+    };
+  });
 
   return (
     <RABox key={file._localTableId} mt={2} p={2}>
@@ -276,47 +333,6 @@ export const PreviewTable = React.memo(function PreviewTable({
         >
           <CloseIcon fontSize="small" />
         </IconButton>
-      </RABox>
-
-      <RABox display="flex" alignItems="center" flexWrap="wrap" gap={1} mb={1}>
-        <RATypography variant="caption" color="text">
-          {subjectKeyStatus}
-        </RATypography>
-        <RAButton
-          type="button"
-          variant="text"
-          size="small"
-          disabled={file.isParsing || file.isProfiling}
-          onClick={() => setShowSubjectKeySelect((current) => !current)}
-          sx={{ minWidth: 0, px: 1, py: 0.25 }}
-        >
-          {selectedSubjectKey ? "Change" : "Set"}
-        </RAButton>
-        {showSubjectKeySelect && (
-          <RAInput
-            select
-            value={selectedSubjectKey}
-            onChange={(event) => {
-              onSubjectKeyChange(
-                file._localTableId,
-                event.target.value || null
-              );
-              setShowSubjectKeySelect(false);
-            }}
-            disabled={file.isParsing || file.isProfiling}
-            size="small"
-            sx={{ minWidth: 220 }}
-            variant="standard"
-            SelectProps={{ displayEmpty: true }}
-          >
-            <MenuItem value="">None</MenuItem>
-            {subjectKeyOptions.map(({ sourceField, suggested }) => (
-              <MenuItem key={sourceField} value={sourceField}>
-                {suggested ? `${sourceField} (suggested)` : sourceField}
-              </MenuItem>
-            ))}
-          </RAInput>
-        )}
       </RABox>
 
       <DataTable

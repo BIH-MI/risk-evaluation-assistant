@@ -99,14 +99,17 @@ public class RiskDriverExtractorService {
         return new ExtractedRiskDrivers(sortDrivers(dataDrivers), sortDrivers(contextDrivers));
     }
 
+    // An unanswered question carries no finding; it is neither a driver nor "no action required".
     private boolean isDatasetQuestion(Answer answer) {
         RiskCategory category = category(answer);
-        return category != null && "DATASET_ASSESSMENT".equalsIgnoreCase(category.getAssessmentPhase());
+        return category != null && answer.getSelectedOption() != null
+                && "DATASET_ASSESSMENT".equalsIgnoreCase(category.getAssessmentPhase());
     }
 
     private boolean isRecipientQuestion(Answer answer) {
         RiskCategory category = category(answer);
-        return category != null && "RECIPIENT_ASSESSMENT".equalsIgnoreCase(category.getAssessmentPhase());
+        return category != null && answer.getSelectedOption() != null
+                && "RECIPIENT_ASSESSMENT".equalsIgnoreCase(category.getAssessmentPhase());
     }
 
     private RiskDriverDTO questionDriver(

@@ -28,14 +28,19 @@ import java.util.Optional;
  * Seeds aggregate quantitative profiling evidence for the canonical LEOSS demo dataset.
  *
  * <p>This is intentionally not a backend QID profiler. The values below are
- * precomputed sample metadata matching the frontend profiling formulas. No raw
- * LEOSS rows are stored by this seeder.</p>
+ * precomputed, synthetic illustration values that are internally consistent with
+ * the frontend profiling formulas (distinction, separation, equivalence classes).
+ * They are not measurements of the real LEOSS data, and no raw rows are stored.</p>
  */
 @Component
 @Order(4)
 public class DemoDatasetEvidenceSeeder implements CommandLineRunner {
 
-    static final String LEOSS_DATASET_NAME = "LEOSS Public Use File";
+    // The demo table is LEOSS-inspired, not the real (anonymized) LEOSS Public Use File, so its
+    // name must not suggest otherwise. Databases seeded earlier keep the legacy name; every demo
+    // seeder resolves either name so no duplicate dataset is created.
+    static final String LEOSS_DATASET_NAME = "LEOSS-inspired Demo Dataset";
+    static final String LEGACY_LEOSS_DATASET_NAME = "LEOSS Public Use File";
     private static final String SEED_USER = "user";
 
     @Value("${app.setup.load-sample-data:true}")
@@ -76,7 +81,9 @@ public class DemoDatasetEvidenceSeeder implements CommandLineRunner {
             QidDiscoveryConfiguration qidConfiguration,
             QidDiscoveryConfigurationVersion qidConfigurationVersion
     ) {
-        Dataset leoss = findDatasetByNormalizedName(LEOSS_DATASET_NAME).orElse(null);
+        Dataset leoss = findDatasetByNormalizedName(LEOSS_DATASET_NAME)
+                .or(() -> findDatasetByNormalizedName(LEGACY_LEOSS_DATASET_NAME))
+                .orElse(null);
         if (leoss == null) return;
 
         linkQidConfiguration(leoss, qidConfiguration, qidConfigurationVersion);
@@ -111,59 +118,7 @@ public class DemoDatasetEvidenceSeeder implements CommandLineRunner {
             insuranceNumber.setDirectIdentifierConfidence("LOW");
         }
 
-        replaceQidCombinations(table, List.of(
-                qidCombination(
-                        List.of(
-                                "age_at_diagnosis",
-                                "date_of_diagnosis",
-                                "superinfection_uncomplicated_phase",
-                                "superinfection_complicated_phase"
-                        ),
-                        0.9531936128,
-                        0.9999898596,
-                        9551L,
-                        9120L,
-                        9120L,
-                        0.9101796407,
-                        1L,
-                        1.0,
-                        4L
-                ),
-                qidCombination(
-                        List.of(
-                                "age_at_diagnosis",
-                                "date_of_diagnosis",
-                                "superinfection_uncomplicated_phase",
-                                "symptoms_in_recovery_phase"
-                        ),
-                        0.9559880240,
-                        0.9999905967,
-                        9579L,
-                        9167L,
-                        9167L,
-                        0.9148702595,
-                        1L,
-                        1.0,
-                        4L
-                ),
-                qidCombination(
-                        List.of(
-                                "age_at_diagnosis",
-                                "date_of_diagnosis",
-                                "superinfection_complicated_phase",
-                                "symptoms_in_recovery_phase"
-                        ),
-                        0.9580838323,
-                        0.9999913139,
-                        9600L,
-                        9195L,
-                        9195L,
-                        0.9176646707,
-                        1L,
-                        1.0,
-                        4L
-                )
-        ));
+        replaceQidCombinations(table, leossQidCombinations());
 
         datasetRepository.save(leoss);
     }
@@ -299,7 +254,69 @@ public class DemoDatasetEvidenceSeeder implements CommandLineRunner {
         });
     }
 
-    private static Map<String, DataType> leossAttributes() {
+    /** Retained minimal Candidate QID combinations with their precomputed equivalence-class statistics. */
+    static List<QidCombinationEvidence> leossQidCombinations() {
+        return List.of(
+                qidCombination(
+                        List.of(
+                                "age_at_diagnosis",
+                                "date_of_diagnosis",
+                                "superinfection_uncomplicated_phase",
+                                "superinfection_complicated_phase"
+                        ),
+                        0.9531936128,
+                        0.9999898596,
+                        9551L,
+                        9120L,
+                        9120L,
+                        0.9101796407,
+                        1L,
+                        1.0,
+                        4L
+                ),
+                qidCombination(
+                        List.of(
+                                "age_at_diagnosis",
+                                "date_of_diagnosis",
+                                "superinfection_uncomplicated_phase",
+                                "symptoms_in_recovery_phase"
+                        ),
+                        0.9559880240,
+                        0.9999905967,
+                        9579L,
+                        9167L,
+                        9167L,
+                        0.9148702595,
+                        1L,
+                        1.0,
+                        4L
+                ),
+                qidCombination(
+                        List.of(
+                                "age_at_diagnosis",
+                                "date_of_diagnosis",
+                                "superinfection_complicated_phase",
+                                "symptoms_in_recovery_phase"
+                        ),
+                        0.9580838323,
+                        0.9999913139,
+                        9600L,
+                        9195L,
+                        9195L,
+                        0.9176646707,
+                        1L,
+                        1.0,
+                        4L
+                )
+        );
+    }
+
+    /**
+     * Schema of the demo Patients table, shared with {@link DataLoader}. Clinical fields with more
+     * than two observed values (e.g. vasopressor or superinfection categories) are categorical
+     * strings, not booleans.
+     */
+    static Map<String, DataType> leossAttributes() {
         Map<String, DataType> attributes = new LinkedHashMap<>();
         attributes.put("insurance_number", DataType.STRING);
         attributes.put("age_at_diagnosis", DataType.INTEGER);
@@ -309,18 +326,18 @@ public class DemoDatasetEvidenceSeeder implements CommandLineRunner {
         attributes.put("complicated_phase", DataType.BOOLEAN);
         attributes.put("critical_phase", DataType.BOOLEAN);
         attributes.put("recovery_phase", DataType.BOOLEAN);
-        attributes.put("vasopressors_in_complicated_phase", DataType.BOOLEAN);
-        attributes.put("vasopressors_in_critical_phase", DataType.BOOLEAN);
-        attributes.put("invasive_ventilation_in_critical_phase", DataType.BOOLEAN);
-        attributes.put("superinfection_uncomplicated_phase", DataType.BOOLEAN);
-        attributes.put("superinfection_complicated_phase", DataType.BOOLEAN);
-        attributes.put("superinfection_critical_phase", DataType.BOOLEAN);
+        attributes.put("vasopressors_in_complicated_phase", DataType.STRING);
+        attributes.put("vasopressors_in_critical_phase", DataType.STRING);
+        attributes.put("invasive_ventilation_in_critical_phase", DataType.STRING);
+        attributes.put("superinfection_uncomplicated_phase", DataType.STRING);
+        attributes.put("superinfection_complicated_phase", DataType.STRING);
+        attributes.put("superinfection_critical_phase", DataType.STRING);
         attributes.put("symptoms_in_recovery_phase", DataType.STRING);
         attributes.put("last_known_patient_status", DataType.STRING);
         return attributes;
     }
 
-    private static Map<String, AttributeEvidence> leossStatistics() {
+    static Map<String, AttributeEvidence> leossStatistics() {
         return mapOfStats(
                 stat("insurance_number", 10020L, 10020L, 0L, 0,
                         10020L, 1, 10020L, 10020L, 1,
@@ -460,7 +477,7 @@ public class DemoDatasetEvidenceSeeder implements CommandLineRunner {
         );
     }
 
-    private record AttributeEvidence(
+    record AttributeEvidence(
             String name,
             Long recordCount,
             Long analysedRecordCount,
@@ -479,7 +496,7 @@ public class DemoDatasetEvidenceSeeder implements CommandLineRunner {
     ) {
     }
 
-    private record QidCombinationEvidence(
+    record QidCombinationEvidence(
             List<String> attributeNames,
             Double distinction,
             Double separation,

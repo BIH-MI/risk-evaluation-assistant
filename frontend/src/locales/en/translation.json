@@ -115,7 +115,20 @@
       "dropzoneDrag": "Drag & drop CSV files here, or click to select",
       "dropzoneOr": "— OR —",
       "addManualTable": "Add Empty Table Manually",
-      "examples": "Examples"
+      "examples": "Examples",
+      "processingQueued": "Waiting to process {{name}}…",
+      "processingReading": "Reading {{name}}…",
+      "processingProfilingRows": "Profiling {{rows}} rows of {{name}}…",
+      "processingProfiling": "Profiling {{name}}…",
+      "processingQid": "Running QID discovery for {{name}}…",
+      "processingPreparing": "Preparing preview of {{name}}…",
+      "processing": "Processing {{name}}…",
+      "processingHint": "Parsing and profiling run in the background. Large files may take a moment.",
+      "subjectKeyUpdating": "Replicability subject key: updating…",
+      "subjectKeyAutoDetected": "Replicability subject key: {{field}} (auto-detected).",
+      "subjectKeySelected": "Replicability subject key: {{field}}.",
+      "subjectKeyRepeated": "{{repeated}} of {{subjects}} subjects have repeated observations.",
+      "subjectKeyNoRepeats": "No subject has repeated observations."
     },
     "directIdentifiers": {
       "includedTitle": "Potential direct identifiers are still included:",
@@ -140,7 +153,10 @@
       "evidenceSources": {
         "fieldName": "field name",
         "valuePattern": "value pattern"
-      }
+      },
+      "autoExcludedConfirmed": "Automatically excluded from QID discovery because this field is a confirmed Direct Identifier ({{concept}}).",
+      "autoExcludedPotential": "Automatically excluded from QID discovery because this field appears to be a potential identifier.",
+      "autoExcludedConfirmedNoConcept": "Automatically excluded from QID discovery because this field is a confirmed Direct Identifier."
     },
     "longitudinal": {
       "subjectKeyLabel": "Subject grouping key",

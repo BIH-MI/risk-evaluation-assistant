@@ -63,11 +63,18 @@ export function buildEquivalenceClassSizeEvidenceRows(quantitative, t) {
     .map(({ label, value }) => ({ label, value: formatMetricNumber(value) }));
 }
 
+// Empirical Replicability cannot be computed for this data type by design; saying so is not
+// decision-support evidence, so it is neither listed nor enough to show the evidence icon.
+const NON_INFORMATIVE_UNAVAILABLE_REASONS = new Set(["unsupported_data_type"]);
+
 export function hasEmpiricalEvidenceDetails(empirical) {
   if (!empirical) return false;
 
   if (empirical.available === false) {
-    return hasEvidenceValue(empirical.reason);
+    return (
+      hasEvidenceValue(empirical.reason) &&
+      !NON_INFORMATIVE_UNAVAILABLE_REASONS.has(empirical.reason)
+    );
   }
 
   return (

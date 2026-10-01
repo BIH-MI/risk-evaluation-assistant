@@ -52,10 +52,13 @@ import static java.util.Map.entry;
 public class DataLoader implements CommandLineRunner {
 
     private static final String DEMO_CREATOR = "user";
-    private static final String LEOSS_DATASET_NAME = "LEOSS Public Use File";
+    private static final String LEOSS_DATASET_NAME = DemoDatasetEvidenceSeeder.LEOSS_DATASET_NAME;
     private static final String ACADEMIC_RECIPIENT_NAME = "Academic Research Institute";
     private static final String COMMERCIAL_RECIPIENT_NAME = "Commercial Partner";
     private static final String PUBLIC_RECIPIENT_NAME = "Public Open Data Portal";
+    static final String AGREEMENT_PENDING_RECIPIENT_NAME = "Swiss Research Institute";
+    static final String AGREEMENT_PENDING_ACTIVITY_NAME = "LEOSS / Swiss Research Institute, DTUA pending (SPHN)";
+    static final String SECURE_ENVIRONMENT_ASSESSMENT_NAME = "Academic Research Institute – Secure Environment (SPHN)";
     private static final String EL_EMAM_DATASET_ASSESSMENT_NAME = "LEOSS Assessment (El Emam)";
     private static final String SPHN_DATASET_ASSESSMENT_NAME = "LEOSS Assessment (SPHN)";
     // Allows deployments and tests to opt out of creating demo records.
@@ -154,6 +157,78 @@ public class DataLoader implements CommandLineRunner {
                 sphnConfig, sphnDatasetAssessment, sphnRecipientAssessment,
                 null
         );
+
+        createAgreementPendingScenario(sphnConfig, sphnDatasetAssessment);
+        getOrCreateSecureEnvironmentAssessment(baseRecipients.get(0), sphnConfig);
+    }
+
+    /**
+     * Dedicated SPHN assessment of the academic recipient for the Secure Analysis Environment
+     * activity (created by {@link ProjectTemplateDemoSeeder}); see
+     * {@link DemoAssessmentAnswers#SPHN_SECURE_ENVIRONMENT}.
+     */
+    private RecipientAssessment getOrCreateSecureEnvironmentAssessment(Recipient academic, Configuration sphnConfig) {
+        return findRecipientAssessment(academic, SECURE_ENVIRONMENT_ASSESSMENT_NAME).orElseGet(() -> {
+            RecipientAssessment created = new RecipientAssessment();
+            created.setRecipient(academic);
+            applyConfiguration(created, sphnConfig);
+            created.setCreatorUsername(DEMO_CREATOR);
+            created.setName(SECURE_ENVIRONMENT_ASSESSMENT_NAME);
+            created.setAnswers(new ArrayList<>());
+            created = recipientAssessmentRepository.save(created);
+            applyAnswers(created, recipientQuestions(sphnConfig), DemoAssessmentAnswers.SPHN_SECURE_ENVIRONMENT);
+            academic.getAssessments().add(created);
+            return created;
+        });
+    }
+
+    /**
+     * SPHN reference scenario in which a proposed context control visibly moves the context-risk
+     * matrix: the data-transfer and use agreement is not yet executed, so the CIT-01/CIT-02
+     * high-risk triggers force Controls to LOW. It is assessed under SPHN only.
+     */
+    private void createAgreementPendingScenario(Configuration sphnConfig, DatasetAssessment sphnDatasetAssessment) {
+        Recipient institute = findRecipientByNormalizedName(AGREEMENT_PENDING_RECIPIENT_NAME)
+                .orElseGet(() -> {
+                    Recipient recipient = new Recipient();
+                    recipient.setCreatorUsername(DEMO_CREATOR);
+                    recipient.setName(AGREEMENT_PENDING_RECIPIENT_NAME);
+                    recipient.setOrganization("Swiss Research Institute");
+                    recipient.setDescription("Swiss academic research institute with IT security policies, staff confidentiality "
+                            + "and BioMedIT-compliant processing; its data-transfer and use agreement is not yet executed.");
+                    return recipientRepository.save(recipient);
+                });
+
+        String assessmentName = AGREEMENT_PENDING_RECIPIENT_NAME + " (SPHN)";
+        RecipientAssessment assessment = findRecipientAssessment(institute, assessmentName).orElseGet(() -> {
+            RecipientAssessment created = new RecipientAssessment();
+            created.setRecipient(institute);
+            applyConfiguration(created, sphnConfig);
+            created.setCreatorUsername(DEMO_CREATOR);
+            created.setName(assessmentName);
+            created.setAnswers(new ArrayList<>());
+            created = recipientAssessmentRepository.save(created);
+            applyAnswers(created, recipientQuestions(sphnConfig), DemoAssessmentAnswers.SPHN_AGREEMENT_PENDING);
+            institute.getAssessments().add(created);
+            return created;
+        });
+
+        ensureDemoDataSharingActivity(
+                AGREEMENT_PENDING_ACTIVITY_NAME,
+                "Controlled transfer to a Swiss research institute under SPHN before the DTUA is signed. CIT-01/CIT-02 "
+                        + "force Controls to LOW; the planner projects the effect of executing the agreement.",
+                sphnDatasetAssessment,
+                assessment,
+                new HashSet<>(Set.of("anna.mueller")),
+                null
+        );
+    }
+
+    private List<Question> recipientQuestions(Configuration config) {
+        return config.getQuestions().stream()
+                .filter(q -> q.getCategory() != null && "RECIPIENT_ASSESSMENT".equals(q.getCategory().getAssessmentPhase()))
+                .sorted(Comparator.comparing(Question::getId, Comparator.nullsLast(Long::compareTo)))
+                .toList();
     }
 
     /**
@@ -166,6 +241,7 @@ public class DataLoader implements CommandLineRunner {
      */
     private Dataset getOrCreateLeossDataset() {
         return findDatasetByNormalizedName(LEOSS_DATASET_NAME)
+                .or(() -> findDatasetByNormalizedName(DemoDatasetEvidenceSeeder.LEGACY_LEOSS_DATASET_NAME))
                 .orElseGet(this::createLeossDataset);
     }
 
@@ -173,7 +249,8 @@ public class DataLoader implements CommandLineRunner {
         Dataset leoss = new Dataset();
         leoss.setCreatorUsername(DEMO_CREATOR);
         leoss.setName(LEOSS_DATASET_NAME);
-        leoss.setDescription("Lean European Open Survey on SARS-CoV-2-Infected Patients (anonymized PUF)");
+        leoss.setDescription("Illustrative dataset inspired by the Lean European Open Survey on SARS-CoV-2-Infected Patients (LEOSS). "
+                + "Schema, assessments and statistics are synthetic demo values, not measurements of the real LEOSS Public Use File.");
         leoss.setSharedUsernames(new HashSet<>(Set.of("anna.mueller", "max.mustermann", "sophie.becker")));
         leoss = datasetRepo.save(leoss);
 
@@ -182,25 +259,9 @@ public class DataLoader implements CommandLineRunner {
         patients.setCreatorUsername(DEMO_CREATOR);
         patients.setDataset(leoss);
 
-        // LinkedHashMap preserves the display/order of attributes in the sample
-        // table, which makes seeded assessments and UI inspection predictable.
-        Map<String, DataType> attributes = new LinkedHashMap<>();
-        attributes.put("insurance_number", DataType.STRING);
-        attributes.put("age_at_diagnosis", DataType.INTEGER);
-        attributes.put("gender", DataType.STRING);
-        attributes.put("date_of_diagnosis", DataType.DATETIME);
-        attributes.put("uncomplicated_phase", DataType.BOOLEAN);
-        attributes.put("complicated_phase", DataType.BOOLEAN);
-        attributes.put("critical_phase", DataType.BOOLEAN);
-        attributes.put("recovery_phase", DataType.BOOLEAN);
-        attributes.put("vasopressors_in_complicated_phase", DataType.BOOLEAN);
-        attributes.put("vasopressors_in_critical_phase", DataType.BOOLEAN);
-        attributes.put("invasive_ventilation_in_critical_phase", DataType.BOOLEAN);
-        attributes.put("superinfection_uncomplicated_phase", DataType.BOOLEAN);
-        attributes.put("superinfection_complicated_phase", DataType.BOOLEAN);
-        attributes.put("superinfection_critical_phase", DataType.BOOLEAN);
-        attributes.put("symptoms_in_recovery_phase", DataType.STRING);
-        attributes.put("last_known_patient_status", DataType.STRING);
+        // One schema definition shared with DemoDatasetEvidenceSeeder so both seeders agree on
+        // attribute names, order and data types.
+        Map<String, DataType> attributes = DemoDatasetEvidenceSeeder.leossAttributes();
 
         for (Map.Entry<String, DataType> entry : attributes.entrySet()) {
             patients.getAttributes().add(new DatasetTableAttribute(patients, entry.getKey(), entry.getValue()));
@@ -294,60 +355,12 @@ public class DataLoader implements CommandLineRunner {
         }
 
         for (Question q : questions) {
-            String preferredAnswer = findAnswerForQuestion(q, predefinedAnswers);
-            QuestionOption opt = findOption(q, preferredAnswer);
+            QuestionOption opt = SeedAnswerResolver.optionFor(q, SeedAnswerResolver.answerFor(q, predefinedAnswers));
 
             Answer ans = new Answer(assessment, q, opt);
             ans = answerRepo.save(ans);
             assessment.getAnswers().add(ans);
         }
-    }
-
-    /**
-     * Selects the configured seed answer for a question by matching the
-     * question text against the map keys.
-     *
-     * <p>Every question in the seeded assessment must have a matching entry.
-     * Failing fast here is intentional: if a question label or code changes in a
-     * configuration JSON, the sample data should be reviewed rather than silently
-     * choosing a wrong option.</p>
-     */
-    private String findAnswerForQuestion(Question question, Map<String, String> predefinedAnswers) {
-        String questionText = question.getText() == null ? "" : question.getText().toLowerCase(Locale.ROOT);
-
-        return predefinedAnswers.entrySet().stream()
-                .filter(entry -> questionText.contains(entry.getKey().toLowerCase(Locale.ROOT)))
-                .map(Map.Entry::getValue)
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "No predefined seed answer for question '" + question.getText() + "'."
-                ));
-    }
-
-    /**
-     * Resolves the selected {@link QuestionOption} from the answer text.
-     *
-     * <p>Exact option text is preferred. Partial matching is kept as a pragmatic
-     * fallback for long labels in the configuration files, while still throwing
-     * an exception if no option can be identified.</p>
-     */
-    private QuestionOption findOption(Question q, String preferredText) {
-        if (q.getOptions() == null || q.getOptions().isEmpty()) {
-            return null;
-        }
-
-        String normalizedPreferredText = preferredText == null ? "" : preferredText.trim().toLowerCase(Locale.ROOT);
-
-        return q.getOptions().stream()
-                .filter(opt -> opt.getText() != null && opt.getText().trim().equalsIgnoreCase(preferredText))
-                .findFirst()
-                .or(() -> q.getOptions().stream()
-                        .filter(opt -> opt.getText() != null
-                                && opt.getText().toLowerCase(Locale.ROOT).contains(normalizedPreferredText))
-                        .findFirst())
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "No option matching '" + preferredText + "' for question '" + q.getText() + "'."
-                ));
     }
 
     /**
@@ -369,7 +382,7 @@ public class DataLoader implements CommandLineRunner {
         applyConfiguration(da, config);
         applyDefaultAttributeScoringSystem(da);
         da.setName(EL_EMAM_DATASET_ASSESSMENT_NAME);
-        da.setDescription("Invasion-of-Privacy answers for the LEOSS Public Use File (No critical triggers applied).");
+        da.setDescription("Illustrative Invasion-of-Privacy answers for the LEOSS-inspired demo dataset. No IMPACT high-risk trigger is selected.");
         da.setCreatorUsername(DEMO_CREATOR);
         da = assessmentRepo.save(da);
 
@@ -380,19 +393,7 @@ public class DataLoader implements CommandLineRunner {
                 .sorted(Comparator.comparing(Question::getId, Comparator.nullsLast(Long::compareTo)))
                 .toList();
 
-        Map<String, String> answers = Map.ofEntries(
-                entry("highly detailed", "no"),
-                entry("database is large", "yes"),
-                entry("highly sensitive personal nature", "no"),
-                entry("sensitive context", "no"),
-                entry("conditions that were established", "n/a"),
-                entry("commitment or promise not to disclose", "no"),
-                entry("caveat stating", "no"),
-                entry("compiled or obtained under guarantees", "no"),
-                entry("unsolicited or given freely", "no"),
-                entry("foreign laws", "no"),
-                entry("potential injury", "no")
-        );
+        Map<String, String> answers = DemoAssessmentAnswers.EL_EMAM_DATASET;
 
         applyAnswers(da, datasetQuestions, answers);
         applyLeossAttributeAssessment(dataset, da);
@@ -420,7 +421,8 @@ public class DataLoader implements CommandLineRunner {
         applyConfiguration(da, config);
         applyDefaultAttributeScoringSystem(da);
         da.setName(SPHN_DATASET_ASSESSMENT_NAME);
-        da.setDescription("SPHN Data Risk evaluation mapped for the LEOSS Public Use File (No critical triggers applied).");
+        da.setDescription("Illustrative SPHN data-risk answers for the LEOSS-inspired demo dataset. The original age is kept "
+                + "(D-09, a high-risk trigger) and diagnosis dates are shifted by up to 90 days (D-06).");
         da.setCreatorUsername(DEMO_CREATOR);
         da = assessmentRepo.save(da);
 
@@ -431,31 +433,7 @@ public class DataLoader implements CommandLineRunner {
                 .sorted(Comparator.comparing(Question::getId, Comparator.nullsLast(Long::compareTo)))
                 .toList();
 
-        Map<String, String> answers = Map.ofEntries(
-                entry("[d-01]", "replaced by plausible"),
-                entry("[d-02]", "no mapping table is kept"),
-                entry("[d-03]", "not use"),
-                entry("[d-04]", "not used"),
-                entry("[d-05]", "not used"),
-                entry("[d-06]", "within +/- 90 days"),
-                entry("[d-07]", "Only the year"),
-                entry("[d-08]", "not used"),
-                entry("[d-09]", "groups of 5"),
-                entry("[d-10]", "not used"),
-                entry("[d-11]", "generalized to the region"),
-                entry("[d-12]", "not used"),
-                entry("[d-13]", "not used"),
-                entry("[m-01]", "no audio data"),
-                entry("[m-02]", "no images"),
-                entry("[dcm-01]", "suppressed"),
-                entry("[dcm-02]", "suppressed"),
-                entry("[dcm-03]", "suppressed"),
-                entry("[dcm-04]", "suppressed"),
-                entry("[dcm-05]", "suppressed"),
-                entry("[dcm-06]", "suppressed"),
-                entry("[g-01]", "no genomic"),
-                entry("[o-01]", "no other quasi")
-        );
+        Map<String, String> answers = DemoAssessmentAnswers.SPHN_DATASET;
 
         // Persist one answer per SPHN data-risk question.
         applyAnswers(da, datasetQuestions, answers);
@@ -466,6 +444,21 @@ public class DataLoader implements CommandLineRunner {
 
         dataset.getDatasetAssessments().add(da);
         return assessmentRepo.save(da);
+    }
+
+    /** Seed answers are chosen by the recipient's exact demo name, never by a name fragment. */
+    private Map<String, String> answersForRecipient(
+            Recipient recipient,
+            Map<String, String> academic,
+            Map<String, String> commercial,
+            Map<String, String> publicRelease
+    ) {
+        return switch (recipient.getName()) {
+            case ACADEMIC_RECIPIENT_NAME -> academic;
+            case COMMERCIAL_RECIPIENT_NAME -> commercial;
+            case PUBLIC_RECIPIENT_NAME -> publicRelease;
+            default -> throw new IllegalStateException("No demo answers for recipient '" + recipient.getName() + "'.");
+        };
     }
 
     private void applyDefaultAttributeScoringSystem(DatasetAssessment assessment) {
@@ -515,7 +508,9 @@ public class DataLoader implements CommandLineRunner {
                     recipient.setCreatorUsername(DEMO_CREATOR);
                     recipient.setName(COMMERCIAL_RECIPIENT_NAME);
                     recipient.setOrganization("HealthTech Solutions Ltd.");
-                    recipient.setDescription("A commercial partner with standard security controls but potential commercial motives.");
+                    recipient.setDescription("Commercial health-technology partner processing the data outside Switzerland under "
+                            + "contractual safeguards; its project team includes hospital-affiliated staff with EHR access, "
+                            + "and it has commercial motives.");
                     return recipientRepository.save(recipient);
                 });
         recipients.add(commercial);
@@ -562,98 +557,11 @@ public class DataLoader implements CommandLineRunner {
             ra.setAnswers(new ArrayList<>());
             ra = recipientAssessmentRepository.save(ra);
 
-            Map<String, String> answers;
+            Map<String, String> answers = answersForRecipient(recipient,
+                    DemoAssessmentAnswers.EL_EMAM_ACADEMIC,
+                    DemoAssessmentAnswers.EL_EMAM_COMMERCIAL,
+                    DemoAssessmentAnswers.EL_EMAM_PUBLIC);
 
-            if (recipient.getName().contains("Academic")) {
-                // Highly trusted academic environment
-                answers = Map.ofEntries(
-                        entry("Access rights", "yes"),
-                        entry("worked/collaborated", "yes"),
-                        entry("forbids the recipient", "yes"),
-                        entry("enforceable in all jurisdictions", "yes"),
-                        entry("surprise audits", "yes"),
-                        entry("regular third party privacy", "yes"),
-                        entry("strong limits linking", "yes"),
-                        entry("written privacy policy", "yes"),
-                        entry("person responsible for privacy", "yes"),
-                        entry("confidentiality agreement", "yes"),
-                        entry("threat and risk assessment", "yes"),
-                        entry("Strong security procedures", "yes"),
-                        entry("sufficiently trained", "yes"),
-                        entry("access and changes", "yes"),
-                        entry("User accounts", "yes"),
-                        entry("breach notification", "yes"),
-                        entry("physically secure", "yes"),
-                        entry("no public access", "yes"),
-                        entry("destroyed once", "yes"),
-                        entry("commercial or criminal value", "no"),
-                        entry("non-commercial motive", "no"),
-                        entry("technical expertise", "no"),
-                        entry("financial resources", "no"),
-                        entry("harm or embarrass", "no"),
-                        entry("other means apart", "yes")
-                );
-            } else if (recipient.getName().contains("Commercial")) {
-                // Commercial partner: adequate legal controls, but clear motive and capability.
-                answers = Map.ofEntries(
-                        entry("Access rights", "yes"),
-                        entry("worked/collaborated", "no"),
-                        entry("forbids the recipient", "yes"),
-                        entry("enforceable in all jurisdictions", "yes"),
-                        entry("surprise audits", "no"),
-                        entry("regular third party privacy", "no"),
-                        entry("strong limits linking", "yes"),
-                        entry("written privacy policy", "yes"),
-                        entry("person responsible for privacy", "yes"),
-                        entry("confidentiality agreement", "yes"),
-                        entry("threat and risk assessment", "yes"),
-                        entry("Strong security procedures", "yes"),
-                        entry("sufficiently trained", "yes"),
-                        entry("access and changes", "yes"),
-                        entry("User accounts", "yes"),
-                        entry("breach notification", "yes"),
-                        entry("physically secure", "yes"),
-                        entry("no public access", "yes"),
-                        entry("destroyed once", "yes"),
-                        entry("commercial or criminal value", "yes"),
-                        entry("non-commercial motive", "no"),
-                        entry("technical expertise", "yes"),
-                        entry("financial resources", "yes"),
-                        entry("harm or embarrass", "no"),
-                        entry("other means apart", "yes")
-                );
-            } else {
-                // Public release: intentionally weak contextual controls and broad attack opportunity.
-                answers = Map.ofEntries(
-                        entry("Access rights", "no"),
-                        entry("worked/collaborated", "no"),
-                        entry("forbids the recipient", "no"),
-                        entry("enforceable in all jurisdictions", "no"),
-                        entry("surprise audits", "no"),
-                        entry("regular third party privacy", "no"),
-                        entry("strong limits linking", "no"),
-                        entry("written privacy policy", "no"),
-                        entry("person responsible for privacy", "no"),
-                        entry("confidentiality agreement", "no"),
-                        entry("threat and risk assessment", "no"),
-                        entry("Strong security procedures", "no"),
-                        entry("sufficiently trained", "no"),
-                        entry("access and changes", "no"),
-                        entry("User accounts", "no"),
-                        entry("breach notification", "no"),
-                        entry("physically secure", "no"),
-                        entry("no public access", "no"),
-                        entry("destroyed once", "no"),
-                        entry("commercial or criminal value", "yes"),
-                        entry("non-commercial motive", "yes"),
-                        entry("technical expertise", "yes"),
-                        entry("financial resources", "yes"),
-                        entry("harm or embarrass", "no"),
-                        entry("other means apart", "no")
-                );
-            }
-
-            // Use the existing helper to map the strings to the exact Option IDs
             applyAnswers(ra, recipientQuestions, answers);
             recipient.getAssessments().add(ra);
 
@@ -689,74 +597,11 @@ public class DataLoader implements CommandLineRunner {
             ra.setAnswers(new ArrayList<>());
             ra = recipientAssessmentRepository.save(ra);
 
-            Map<String, String> answers;
+            Map<String, String> answers = answersForRecipient(recipient,
+                    DemoAssessmentAnswers.SPHN_ACADEMIC,
+                    DemoAssessmentAnswers.SPHN_COMMERCIAL,
+                    DemoAssessmentAnswers.SPHN_PUBLIC);
 
-            if (recipient.getName().contains("Academic")) {
-                // Highly trusted academic environment: Very strict IT compliance, low contextual exposure
-                answers = Map.ofEntries(
-                        entry("[c-01]", "switzerland"),
-                        entry("[c-02]", "no health-related"),
-                        entry("[c-03]", "100 to 1.000 patients"),
-                        entry("[c-04]", "25 to 100 datapoints"),
-                        entry("[c-05]", "no"),
-                        entry("[c-06]", "not affiliated"),
-                        entry("[c-07]", "no"),
-                        entry("[cit-01]", "yes"),
-                        entry("[cit-02]", "yes"),
-                        entry("[cit-03]", "yes"),
-                        entry("[cit-04]", "yes"),
-                        entry("[cit-05]", "yes"),
-                        entry("[cit-06]", "yes"),
-                        entry("[cit-07]", "yes"),
-                        entry("[cit-08]", "biomedit"),
-                        entry("[cit-09]", "yes"),
-                        entry("[cit-10]", "yes")
-                );
-            } else if (recipient.getName().contains("Commercial")) {
-                // Commercial partner: strong controls, but elevated likelihood because hospital-affiliated staff have EHR access.
-                answers = Map.ofEntries(
-                        entry("[c-01]", "with adequate safeguards"),
-                        entry("[c-02]", "no health-related"),
-                        entry("[c-03]", "100 to 1.000"),
-                        entry("[c-04]", "25 to 100"),
-                        entry("[c-05]", "no"),
-                        entry("[c-06]", "WITH access"),
-                        entry("[c-07]", "no"),
-                        entry("[cit-01]", "yes"),
-                        entry("[cit-02]", "yes"),
-                        entry("[cit-03]", "no"),
-                        entry("[cit-04]", "no"),
-                        entry("[cit-05]", "yes"),
-                        entry("[cit-06]", "yes"),
-                        entry("[cit-07]", "yes"),
-                        entry("[cit-08]", "hospital it"),
-                        entry("[cit-09]", "yes"),
-                        entry("[cit-10]", "yes")
-                );
-            } else {
-                // Public release: weak/no contractual controls and high contextual exposure.
-                answers = Map.ofEntries(
-                        entry("[c-01]", "without adequate safeguards"),
-                        entry("[c-02]", "less than one in 2.000"),
-                        entry("[c-03]", "1.000 to 5.000"),
-                        entry("[c-04]", "100 to 1000"),
-                        entry("[c-05]", "yes"),
-                        entry("[c-06]", "WITH access"),
-                        entry("[c-07]", "yes"),
-                        entry("[cit-01]", "no"),
-                        entry("[cit-02]", "no"),
-                        entry("[cit-03]", "no"),
-                        entry("[cit-04]", "no"),
-                        entry("[cit-05]", "no"),
-                        entry("[cit-06]", "no"),
-                        entry("[cit-07]", "no"),
-                        entry("[cit-08]", "private computer"),
-                        entry("[cit-09]", "no"),
-                        entry("[cit-10]", "no")
-                );
-            }
-
-            // Apply answers using the overloaded helper method
             applyAnswers(ra, recipientQuestions, answers);
             recipient.getAssessments().add(ra);
 
@@ -783,7 +628,9 @@ public class DataLoader implements CommandLineRunner {
         // Scenario 1: Academic evaluated under SPHN
         ensureDemoDataSharingActivity(
                 "LEOSS / Academic Labs (SPHN)",
-                "Sharing COVID-19 tabular data with a trusted university lab. Evaluated under the strict SPHN framework.",
+                "Sharing the demo COVID-19 table with a trusted university lab under the SPHN framework. All contractual and IT "
+                        + "controls are in place, yet Likelihood is HIGH because SPHN treats a cohort of more than 5,000 patients "
+                        + "(C-03) as a high-risk trigger.",
                 sphnDA,
                 sphnRAs.get(0),
                 new HashSet<>(Set.of("anna.mueller")),
@@ -808,7 +655,8 @@ public class DataLoader implements CommandLineRunner {
         // Scenario 5: Public Release evaluated under El Emam
         ensureDemoDataSharingActivity(
                 "LEOSS / Open Data Portal (El Emam)",
-                "Public data release evaluated using the El Emam Risk Exposure Model. Highlights high context and threat risk.",
+                "Public data release evaluated using the El Emam Risk Exposure Model. No recipient-side control can be established "
+                        + "for an open download, so only data transformations remain as mitigation options.",
                 elEmamDA,
                 elEmamRAs.get(2),
                 Collections.emptySet(),
@@ -818,7 +666,8 @@ public class DataLoader implements CommandLineRunner {
         // Scenario 6: Public Release evaluated under SPHN
         ensureDemoDataSharingActivity(
                 "LEOSS / Open Data Portal (SPHN)",
-                "Evaluating a totally open data release against the strict clinical IT and contextual standards of the SPHN framework.",
+                "Open data release evaluated under the SPHN framework. Recipient-oriented control questions are answered \"No\" "
+                        + "because no identified recipient exists; only data transformations remain as mitigation options.",
                 sphnDA,
                 sphnRAs.get(2),
                 Collections.emptySet(),
@@ -843,7 +692,9 @@ public class DataLoader implements CommandLineRunner {
         // Scenario 8: Commercial evaluated under SPHN
         ensureDemoDataSharingActivity(
                 "LEOSS / HealthTech Solutions (SPHN)",
-                "Commercial data sharing agreement evaluated under the SPHN framework, with strong controls but elevated likelihood due to hospital-affiliated staff with EHR access.",
+                "Commercial transfer under SPHN. Controls are already HIGH and Likelihood is held HIGH by C-03 (cohort size) "
+                        + "and C-06 (staff with EHR access), which have no configured mitigation, so adding audit rights does "
+                        + "not change P_attack.",
                 sphnDA,
                 sphnRAs.get(1),
                 new HashSet<>(Set.of("max.mustermann", "sophie.becker")),

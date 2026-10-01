@@ -6,6 +6,13 @@ import {
   refreshUploadedTableProfile,
 } from "qidDiscovery";
 import { applySchemaDirectIdentifierEvidence } from "qidDiscovery/directIdentifierPolicy";
+import {
+  elapsedMs,
+  isProfilingDiagnosticsEnabled,
+  logProfiling,
+  logProfilingError,
+  nowMs,
+} from "qidDiscovery/profilingDiagnostics";
 
 const hasOwn = (object, key) =>
   Object.prototype.hasOwnProperty.call(object, key);
@@ -98,9 +105,39 @@ export function useDatasetTableProfiling({ tables, setTables, setErrors, t }) {
 
   const profileTable = useCallback(
     async (file, tableId, qidDiscoveryConfiguration) => {
+      const logDiagnostics = isProfilingDiagnosticsEnabled();
+      const startedAt = nowMs();
+      logProfiling(logDiagnostics, file.name, "Profiling started", { tableId });
+
+      // Transient UI state for this table only; never part of the dataset payload.
+      const onProgress = ({ stage, rows, columns }) => {
+        setTables((currentTables) =>
+          currentTables.map((table) =>
+            table._localTableId === tableId && table.isParsing
+              ? {
+                  ...table,
+                  processingStage: stage,
+                  processingRowCount: rows ?? table.processingRowCount,
+                  processingColumnCount: columns ?? table.processingColumnCount,
+                }
+              : table
+          )
+        );
+      };
+
       try {
         const { profilingSession, ...profiledTable } =
-          await profileUploadedTable(file, { qidDiscoveryConfiguration });
+          await profileUploadedTable(file, { qidDiscoveryConfiguration, onProgress });
+
+        logProfiling(logDiagnostics, file.name, "Profiling completed", {
+          tableId,
+          rows: profiledTable.rows,
+          columns: profiledTable.headers?.length ?? 0,
+          processingMode: profiledTable.qidProcessingMode,
+          qidSearchMode: profiledTable.qidSearchMode,
+          combinations: profiledTable.qidCombinations?.length ?? 0,
+          totalDurationMs: elapsedMs(startedAt),
+        });
 
         setTables((currentTables) =>
           currentTables.map((table) =>
@@ -116,11 +153,17 @@ export function useDatasetTableProfiling({ tables, setTables, setErrors, t }) {
                   isParsing: false,
                   isProfiling: false,
                   isManual: false,
+                  processingStage: "complete",
                 }
               : table
           )
         );
       } catch (error) {
+        logProfilingError(file.name, "Profiling failed", {
+          tableId,
+          error: error?.message,
+          durationMs: elapsedMs(startedAt),
+        });
         if (!getTable(tableId)) return;
 
         setProfilingError(error);

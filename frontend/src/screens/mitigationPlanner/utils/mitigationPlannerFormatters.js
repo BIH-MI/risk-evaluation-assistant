@@ -94,6 +94,13 @@ export const formatCompatibility = (compatibility) =>
 export const formatRiskDriverPriority = (priority) =>
   RISK_DRIVER_PRIORITY_LABELS[priority] || humanizeCode(priority);
 
+/** "Attribute: a" / "Attributes: a, b"; empty when there are no names. */
+export function formatAttributeList(attributeNames = []) {
+  if (attributeNames.length === 0) return "";
+  const prefix = attributeNames.length === 1 ? "Attribute" : "Attributes";
+  return `${prefix}: ${attributeNames.join(", ")}`;
+}
+
 
 export function compatibilityColor(compatibility) {
   if (compatibility === "COMPATIBLE") return "success";
@@ -240,7 +247,7 @@ export function formatCategoryOutcome(outcome) {
     case "HIGH_RISK_TRIGGERS_REMAIN":
       return `${name} remains ${band} because ${responseCount(outcome.remainingHighRiskTriggerCount)}.`;
     case "SAME_SCORE_BAND":
-      return `The selected controls improve ${name} responses, but the recalculated score remains within the same configured ${name} band (${band}).`;
+      return `The projected controls change ${name} answers, but the recalculated score stays in the same configured ${name} band (${band}).`;
     case "NOT_ADDRESSED":
       return `${name} remains ${band}; no selected control changes its responses.`;
     default:
@@ -248,14 +255,41 @@ export function formatCategoryOutcome(outcome) {
   }
 }
 
-/** Explanation shown under the matrix when the baseline and plan markers share one cell. */
+/**
+ * Explanation shown under the matrix when the baseline and plan markers share one cell. Every
+ * context category contributes its own backend reason, so a category that stays in the same band
+ * and a category held by a remaining high-risk trigger are both explained.
+ */
 export function formatUnchangedMatrixPosition(outcomes = []) {
-  const triggerOutcomes = outcomes.filter((outcome) => outcome.reason === "HIGH_RISK_TRIGGERS_REMAIN");
+  const reasons = outcomes.map(formatCategoryOutcome).filter(Boolean);
   const detail =
-    triggerOutcomes.length > 0
-      ? triggerOutcomes
-          .map((outcome) => `${categoryName(outcome)} remains ${outcome.projectedBand || "—"} because ${responseCount(outcome.remainingHighRiskTriggerCount)}`)
-          .join("; ")
-      : "The recalculated questionnaire score remains within the same configured risk bands";
-  return `Context-risk matrix position unchanged. ${detail}.`;
+    reasons.length > 0
+      ? reasons.join(" ")
+      : "The recalculated questionnaire score remains within the same configured risk bands.";
+  return `Context-risk matrix position unchanged. ${detail}`;
+}
+
+// Backend plan status. None of them means safe or approved.
+const PLAN_STATUS_LABELS = {
+  READY_FOR_REVIEW: "Ready for review",
+  EVALUATION_REQUIRED: "Evaluation required",
+  INCOMPATIBLE: "Incompatible",
+  INVALID: "Invalid",
+};
+
+const PLAN_STATUS_HELP = {
+  READY_FOR_REVIEW:
+    "No open evaluation item remains. The plan still needs human review and approval; it is not a statement that sharing is safe.",
+  EVALUATION_REQUIRED: "At least one open item must be evaluated before the plan can be reviewed.",
+  INCOMPATIBLE: "A hard Project requirement is not met.",
+  INVALID: "The plan cannot be evaluated as configured.",
+};
+
+export const formatPlanStatus = (status) => PLAN_STATUS_LABELS[status] || humanizeCode(status);
+export const planStatusHelp = (status) => PLAN_STATUS_HELP[status] || "";
+
+export function planStatusColor(status) {
+  if (status === "READY_FOR_REVIEW") return "success";
+  if (status === "INCOMPATIBLE" || status === "INVALID") return "error";
+  return "warning";
 }

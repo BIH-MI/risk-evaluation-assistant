@@ -14,6 +14,7 @@ import {
 import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
 import { EstimateText } from "./PlannerPrimitives";
+import PlanStatusChip from "./PlanStatusChip";
 import ProjectConstraintChip from "./ProjectConstraintChip";
 import { formatPlanCost, formatPlanSetup, formatStrategy } from "../utils/mitigationPlannerFormatters";
 
@@ -28,7 +29,7 @@ export default function CandidatePlanTable({ plans, selectedPlanKey, onSelect })
 
   return (
     <TableContainer sx={{ overflowX: "auto" }}>
-      <Table size="small" sx={{ minWidth: 640 }} aria-label={t("mitigationPlanner.plans.title", "Candidate mitigation plans")}>
+      <Table size="small" sx={{ minWidth: 720 }} aria-label={t("mitigationPlanner.plans.title", "Candidate mitigation plans")}>
         <TableHead>
           <TableRow>
             <TableCell>{t("mitigationPlanner.plans.plan", "Plan")}</TableCell>
@@ -36,6 +37,7 @@ export default function CandidatePlanTable({ plans, selectedPlanKey, onSelect })
             <TableCell>{t("mitigationPlanner.plans.cost", "Estimated cost")}</TableCell>
             <TableCell>{t("mitigationPlanner.plans.time", "Estimated setup")}</TableCell>
             <TableCell>{t("mitigationPlanner.plans.projectConstraints", "Project Constraints")}</TableCell>
+            <TableCell>{t("mitigationPlanner.plans.status", "Status")}</TableCell>
             <TableCell padding="checkbox">{t("mitigationPlanner.plans.select", "Select")}</TableCell>
           </TableRow>
         </TableHead>
@@ -48,7 +50,7 @@ export default function CandidatePlanTable({ plans, selectedPlanKey, onSelect })
                     {label}
                   </RATypography>
                   {recommended && (
-                    <Chip size="small" color="primary" label={t("mitigationPlanner.plans.recommended", "Recommended")} />
+                    <Chip size="small" color="primary" label={t("mitigationPlanner.plans.recommended", "Recommended by policy")} />
                   )}
                 </RABox>
               </TableCell>
@@ -57,6 +59,9 @@ export default function CandidatePlanTable({ plans, selectedPlanKey, onSelect })
               <TableCell><EstimateText text={formatPlanSetup(evaluation.setupEstimate)} /></TableCell>
               <TableCell>
                 <ProjectConstraintChip result={evaluation.projectConstraintResult} />
+              </TableCell>
+              <TableCell>
+                <PlanStatusChip status={evaluation.status} />
               </TableCell>
               <TableCell padding="checkbox">
                 <Radio

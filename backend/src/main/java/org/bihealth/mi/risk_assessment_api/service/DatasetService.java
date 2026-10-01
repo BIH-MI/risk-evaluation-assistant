@@ -95,8 +95,7 @@ public class DatasetService {
                 .orElseThrow(() -> new EntityNotFoundException("Dataset not found: " + id));
 
         // Dataset edits are allowed for admins, owners, and explicitly shared users.
-        if (!isAdmin && !existing.getCreatorUsername().equals(username)
-                && !existing.getSharedUsernames().contains(username)) {
+        if (!canEditDataset(existing, username, isAdmin)) {
             throw new SecurityException("Not owner of dataset");
         }
 
@@ -242,8 +241,7 @@ public class DatasetService {
                 .orElseThrow(() -> new EntityNotFoundException("Dataset not found: " + id));
 
         // Dataset deletion follows the same access rule as updates.
-        if (!isAdmin && !ds.getCreatorUsername().equals(username)
-                && !ds.getSharedUsernames().contains(username)) {
+        if (!canEditDataset(ds, username, isAdmin)) {
             throw new SecurityException("Not owner of dataset");
         }
 
@@ -253,5 +251,15 @@ public class DatasetService {
                 .ifPresent(lockRepository::delete);
 
         datasetRepository.delete(ds);
+    }
+
+    /**
+     * Dataset read and write rule: owner, explicitly shared users, and admins (shared users may
+     * edit datasets). Non-throwing, e.g. for edit locks. Dataset Assessments use the same rule.
+     */
+    public boolean canEditDataset(Dataset dataset, String username, boolean isAdmin) {
+        return isAdmin
+                || Objects.equals(dataset.getCreatorUsername(), username)
+                || (dataset.getSharedUsernames() != null && dataset.getSharedUsernames().contains(username));
     }
 }

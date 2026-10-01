@@ -165,6 +165,40 @@ export const buildDirectIdentifierOverrideWarning = (t, column, excluded) => {
 };
 
 /**
+ * Short reason why an attribute was automatically excluded from QID discovery, for the attribute
+ * table's info tooltip. Text only: it reads the existing evidence and decision flags and never
+ * changes the exclusion decision.
+ *
+ * @returns {string|null} null unless the attribute is currently excluded by the automatic
+ *   Direct Identifier policy (manual exclusions and overridden decisions return null).
+ */
+export function describeExclusionDecision(t, column = {}) {
+  const automatic =
+    column.excluded === true &&
+    column.autoExcludedDirectIdentifier === true &&
+    column.directIdentifierExclusionOverridden !== true;
+  if (!automatic) return null;
+
+  if (isHighConfidenceDirectIdentifierColumn(column)) {
+    const concept = getDirectIdentifierConceptLabel(t, column.directIdentifierEvidence?.concept);
+    return concept
+      ? t(
+          "datasets.directIdentifiers.autoExcludedConfirmed",
+          "Automatically excluded from QID discovery because this field is a confirmed Direct Identifier ({{concept}}).",
+          { concept }
+        )
+      : t(
+          "datasets.directIdentifiers.autoExcludedConfirmedNoConcept",
+          "Automatically excluded from QID discovery because this field is a confirmed Direct Identifier."
+        );
+  }
+  return t(
+    "datasets.directIdentifiers.autoExcludedPotential",
+    "Automatically excluded from QID discovery because this field appears to be a potential identifier."
+  );
+}
+
+/**
  * Applies initial exclusion defaults from Direct Identifier evidence while
  * preserving explicit user overrides. This is where generic IDs become excluded
  * by default without being promoted to HIGH-confidence Direct Identifiers.

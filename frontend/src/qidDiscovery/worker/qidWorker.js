@@ -6,6 +6,7 @@ import {
   createColumnMetaFromFields,
 } from "../profiling/profilingSource";
 import { CSV_PREVIEW_ROW_LIMIT, profileTableFromSource } from "../qidProfiler";
+import { elapsedMs, logProfiling, nowMs } from "../profilingDiagnostics";
 
 const sessions = new Map();
 let nextSessionCounter = 0;
@@ -50,26 +51,64 @@ function parseCsvFile(file) {
  * profiling source, runs QID combination search, stores transient profiling
  * and cache state in this worker, and returns aggregate results plus the
  * limited preview rows required by PreviewTable.
+ *
+ * `reportStage` posts metadata-only stage updates (never row values) so the
+ * UI can say what is currently happening.
  */
-async function profileTable({
-  file,
-  previewRowLimit = CSV_PREVIEW_ROW_LIMIT,
-  qidDiscoveryConfiguration,
-  options,
-}) {
+async function profileTable(
+  {
+    file,
+    previewRowLimit = CSV_PREVIEW_ROW_LIMIT,
+    qidDiscoveryConfiguration,
+    options,
+    logDiagnostics = false,
+  },
+  requestId,
+  reportStage
+) {
+  const fileName = file?.name;
+  const log = (message, details) =>
+    logProfiling(logDiagnostics, fileName, message, { requestId, ...details });
+
+  reportStage({ stage: "parsing" });
+  let startedAt = nowMs();
   const { rows, fields } = await parseCsvFile(file);
+  log("CSV parsed", {
+    rows: rows.length,
+    columns: fields.length,
+    durationMs: elapsedMs(startedAt),
+  });
+
   const parsedPreviewRowLimit = Number(previewRowLimit);
   const safePreviewRowLimit = Number.isFinite(parsedPreviewRowLimit)
     ? Math.max(0, parsedPreviewRowLimit)
     : CSV_PREVIEW_ROW_LIMIT;
   const sessionId = createSessionId(file?.name);
   const columnMeta = createColumnMetaFromFields(fields);
+
+  reportStage({ stage: "profiling", rows: rows.length, columns: fields.length });
+  startedAt = nowMs();
   const profilingSource = buildProfilingSource(rows, columnMeta, {
     subjectKeySourceField: options?.subjectKeySourceField || null,
   });
+  log("Profiling source built", {
+    rows: rows.length,
+    columns: fields.length,
+    durationMs: elapsedMs(startedAt),
+  });
+
+  // Column statistics, Direct Identifier evidence and QID search run in one call.
+  reportStage({ stage: "qid-discovery", rows: rows.length, columns: fields.length });
+  startedAt = nowMs();
   const profile = profileTableFromSource(profilingSource, columnMeta, options);
+  log("Statistics and QID discovery completed", {
+    mode: profile.qidSearchMode,
+    combinations: profile.qidCombinations?.length ?? 0,
+    durationMs: elapsedMs(startedAt),
+  });
 
   sessions.set(sessionId, profilingSource);
+  reportStage({ stage: "preparing", rows: rows.length, columns: fields.length });
 
   return {
     name: file.name,
@@ -126,7 +165,9 @@ globalThis.onmessage = async ({ data }) => {
     let response;
 
     if (type === "PROFILE_TABLE") {
-      response = await profileTable(payload);
+      response = await profileTable(payload, requestId, (progress) =>
+        globalThis.postMessage({ requestId, progress })
+      );
     } else if (type === "REFRESH_TABLE_PROFILE") {
       response = refreshTableProfile(payload);
     } else if (type === "DISPOSE_PROFILING_SESSION") {

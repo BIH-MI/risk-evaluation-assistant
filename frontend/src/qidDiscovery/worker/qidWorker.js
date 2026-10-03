@@ -47,9 +47,9 @@ function parseCsvFile(file) {
 
 /**
  * Parses the uploaded File inside the QID worker, builds the reusable
- * profiling source, runs QID combination search, stores transient profiling
- * and cache state in this worker, and returns aggregate results plus the
- * limited preview rows required by PreviewTable.
+ * profiling source, calculates aggregate Distinguishability evidence, stores
+ * transient profiling and cache state in this worker, and returns aggregate
+ * results plus the limited preview rows required by PreviewTable.
  */
 async function profileTable({
   file,
@@ -64,9 +64,7 @@ async function profileTable({
     : CSV_PREVIEW_ROW_LIMIT;
   const sessionId = createSessionId(file?.name);
   const columnMeta = createColumnMetaFromFields(fields);
-  const profilingSource = buildProfilingSource(rows, columnMeta, {
-    subjectKeySourceField: options?.subjectKeySourceField || null,
-  });
+  const profilingSource = buildProfilingSource(rows, columnMeta, options);
   const profile = profileTableFromSource(profilingSource, columnMeta, options);
 
   sessions.set(sessionId, profilingSource);
@@ -77,12 +75,7 @@ async function profileTable({
     headers: fields,
     data: rows.slice(0, safePreviewRowLimit),
     columnMeta: profile.columnMeta,
-    qidCombinations: profile.qidCombinations,
-    qidSearchMode: profile.qidSearchMode,
-    subjectKeySourceField: profile.subjectKeySourceField,
-    subjectKeyAutoDetected: profile.subjectKeyAutoDetected,
-    suggestedSubjectKeySourceFields: profile.suggestedSubjectKeySourceFields,
-    repeatedMeasurementSummary: profile.repeatedMeasurementSummary,
+    subsetProfilingSummary: profile.subsetProfilingSummary,
     profilingSession: {
       type: "worker",
       sessionId,
@@ -94,7 +87,7 @@ async function profileTable({
 
 /**
  * Reuses an existing worker-local profiling source after schema edits. This
- * refresh does not rescan rows and keeps the session-level combination cache.
+ * refresh does not rescan rows and keeps the session-level subset cache.
  */
 function refreshTableProfile({ sessionId, columnMeta, options }) {
   const profilingSource = sessions.get(sessionId);
@@ -109,8 +102,8 @@ function refreshTableProfile({ sessionId, columnMeta, options }) {
 /**
  * Worker-local cache invalidation handler.
  *
- * Disposes transient encoded columns, partitions, rowGroupIds, and evaluated
- * combination cache entries for a table profiling session.
+ * Disposes transient encoded columns, partitions, rowGroupIds, and cached
+ * subset entries for a table profiling session.
  */
 function disposeProfilingSession({ sessionId }) {
   sessions.delete(sessionId);

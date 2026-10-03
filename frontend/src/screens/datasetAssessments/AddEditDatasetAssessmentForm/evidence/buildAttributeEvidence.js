@@ -1,6 +1,5 @@
 import {
   buildDistinguishabilityQuantitativeEvidence,
-  buildReplicabilityEmpiricalEvidence,
 } from "./metricEvidence";
 import {
   ATTRIBUTE_EVIDENCE_DIMENSIONS,
@@ -21,13 +20,6 @@ function buildDimensionEvidence({
     historical: historicalEvidence,
     semantic: semanticEvidence?.[dimension] || null,
   };
-
-  if (dimension === "replicability") {
-    return {
-      empirical: buildReplicabilityEmpiricalEvidence(attribute),
-      ...baseEvidence,
-    };
-  }
 
   if (dimension === "distinguishability") {
     return {

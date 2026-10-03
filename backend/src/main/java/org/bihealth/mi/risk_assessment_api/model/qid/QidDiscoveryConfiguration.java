@@ -21,9 +21,9 @@ import java.util.Optional;
 /**
  * Mutable root record for administrator-managed QID discovery profiles.
  *
- * <p>Search behavior is stored in immutable child versions. Dataset profiling
- * persists the selected version so later edits do not silently change the
- * provenance of generated QID combination results.</p>
+ * <p>Profiling limits are stored in immutable child versions. Dataset
+ * profiling persists the selected version so later edits do not silently
+ * change the provenance of generated Distinguishability evidence.</p>
  */
 @Getter
 @Setter

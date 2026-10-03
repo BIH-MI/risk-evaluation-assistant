@@ -52,8 +52,8 @@ public class Dataset extends NamedResourceEntity {
     private List<DatasetTable> tables = new ArrayList<>();
 
     /**
-     * A profiling session retains the selected QID configuration version so later
-     * schema refreshes cannot silently change search behavior.
+     * A profiling session retains the selected QID configuration version so
+     * later schema refreshes cannot silently change profiling limits.
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "qid_discovery_configuration_id")

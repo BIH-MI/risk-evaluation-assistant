@@ -97,7 +97,6 @@ function buildEditAttributeRow(
 
 export function groupAssessmentAttributes(attributes = []) {
   const directIdentifiers = [];
-  const candidateQids = [];
   const remaining = [];
 
   attributes.forEach((attribute, originalIndex) => {
@@ -111,20 +110,11 @@ export function groupAssessmentAttributes(attributes = []) {
       return;
     }
 
-    if (
-      Array.isArray(row.candidateQidCombinations) &&
-      row.candidateQidCombinations.length > 0
-    ) {
-      candidateQids.push(row);
-      return;
-    }
-
     remaining.push(row);
   });
 
   return [
     ...directIdentifiers,
-    ...candidateQids,
     ...remaining,
   ].map(({ _originalOrder, ...attribute }) => attribute);
 }

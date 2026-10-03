@@ -1,171 +1,174 @@
 import React from "react";
+import { Tooltip } from "@mui/material";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
 import {
   EvidenceMetricRow,
   EvidenceSection,
+  evidenceTooltipComponentsProps,
 } from "./EvidencePrimitives";
 import {
-  buildEquivalenceClassSizeEvidenceRows,
-  formatMethod,
   formatMetricNumber,
-  formatUnavailableReason,
-  hasEmpiricalEvidenceDetails,
   hasEvidenceValue,
   hasQuantitativeEvidenceDetails,
-  titleCaseToken,
 } from "./evidenceUtils";
 
-function StatisticalEvidence({ evidence, field, t }) {
-  const metricRows = [];
-  let equivalenceClassRows = [];
-  const empirical = field === "replicability" ? evidence.empirical : null;
-  const quantitative =
-    field === "distinguishability" ? evidence.quantitative : null;
+function metricRowsFromValues(rows) {
+  return rows
+    .filter(([, value]) => hasEvidenceValue(value))
+    .map(([label, value]) => ({
+      label,
+      value: formatMetricNumber(value),
+    }));
+}
 
-  if (hasEmpiricalEvidenceDetails(empirical)) {
-    if (empirical.available === false) {
-      metricRows.push({
-        label: t("datasetAssessments.evidence.unavailable", "Unavailable"),
-        value: formatUnavailableReason(empirical.reason),
-      });
-    } else {
-      [
-        [
-          t("datasetAssessments.evidence.score", "Score"),
-          empirical.score,
-          formatMetricNumber,
-        ],
-        [
-          t("datasetAssessments.evidence.method", "Method"),
-          empirical.method,
-          formatMethod,
-        ],
-        [
-          t(
-            "datasetAssessments.evidence.validComparisons",
-            "Valid comparisons"
-          ),
-          empirical.comparisonCount,
-          formatMetricNumber,
-        ],
-        [
-          t(
-            "datasetAssessments.evidence.repeatedSubjects",
-            "Repeated subjects"
-          ),
-          empirical.repeatedSubjectCount,
-          formatMetricNumber,
-        ],
-        [
-          t(
-            "datasetAssessments.evidence.repeatedSubjectFraction",
-            "Repeated subject fraction"
-          ),
-          empirical.repeatedSubjectFraction,
-          formatMetricNumber,
-        ],
-        [
-          t("datasetAssessments.evidence.analysisUnit", "Analysis unit"),
-          empirical.analysisUnit,
-          titleCaseToken,
-        ],
-      ].forEach(([label, value, formatter]) => {
-        if (hasEvidenceValue(value)) {
-          metricRows.push({ label, value: formatter(value) });
-        }
-      });
-    }
-  }
+function EvidenceRows({ rows }) {
+  return rows.map(({ label, value }) => (
+    <EvidenceMetricRow key={`${label}:${value}`} label={label} value={value} />
+  ));
+}
 
-  if (hasQuantitativeEvidenceDetails(quantitative)) {
+function IndividualAttributeEvidence({ individual, t }) {
+  const rows = metricRowsFromValues([
     [
-      [
-        t("datasetAssessments.evidence.distinction", "Distinction"),
-        quantitative.distinction,
-      ],
-      [
-        t("datasetAssessments.evidence.separation", "Separation"),
-        quantitative.separation,
-      ],
-      [
-        t(
-          "datasetAssessments.evidence.singletonFraction",
-          "Singleton fraction"
-        ),
-        quantitative.singletonFraction,
-      ],
-    ].forEach(([label, value]) => {
-      if (hasEvidenceValue(value)) {
-        metricRows.push({ label, value: formatMetricNumber(value) });
-      }
-    });
+      t("datasetAssessments.evidence.distinction", "Distinction"),
+      individual?.distinction,
+    ],
+    [
+      t("datasetAssessments.evidence.separation", "Separation"),
+      individual?.separation,
+    ],
+    [
+      t("datasetAssessments.evidence.singletonFraction", "Singleton fraction"),
+      individual?.singletonFraction,
+    ],
+  ]);
 
-    equivalenceClassRows = buildEquivalenceClassSizeEvidenceRows(
-      quantitative,
-      t
-    );
-  }
-
-  if (!metricRows.length && !equivalenceClassRows.length) return null;
-
-  const sectionTitle =
-    field === "replicability"
-      ? t(
-          "datasetAssessments.evidence.empiricalReplicability",
-          "Empirical Replicability"
-        )
-      : t(
-          "datasetAssessments.evidence.statisticalEvidence",
-          "Statistical Evidence"
-        );
+  if (!rows.length) return null;
 
   return (
-    <EvidenceSection title={sectionTitle}>
-      {metricRows.map(({ label, value }) => (
-        <EvidenceMetricRow
-          key={`${label}:${value}`}
-          label={label}
-          value={value}
-        />
-      ))}
-      {equivalenceClassRows.length > 0 && (
-        <RABox
+    <RABox sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+      <RATypography
+        variant="caption"
+        color="white"
+        fontWeight="bold"
+        display="block"
+        sx={{ fontSize: "0.72rem", lineHeight: 1.3, opacity: 0.9 }}
+      >
+        {t("datasetAssessments.evidence.individualAttribute", "Individual attribute")}
+      </RATypography>
+      <EvidenceRows rows={rows} />
+    </RABox>
+  );
+}
+
+function ContextualEvidenceHeading({ t }) {
+  const title = t(
+    "datasetAssessments.evidence.combinationWithOtherAttributes",
+    "In combination with other attributes"
+  );
+  const description = t(
+    "datasetAssessments.evidence.combinationWithOtherAttributesInfo",
+    "Averages across evaluated subsets containing this attribute, with each subset size weighted equally."
+  );
+
+  return (
+    <RABox
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 0.5,
+        minWidth: 0,
+      }}
+    >
+      <RATypography
+        variant="caption"
+        color="white"
+        fontWeight="bold"
+        display="block"
+        sx={{
+          fontSize: "0.72rem",
+          lineHeight: 1.3,
+          opacity: 0.9,
+          overflowWrap: "anywhere",
+        }}
+      >
+        {title}
+      </RATypography>
+      <Tooltip
+        arrow
+        placement="top"
+        componentsProps={evidenceTooltipComponentsProps}
+        title={description}
+      >
+        <InfoOutlinedIcon
+          aria-label={description}
+          tabIndex={0}
           sx={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 0.5,
-            mt: 0.5,
-            minWidth: 0,
+            flex: "0 0 auto",
+            fontSize: 13,
+            color: "white",
+            cursor: "help",
+            opacity: 0.72,
           }}
-        >
-          <RATypography
-            variant="caption"
-            color="white"
-            fontWeight="bold"
-            display="block"
-            sx={{
-              fontSize: "0.72rem",
-              lineHeight: 1.3,
-              opacity: 0.9,
-              overflowWrap: "anywhere",
-            }}
-          >
-            {t(
-              "datasetAssessments.evidence.equivalenceClasses",
-              "Equivalence classes"
-            )}
-          </RATypography>
-          {equivalenceClassRows.map(({ label, value }) => (
-            <EvidenceMetricRow
-              key={`equivalence:${label}:${value}`}
-              label={label}
-              value={value}
-            />
-          ))}
-        </RABox>
+        />
+      </Tooltip>
+    </RABox>
+  );
+}
+
+function ContextualAttributeEvidence({ overall, t }) {
+  const rows = metricRowsFromValues([
+    [
+      t("datasetAssessments.evidence.averageDistinction", "Average Distinction"),
+      overall?.meanDistinction,
+    ],
+    [
+      t("datasetAssessments.evidence.averageSeparation", "Average Separation"),
+      overall?.meanSeparation,
+    ],
+  ]);
+
+  if (!rows.length) return null;
+
+  return (
+    <RABox sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+      <ContextualEvidenceHeading t={t} />
+      <EvidenceRows rows={rows} />
+    </RABox>
+  );
+}
+
+function QuantitativeDistinguishabilityEvidence({ quantitative, t }) {
+  if (!hasQuantitativeEvidenceDetails(quantitative)) return null;
+
+  const subsetContext = quantitative.subsetContext;
+
+  return (
+    <EvidenceSection
+      title={t(
+        "datasetAssessments.evidence.quantitativeDistinguishabilityEvidence",
+        "Quantitative Distinguishability Evidence"
       )}
+    >
+      <IndividualAttributeEvidence
+        individual={quantitative.individual}
+        t={t}
+      />
+      <ContextualAttributeEvidence overall={subsetContext?.overall} t={t} />
     </EvidenceSection>
+  );
+}
+
+function StatisticalEvidence({ evidence, field, t }) {
+  if (field !== "distinguishability") return null;
+
+  return (
+    <QuantitativeDistinguishabilityEvidence
+      quantitative={evidence.quantitative}
+      t={t}
+    />
   );
 }
 

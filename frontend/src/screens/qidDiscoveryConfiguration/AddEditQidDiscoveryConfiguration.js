@@ -17,12 +17,8 @@ import {
   updateQidDiscoveryConfigurationApi,
 } from "api/qidDiscoveryConfigurations";
 
-import BeamSearchSection from "./components/BeamSearchSection";
-import CandidateRankingSection from "./components/CandidateRankingSection";
 import ConfigurationDetailsSection from "./components/ConfigurationDetailsSection";
-import ResultRetentionSection from "./components/ResultRetentionSection";
-import SearchStrategySection from "./components/SearchStrategySection";
-import SearchTargetsSection from "./components/SearchTargetsSection";
+import SubsetProfilingSection from "./components/SubsetProfilingSection";
 import {
   emptyQidDiscoveryConfigurationForm,
   hasQidConfigurationFormErrors,
@@ -107,11 +103,11 @@ export default function AddEditQidDiscoveryConfiguration() {
     }));
   }, []);
 
-  const updateSearchField = useCallback((field, value) => {
+  const updateProfilingField = useCallback((field, value) => {
     setForm((previous) => ({
       ...previous,
-      search: {
-        ...previous.search,
+      profiling: {
+        ...previous.profiling,
         [field]: value,
       },
     }));
@@ -173,9 +169,6 @@ export default function AddEditQidDiscoveryConfiguration() {
     );
   }
 
-  const searchType = form.search.searchType;
-  const usesBeam = searchType === "AUTOMATIC" || searchType === "BEAM";
-
   return (
     <RABox
       component="form"
@@ -209,40 +202,11 @@ export default function AddEditQidDiscoveryConfiguration() {
         showErrors={showErrors}
         onChange={updateField}
       />
-      <SearchStrategySection
-        search={form.search}
-        errors={validationErrors.search}
+      <SubsetProfilingSection
+        profiling={form.profiling}
+        errors={validationErrors.profiling}
         showErrors={showErrors}
-        onChange={updateSearchField}
-      />
-      {usesBeam && (
-        <BeamSearchSection
-          search={form.search}
-          errors={validationErrors.search}
-          showErrors={showErrors}
-          onChange={updateSearchField}
-          searchType={searchType}
-        />
-      )}
-      <SearchTargetsSection
-        search={form.search}
-        errors={validationErrors.search}
-        showErrors={showErrors}
-        onChange={updateSearchField}
-        searchType={searchType}
-      />
-      <CandidateRankingSection
-        search={form.search}
-        errors={validationErrors.search}
-        showErrors={showErrors}
-        onChange={updateSearchField}
-        searchType={searchType}
-      />
-      <ResultRetentionSection
-        search={form.search}
-        errors={validationErrors.search}
-        showErrors={showErrors}
-        onChange={updateSearchField}
+        onChange={updateProfilingField}
       />
 
       <RABox display="flex" justifyContent="center" mt={2}>

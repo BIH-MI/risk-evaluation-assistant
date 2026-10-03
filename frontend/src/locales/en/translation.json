@@ -99,9 +99,11 @@
     "add": {
       "title": "Add New Dataset",
       "dataTablesPreview": "Data Tables Preview",
-      "directIdentifierInstruction": "Direct identifiers and generic ID-like fields detected automatically are excluded by default. Please review the attributes and adjust QID candidacy with the corresponding checkbox in the Excluded column. Direct identifiers should be removed at this stage before continuing.",
       "createButton": "Create Dataset",
       "parsing": "Parsing {{name}}...",
+      "subsetProfilingUpdating": "Profiling Distinguishability evidence...",
+      "subsetProfilingSummary": "{{subsetCount}} attribute subsets evaluated across {{attributeCount}} eligible attributes.",
+      "noSubsetProfilingRequired": "No multi-attribute subset profiling was required.",
       "newTable": "New Table",
       "newTableCounter": "New Table ({{counter}})",
       "newAttribute": "New Attribute",
@@ -119,7 +121,7 @@
       "reviewAction": "These attributes have ambiguous identifier evidence; review whether they should remain included.",
       "potentialIdentifier": "Potential identifier",
       "overrideWarning": "The attribute '{{attribute}}' was automatically detected as a likely direct identifier.",
-      "overrideGuidance": "Direct identifiers should normally be excluded before quantitative QID analysis and dataset assessment.",
+      "overrideGuidance": "Direct identifiers should normally be excluded before quantitative Distinguishability profiling and dataset assessment.",
       "detectedAs": "Detected as: {{concept}}.",
       "evidence": "Evidence: {{sources}}.",
       "concepts": {
@@ -130,6 +132,7 @@
         "NATIONAL_IDENTIFIER": "National identifier",
         "PASSPORT": "Passport number",
         "MEDICAL_RECORD_NUMBER": "Medical record number",
+        "HEALTH_INSURANCE_IDENTIFIER": "Health insurance identifier",
         "IP_ADDRESS": "IP address"
       },
       "evidenceSources": {
@@ -137,13 +140,7 @@
         "valuePattern": "value pattern"
       }
     },
-    "longitudinal": {
-      "subjectKeyLabel": "Subject grouping key",
-      "subjectKeyNone": "No subject grouping",
-      "subjectKeySuggested": "Suggested: {{field}}",
-      "subjectKeyHelper": "Select only after confirming this field groups repeated measurements.",
-      "suggested": "suggested"
-    }
+    "longitudinal": {}
   },
   "datasetAssessments": {
     "attributesTable": {
@@ -166,6 +163,12 @@
     "evidence": {
       "info": "Evidence",
       "statisticalEvidence": "Statistical Evidence",
+      "quantitativeDistinguishabilityEvidence": "Quantitative Distinguishability Evidence",
+      "individualAttribute": "Individual attribute",
+      "combinationWithOtherAttributes": "In combination with other attributes",
+      "combinationWithOtherAttributesInfo": "Averages across evaluated subsets containing this attribute, with each subset size weighted equally.",
+      "averageDistinction": "Average Distinction",
+      "averageSeparation": "Average Separation",
       "unavailable": "Unavailable",
       "replicabilityUnavailable": "Empirical Replicability unavailable:",
       "replicabilityEvidence": "Replicability evidence",
@@ -175,13 +178,7 @@
       "validComparisons": "Valid comparisons",
       "distinction": "Distinction",
       "separation": "Separation",
-      "equivalenceClassSize": "Equiv. class size",
-      "minimumShort": "min",
-      "maximumShort": "max",
       "singletonFraction": "Singleton fraction",
-      "minimumEquivalenceClassSize": "Minimum equivalence class size",
-      "medianEquivalenceClassSize": "Median equivalence class size",
-      "maximumEquivalenceClassSize": "Maximum equivalence class size",
       "historicalEvidence": "Historical Evidence",
       "previousAssessment": "Previous assessment",
       "historicalValue": "Historical value",
@@ -190,8 +187,6 @@
       "semantic": "Semantic",
       "semanticAvailable": "Evidence available",
       "directIdentifierEvidence": "Direct Identifier Evidence",
-      "candidateQidEvidence": "Candidate QID Evidence",
-      "candidateCombination": "Candidate combination",
       "evidenceSource": "Source",
       "attributeName": "Attribute name",
       "valuePattern": "Value pattern",
@@ -680,71 +675,22 @@
       "version": "Version",
       "active": "Active",
       "default": "Default",
-      "searchType": "QID Search Type",
-      "exactSearchMaxCandidateCount": "Exact Search Maximum Candidate Count",
-      "maxCombinationSize": "Maximum Combination Size",
-      "beamWidth": "Beam Width",
-      "minImprovement": "Minimum Improvement",
-      "stagnationDepthLimit": "Stagnation Depth Limit",
-      "targetDistinction": "Target Distinction",
-      "targetSeparation": "Target Separation",
-      "distinctionWeight": "Distinction Weight",
-      "separationWeight": "Separation Weight",
-      "attributeCountPenalty": "Attribute Count Penalty",
-      "maxPersistedCombinations": "Maximum Retained Combinations"
+      "maxSubsetSize": "Maximum subset size",
+      "maxEvaluatedSubsets": "Maximum evaluated subsets"
     },
-    "searchTypes": {
-      "automatic": "Automatic",
-      "exact": "Exact Level-Wise Search",
-      "beam": "Beam Search"
-    },
-    "searchStrategy": {
-      "title": "Search Strategy",
-      "automaticDescription": "REA automatically selects the search strategy based on the number of eligible candidate attributes. Exact Level-Wise Search is used up to the configured candidate limit; larger candidate sets use Beam Search.",
-      "exactDescription": "Exact Level-Wise Search systematically explores eligible attribute combinations up to the configured maximum combination size. It provides more complete exploration but can become computationally expensive for large candidate sets.",
-      "beamDescription": "Beam Search uses a heuristic search that retains only the highest-ranked candidate combinations at each depth. It is more scalable for large candidate sets but does not evaluate every possible combination.",
-      "exactSearchMaxCandidateCountHelper": "Maximum number of eligible candidate attributes for Exact Level-Wise Search in Automatic mode.",
-      "maxCombinationSizeHelper": "Maximum number of attributes allowed in a searched QID combination."
-    },
-    "beamSearch": {
-      "title": "Beam Search",
-      "automaticDescription": "These settings are used when Automatic search selection chooses Beam Search for a larger candidate set.",
-      "beamDescription": "Beam Search keeps only the highest-ranked candidate combinations at each search depth. A larger beam explores more alternatives but requires more computation.",
-      "beamWidthHelper": "Maximum number of ranked candidate combinations retained for expansion at each search depth.",
-      "minImprovementHelper": "Minimum increase in the best search signal considered meaningful between successive depths.",
-      "stagnationDepthLimitHelper": "Number of consecutive search depths without sufficient improvement before Beam Search stops."
-    },
-    "searchTargets": {
-      "title": "Search Targets",
-      "description": "Search targets determine when an already strong candidate no longer needs to be expanded into larger combinations. Both targets must be reached. These are search-control values, not Distinguishability assessment thresholds.",
-      "targetDistinctionHelper": "Minimum Distinction target used when deciding whether a candidate should be expanded further.",
-      "targetSeparationHelper": "Minimum Separation target used together with Target Distinction when deciding whether a candidate should be expanded further."
-    },
-    "candidateRanking": {
-      "title": "Candidate Ranking",
-      "automaticDescription": "Ranking orders candidate combinations and, when Beam Search is selected, determines which candidates remain available for further expansion.",
-      "exactDescription": "Ranking orders discovered combinations and influences which results are retained. It does not determine which combinations Exact Search evaluates.",
-      "beamDescription": "Ranking determines which candidate combinations remain in the beam and therefore directly influences which search branches are explored.",
-      "distinctionWeightHelper": "Relative contribution of Distinction to the candidate ranking score.",
-      "separationWeightHelper": "Relative contribution of Separation to the candidate ranking score.",
-      "attributeCountPenaltyHelper": "Penalty applied to larger combinations so smaller combinations are preferred when otherwise similarly ranked."
-    },
-    "resultRetention": {
-      "title": "Result Retention",
-      "description": "Controls how many of the discovered aggregate QID combinations are kept after the search completes.",
-      "maxPersistedCombinationsHelper": "Maximum number of aggregate QID combination results retained after discovery. This does not limit how many combinations may be evaluated during the search."
+    "subsetProfiling": {
+      "title": "Subset Profiling",
+      "maxSubsetSizeHelper": "Maximum number of attributes considered together when deriving contextual Distinguishability evidence.",
+      "maxEvaluatedSubsetsHelper": "Safety limit for exhaustive subset profiling. Profiling stops with an error if the requested configuration would exceed this number."
     },
     "errors": {
       "nameRequired": "Name is required.",
       "nameNotUnique": "A QID discovery configuration with this name already exists.",
       "defaultNotActive": "The default QID discovery configuration must be active.",
-      "searchTypeRequired": "QID Search Type is required.",
       "fieldRequired": "{{field}} is required.",
       "fieldInvalidNumber": "{{field}} must be a valid number.",
       "fieldNotInteger": "{{field}} must be an integer.",
-      "fieldBelowMin": "{{field}} must be at least {{min}}.",
-      "fieldAboveMax": "{{field}} must be at most {{max}}.",
-      "weightsCannotBothBeZero": "{{distinctionField}} and {{separationField}} cannot both be 0."
+      "fieldBelowMin": "{{field}} must be at least {{min}}."
     }
   }
 }

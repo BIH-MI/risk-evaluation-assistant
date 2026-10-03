@@ -68,6 +68,16 @@ export const DIRECT_IDENTIFIER_CONCEPTS = {
       "medical_record_num",
     ],
   },
+  HEALTH_INSURANCE_IDENTIFIER: {
+    aliases: [
+      "insurance_number",
+      "insurance_no",
+      "insurance_num",
+      "health_insurance_number",
+      "health_insurance_no",
+      "health_insurance_identifier",
+    ],
+  },
   IP_ADDRESS: {
     aliases: ["ip", "ip_address", "ip_addr", "internet_protocol_address"],
   },
@@ -88,8 +98,8 @@ export const TOKEN_ABBREVIATIONS = {
 // Tokens that mark a field name as ID-like on their own, wherever they appear
 // in the name (e.g. "id_number", "record_id", "IdCode", "uuid"). A match here
 // is weaker than a DIRECT_IDENTIFIER_CONCEPTS alias: it flags the field for
-// review as a potential identifier. Policy excludes these fields from QID
-// search by default, but the evidence itself remains LOW confidence because
+// review as a potential identifier. Policy excludes these fields from subset
+// profiling by default, but the evidence itself remains LOW confidence because
 // "id" alone does not say what kind of identifier it is.
 export const GENERIC_IDENTIFIER_TOKENS = new Set([
   "id",

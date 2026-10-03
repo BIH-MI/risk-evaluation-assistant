@@ -44,25 +44,6 @@ export const formatScaleLabel = (value, field, scoringSystem) => {
   return option?.label || value;
 };
 
-export function buildEquivalenceClassSizeEvidenceRows(quantitative, t) {
-  return [
-    {
-      label: t("datasetAssessments.evidence.minimumShort", "min"),
-      value: quantitative.minimumEquivalenceClassSize,
-    },
-    {
-      label: t("datasetAssessments.evidence.medianShort", "Median"),
-      value: quantitative.medianEquivalenceClassSize,
-    },
-    {
-      label: t("datasetAssessments.evidence.maximumShort", "max"),
-      value: quantitative.maximumEquivalenceClassSize,
-    },
-  ]
-    .filter(({ value }) => hasEvidenceValue(value))
-    .map(({ label, value }) => ({ label, value: formatMetricNumber(value) }));
-}
-
 export function hasEmpiricalEvidenceDetails(empirical) {
   if (!empirical) return false;
 
@@ -83,13 +64,20 @@ export function hasEmpiricalEvidenceDetails(empirical) {
 export function hasQuantitativeEvidenceDetails(quantitative) {
   if (!quantitative) return false;
 
-  return [
+  const individualFields = [
     "distinction",
     "separation",
     "singletonFraction",
-    "minimumEquivalenceClassSize",
-    "maximumEquivalenceClassSize",
-  ].some((field) => hasEvidenceValue(quantitative[field]));
+  ];
+  const overall = quantitative.subsetContext?.overall;
+
+  return (
+    individualFields.some((field) =>
+      hasEvidenceValue(quantitative.individual?.[field])
+    ) ||
+    hasEvidenceValue(overall?.meanDistinction) ||
+    hasEvidenceValue(overall?.meanSeparation)
+  );
 }
 
 export function hasSemanticEvidenceDetails(semantic) {

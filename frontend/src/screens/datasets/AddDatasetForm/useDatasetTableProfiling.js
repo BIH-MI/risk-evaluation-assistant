@@ -7,50 +7,6 @@ import {
 } from "qidDiscovery";
 import { applySchemaDirectIdentifierEvidence } from "qidDiscovery/directIdentifierPolicy";
 
-const hasOwn = (object, key) =>
-  Object.prototype.hasOwnProperty.call(object, key);
-
-const getColumnSourceField = (column = {}) =>
-  column.sourceField || column.field;
-
-const hasColumnSourceField = (columnMeta = [], sourceField) =>
-  Boolean(sourceField) &&
-  columnMeta.some((column) => getColumnSourceField(column) === sourceField);
-
-function getNextSubjectKeySourceField(table, columnMeta, refreshOptions) {
-  const hasSubjectKeyChange = hasOwn(refreshOptions, "subjectKeySourceField");
-  const requestedSubjectKeySourceField = hasSubjectKeyChange
-    ? refreshOptions.subjectKeySourceField || null
-    : table.subjectKeySourceField || null;
-
-  return hasColumnSourceField(columnMeta, requestedSubjectKeySourceField)
-    ? requestedSubjectKeySourceField
-    : null;
-}
-
-function buildEffectiveRefreshOptions(
-  table,
-  refreshOptions,
-  nextSubjectKeySourceField
-) {
-  const hasSubjectKeyChange = hasOwn(refreshOptions, "subjectKeySourceField");
-  const requestedSubjectKeySourceField = hasSubjectKeyChange
-    ? refreshOptions.subjectKeySourceField || null
-    : table.subjectKeySourceField || null;
-
-  if (
-    !hasSubjectKeyChange &&
-    requestedSubjectKeySourceField === nextSubjectKeySourceField
-  ) {
-    return refreshOptions;
-  }
-
-  return {
-    ...refreshOptions,
-    subjectKeySourceField: nextSubjectKeySourceField,
-  };
-}
-
 function applyUnprofiledColumnDefaults(columnMeta = []) {
   return columnMeta.map((column) =>
     applySchemaDirectIdentifierEvidence(column, column.field)
@@ -59,8 +15,9 @@ function applyUnprofiledColumnDefaults(columnMeta = []) {
 
 /**
  * Owns the Add Dataset profiling session lifecycle. Uploaded CSVs are profiled
- * once; later rename, exclusion, datatype, delete, and subject-key changes use
- * cached encoded columns so QID discovery updates without another CSV scan.
+ * once; later rename, exclusion, datatype, and delete changes use cached
+ * encoded columns so Distinguishability evidence updates without another CSV
+ * scan.
  */
 export function useDatasetTableProfiling({ tables, setTables, setErrors, t }) {
   const tablesRef = useRef(tables);
@@ -137,18 +94,6 @@ export function useDatasetTableProfiling({ tables, setTables, setErrors, t }) {
       const table = getTable(tableId);
       if (!table) return;
 
-      const nextSubjectKeySourceField = getNextSubjectKeySourceField(
-        table,
-        nextColumnMeta,
-        refreshOptions
-      );
-      const effectiveRefreshOptions = buildEffectiveRefreshOptions(
-        table,
-        refreshOptions,
-        nextSubjectKeySourceField
-      );
-      const pendingColumnMeta = nextColumnMeta;
-
       if (!table._qidProfilingSession) {
         setTables((currentTables) =>
           currentTables.map((currentTable) =>
@@ -156,10 +101,7 @@ export function useDatasetTableProfiling({ tables, setTables, setErrors, t }) {
               ? {
                   ...currentTable,
                   columnMeta: applyUnprofiledColumnDefaults(nextColumnMeta),
-                  qidCombinations: [],
-                  qidSearchMode: "none",
-                  subjectKeySourceField: nextSubjectKeySourceField,
-                  subjectKeyAutoDetected: false,
+                  subsetProfilingSummary: null,
                 }
               : currentTable
           )
@@ -175,9 +117,8 @@ export function useDatasetTableProfiling({ tables, setTables, setErrors, t }) {
           currentTable._localTableId === tableId
             ? {
                 ...currentTable,
-                columnMeta: pendingColumnMeta,
-                subjectKeySourceField: nextSubjectKeySourceField,
-                subjectKeyAutoDetected: false,
+                columnMeta: nextColumnMeta,
+                subsetProfilingSummary: null,
                 isProfiling: true,
                 _qidRefreshRequestId: requestId,
               }
@@ -187,8 +128,8 @@ export function useDatasetTableProfiling({ tables, setTables, setErrors, t }) {
 
       refreshUploadedTableProfile(
         table._qidProfilingSession,
-        pendingColumnMeta,
-        effectiveRefreshOptions
+        nextColumnMeta,
+        refreshOptions
       )
         .then((profile) => {
           setTables((currentTables) =>
@@ -198,14 +139,7 @@ export function useDatasetTableProfiling({ tables, setTables, setErrors, t }) {
                 ? {
                     ...currentTable,
                     columnMeta: profile.columnMeta,
-                    qidCombinations: profile.qidCombinations,
-                    qidSearchMode: profile.qidSearchMode,
-                    subjectKeySourceField: profile.subjectKeySourceField,
-                    subjectKeyAutoDetected: profile.subjectKeyAutoDetected,
-                    suggestedSubjectKeySourceFields:
-                      profile.suggestedSubjectKeySourceFields,
-                    repeatedMeasurementSummary:
-                      profile.repeatedMeasurementSummary,
+                    subsetProfilingSummary: profile.subsetProfilingSummary,
                     isProfiling: false,
                   }
                 : currentTable
@@ -223,6 +157,7 @@ export function useDatasetTableProfiling({ tables, setTables, setErrors, t }) {
               currentTable._qidRefreshRequestId === requestId
                 ? {
                     ...currentTable,
+                    subsetProfilingSummary: null,
                     isProfiling: false,
                   }
                 : currentTable
@@ -231,18 +166,6 @@ export function useDatasetTableProfiling({ tables, setTables, setErrors, t }) {
         });
     },
     [getTable, setProfilingError, setTables]
-  );
-
-  const changeSubjectKey = useCallback(
-    (tableId, subjectKeySourceField) => {
-      const table = getTable(tableId);
-      if (!table) return;
-
-      refreshTable(tableId, table.columnMeta || [], {
-        subjectKeySourceField: subjectKeySourceField || null,
-      });
-    },
-    [getTable, refreshTable]
   );
 
   const disposeTableProfile = useCallback(
@@ -256,7 +179,6 @@ export function useDatasetTableProfiling({ tables, setTables, setErrors, t }) {
   return {
     profileTable,
     refreshTable,
-    changeSubjectKey,
     disposeTableProfile,
   };
 }

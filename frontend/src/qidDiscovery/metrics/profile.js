@@ -45,18 +45,15 @@ export function buildAttributeStatistics(profile) {
 }
 
 /**
- * Converts a joint equivalence-class partition into aggregate statistics for a
- * searched attribute combination. These statistics may be selected for
- * persistence, but the partition and row group IDs that produced them remain
- * transient browser-local cache state.
+ * Converts a joint equivalence-class partition into aggregate statistics for an
+ * attribute subset. The partition and row group IDs that produced these
+ * statistics remain transient browser-local cache state.
  */
-export function buildCombinationStatistics(
+export function buildSubsetStatistics(
   stableAttributeIds,
   classSizes,
   analysedRecordCount
 ) {
-  // REVIEW(METHOD): Combination-level Distinction captures a joint distribution
-  // that cannot be reconstructed later from individual-attribute statistics.
   const equivalenceClassCount = classSizes.length;
   const { singletonClassCount, singletonRecordCount } =
     summarizeSingletons(classSizes);

@@ -1,6 +1,6 @@
 /**
  * Summarizes the size distribution of equivalence classes for either one
- * profiled attribute or one searched attribute combination.
+ * profiled attribute or one evaluated attribute subset.
  */
 export function summarizeClassSizes(classSizes = []) {
   if (!classSizes.length) {

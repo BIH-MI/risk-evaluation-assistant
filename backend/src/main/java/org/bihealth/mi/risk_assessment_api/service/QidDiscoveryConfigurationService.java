@@ -3,13 +3,12 @@ package org.bihealth.mi.risk_assessment_api.service;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.bihealth.mi.risk_assessment_api.dto.request.qid.QidDiscoveryConfigurationRequestDTO;
-import org.bihealth.mi.risk_assessment_api.dto.request.qid.QidDiscoverySearchConfigurationRequestDTO;
+import org.bihealth.mi.risk_assessment_api.dto.request.qid.QidDiscoveryProfilingConfigurationRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.qid.QidDiscoveryConfigurationResponseDTO;
 import org.bihealth.mi.risk_assessment_api.exception.EntityNameAlreadyExistsException;
 import org.bihealth.mi.risk_assessment_api.model.NamedResourceConstraints;
 import org.bihealth.mi.risk_assessment_api.model.qid.QidDiscoveryConfiguration;
 import org.bihealth.mi.risk_assessment_api.model.qid.QidDiscoveryConfigurationVersion;
-import org.bihealth.mi.risk_assessment_api.model.qid.QidSearchType;
 import org.bihealth.mi.risk_assessment_api.repository.dataset.DatasetRepository;
 import org.bihealth.mi.risk_assessment_api.repository.qid.QidDiscoveryConfigurationRepository;
 import org.bihealth.mi.risk_assessment_api.repository.qid.QidDiscoveryConfigurationVersionRepository;
@@ -21,16 +20,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
  * Lifecycle and validation logic for QID discovery configurations.
  *
- * <p>The persisted search object is the source of truth for profiling. Runtime
- * QID search code must receive one validated version explicitly instead of
- * falling back to local defaults.</p>
+ * <p>The persisted profiling object is the source of truth for browser-side
+ * profiling. Runtime profiling code must receive one validated version
+ * explicitly instead of falling back to local defaults.</p>
  */
 @Service
 @Transactional
@@ -165,7 +163,7 @@ public class QidDiscoveryConfigurationService {
         dto.setDescription(sourceVersion.getDescription());
         dto.setActive(true);
         dto.setDefaultConfiguration(false);
-        dto.setSearch(toRequestSearch(sourceVersion));
+        dto.setProfiling(toRequestProfiling(sourceVersion));
 
         return createConfiguration(dto, username, true);
     }
@@ -270,47 +268,9 @@ public class QidDiscoveryConfigurationService {
             String username,
             int versionNumber
     ) {
-        QidDiscoverySearchConfigurationRequestDTO search = dto.getSearch();
-        if (search == null) {
-            throw new IllegalArgumentException("QID discovery search configuration is required.");
-        }
-
-        QidSearchType searchType = parseSearchType(search.getSearchType());
-        Integer exactSearchMaxCandidateCount = validateOptionalInteger(
-                search.getExactSearchMaxCandidateCount(),
-                "Exact Search Maximum Candidate Count",
-                1
-        );
-        Integer beamWidth = validateOptionalInteger(search.getBeamWidth(), "Beam Width", 1);
-        Double minImprovement = validateOptionalDouble(search.getMinImprovement(), "Minimum Improvement", 0.0);
-        Integer stagnationDepthLimit = validateOptionalInteger(search.getStagnationDepthLimit(), "Stagnation Depth Limit", 1);
-
-        if (searchType == QidSearchType.AUTOMATIC && exactSearchMaxCandidateCount == null) {
-            throw new IllegalArgumentException("Exact Search Maximum Candidate Count is required when QID Search Type is Automatic.");
-        }
-
-        if (searchType == QidSearchType.AUTOMATIC || searchType == QidSearchType.BEAM) {
-            if (beamWidth == null) {
-                throw new IllegalArgumentException("Beam Width is required when Beam Search may be active.");
-            }
-            if (minImprovement == null) {
-                throw new IllegalArgumentException("Minimum Improvement is required when Beam Search may be active.");
-            }
-            if (stagnationDepthLimit == null) {
-                throw new IllegalArgumentException("Stagnation Depth Limit is required when Beam Search may be active.");
-            }
-        }
-
-        Double distinctionWeight = validateRequiredDouble(search.getDistinctionWeight(), "Distinction Weight");
-        Double separationWeight = validateRequiredDouble(search.getSeparationWeight(), "Separation Weight");
-        if (distinctionWeight < 0) {
-            throw new IllegalArgumentException("Distinction Weight must be greater than or equal to 0.");
-        }
-        if (separationWeight < 0) {
-            throw new IllegalArgumentException("Separation Weight must be greater than or equal to 0.");
-        }
-        if (distinctionWeight + separationWeight <= 0) {
-            throw new IllegalArgumentException("Distinction Weight and Separation Weight cannot both be 0.");
+        QidDiscoveryProfilingConfigurationRequestDTO profiling = dto.getProfiling();
+        if (profiling == null) {
+            throw new IllegalArgumentException("QID discovery profiling configuration is required.");
         }
 
         QidDiscoveryConfigurationVersion version = new QidDiscoveryConfigurationVersion();
@@ -318,52 +278,17 @@ public class QidDiscoveryConfigurationService {
         version.setName(requiredName(dto.getName()));
         version.setDescription(trimToNull(dto.getDescription()));
         version.setVersionNumber(versionNumber);
-        version.setSearchType(searchType);
-        version.setExactSearchMaxCandidateCount(exactSearchMaxCandidateCount);
-        version.setMaxCombinationSize(validateRequiredInteger(search.getMaxCombinationSize(), "Maximum Combination Size", 1));
-        version.setBeamWidth(beamWidth);
-        version.setMinImprovement(minImprovement);
-        version.setStagnationDepthLimit(stagnationDepthLimit);
-        version.setTargetDistinction(validateRequiredRatio(search.getTargetDistinction(), "Target Distinction"));
-        version.setTargetSeparation(validateRequiredRatio(search.getTargetSeparation(), "Target Separation"));
-        version.setDistinctionWeight(distinctionWeight);
-        version.setSeparationWeight(separationWeight);
-        version.setAttributeCountPenalty(validateRequiredDouble(search.getAttributeCountPenalty(), "Attribute Count Penalty"));
-        if (version.getAttributeCountPenalty() < 0) {
-            throw new IllegalArgumentException("Attribute Count Penalty must be greater than or equal to 0.");
-        }
-        version.setMaxPersistedCombinations(validateRequiredInteger(search.getMaxPersistedCombinations(), "Maximum Retained Combinations", 1));
+        version.setMaxSubsetSize(validateRequiredInteger(profiling.getMaxSubsetSize(), "Maximum Subset Size", 1));
+        version.setMaxEvaluatedSubsets(validateRequiredInteger(profiling.getMaxEvaluatedSubsets(), "Maximum Evaluated Subsets", 1));
 
         return version;
     }
 
-    private QidDiscoverySearchConfigurationRequestDTO toRequestSearch(QidDiscoveryConfigurationVersion version) {
-        return new QidDiscoverySearchConfigurationRequestDTO(
-                version.getSearchType().name(),
-                version.getExactSearchMaxCandidateCount(),
-                version.getMaxCombinationSize(),
-                version.getBeamWidth(),
-                version.getMinImprovement(),
-                version.getStagnationDepthLimit(),
-                version.getTargetDistinction(),
-                version.getTargetSeparation(),
-                version.getDistinctionWeight(),
-                version.getSeparationWeight(),
-                version.getAttributeCountPenalty(),
-                version.getMaxPersistedCombinations()
+    private QidDiscoveryProfilingConfigurationRequestDTO toRequestProfiling(QidDiscoveryConfigurationVersion version) {
+        return new QidDiscoveryProfilingConfigurationRequestDTO(
+                version.getMaxSubsetSize(),
+                version.getMaxEvaluatedSubsets()
         );
-    }
-
-    private QidSearchType parseSearchType(String value) {
-        if (value == null || value.trim().isEmpty()) {
-            throw new IllegalArgumentException("QID Search Type is required.");
-        }
-
-        try {
-            return QidSearchType.valueOf(value.trim().toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException ex) {
-            throw new IllegalArgumentException("QID Search Type must be one of AUTOMATIC, EXACT, or BEAM.");
-        }
     }
 
     private Integer validateRequiredInteger(Integer value, String label, int minValue) {
@@ -384,34 +309,6 @@ public class QidDiscoveryConfigurationService {
         return value;
     }
 
-    private Double validateRequiredDouble(Double value, String label) {
-        Double normalized = validateOptionalDouble(value, label, null);
-        if (normalized == null) {
-            throw new IllegalArgumentException(label + " is required.");
-        }
-        return normalized;
-    }
-
-    private Double validateOptionalDouble(Double value, String label, Double minValue) {
-        if (value == null) {
-            return null;
-        }
-        if (!Double.isFinite(value)) {
-            throw new IllegalArgumentException(label + " must be a valid number.");
-        }
-        if (minValue != null && value < minValue) {
-            throw new IllegalArgumentException(label + " must be greater than or equal to " + minValue + ".");
-        }
-        return value;
-    }
-
-    private Double validateRequiredRatio(Double value, String label) {
-        Double normalized = validateRequiredDouble(value, label);
-        if (normalized < 0 || normalized > 1) {
-            throw new IllegalArgumentException(label + " must be between 0 and 1.");
-        }
-        return normalized;
-    }
 
     private void validateUniqueName(String rawName, Long excludeId) {
         String name = requiredName(rawName);

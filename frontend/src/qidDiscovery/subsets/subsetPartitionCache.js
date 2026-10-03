@@ -1,8 +1,7 @@
-import { buildCombinationStatistics } from "../metrics/profile";
-import { calculateSearchScore, isTargetSatisfied } from "./ranking";
+import { buildSubsetStatistics } from "../metrics/profile";
 
-// Convert an attribute combination into one standard ordering so that the
-// same combination is always represented by the same cache key.
+// Convert an attribute subset into one standard ordering so that the same
+// subset is always represented by the same cache key.
 export const canonicalizeStableAttributeIds = (stableAttributeIds = []) =>
   [...stableAttributeIds].sort();
 
@@ -11,7 +10,7 @@ export const canonicalizeStableAttributeIds = (stableAttributeIds = []) =>
  * candidate-array positions or display names. JSON encoding avoids collisions
  * when source field names contain a separator character.
  */
-export function createCombinationKey(stableAttributeIds = []) {
+export function createSubsetKey(stableAttributeIds = []) {
   return JSON.stringify(canonicalizeStableAttributeIds(stableAttributeIds));
 }
 
@@ -33,7 +32,7 @@ export function buildSingleColumnPartition(codes) {
 }
 
 /**
- * Adds one attribute to an existing combination by splitting each existing
+ * Adds one attribute to an existing subset by splitting each existing
  * equivalence class according to the encoded value of the new attribute. This
  * reuses the parent partition and avoids reconstruction from raw rows.
  */
@@ -44,10 +43,6 @@ export function refinePartition(parentPartition, columnCodes) {
   let nextGroupId = 0;
 
   for (let rowIndex = 0; rowIndex < columnCodes.length; rowIndex += 1) {
-    // The refinement key represents:
-    //   existing equivalence-class ID + new attribute value code.
-    // Two records remain in the same refined equivalence class only when both
-    // components are equal.
     const refinementKey = `${parentPartition.rowGroupIds[rowIndex]}|${columnCodes[rowIndex]}`;
 
     if (!refinedGroups.has(refinementKey)) {
@@ -66,32 +61,17 @@ export function refinePartition(parentPartition, columnCodes) {
   };
 }
 
-export function buildCandidateMap(candidateColumns) {
-  return new Map(
-    candidateColumns.map((candidate) => [
-      candidate.stableAttributeId,
-      candidate,
-    ])
-  );
-}
-
-function getDisplayName(stableAttributeId, candidateMap) {
-  return (
-    candidateMap.get(stableAttributeId)?.attributeName || stableAttributeId
-  );
-}
-
 /**
- * Caches evaluated attribute combinations and their partitions for one table
+ * Caches evaluated attribute subsets and their partitions for one table
  * profiling source. The cache survives rename, exclude/include, datatype
  * display edits, and candidate reordering because keys use stable source
  * identities. It is discarded with the profiling source when the table is
  * removed or replaced.
  *
- * Cached partitions, rowGroupIds, encoded values, and scores are transient
+ * Cached partitions, rowGroupIds, and encoded values are transient
  * browser-local state and must never be persisted to the backend.
  */
-export class CombinationCache {
+export class SubsetPartitionCache {
   constructor(profilingSource) {
     this.columnsBySourceField = profilingSource.columnsBySourceField;
     this.analysedRecordCount = profilingSource.recordCount;
@@ -101,42 +81,16 @@ export class CombinationCache {
   }
 
   /**
-   * Resolves local search indices to stable source identities, reuses any
-   * cached partition/metrics entry, and returns a result with current display
-   * names and option-dependent ranking fields.
-   */
-  getByCandidateIndices(
-    indices,
-    candidateColumns,
-    options,
-    candidateMap = buildCandidateMap(candidateColumns)
-  ) {
-    const canonicalIndices = [...indices].sort((left, right) => left - right);
-    const stableAttributeIds = canonicalIndices.map(
-      (index) => candidateColumns[index].stableAttributeId
-    );
-    const entry = this.getEntry(stableAttributeIds);
-
-    return this.materializeResult(
-      entry,
-      candidateMap,
-      options,
-      canonicalIndices,
-      stableAttributeIds
-    );
-  }
-
-  /**
-   * Exposes a cached entry for tests and diagnostics. Do not serialize the
-   * returned object into application state or backend payloads.
+   * Exposes a cached entry for diagnostics. Do not serialize the returned
+   * object into application state or backend payloads.
    */
   peek(stableAttributeIds) {
-    return this.cache.get(createCombinationKey(stableAttributeIds));
+    return this.cache.get(createSubsetKey(stableAttributeIds));
   }
 
   /**
-   * Returns aggregate cache counters that can be used by tests without
-   * exposing participant-level partitions.
+   * Returns aggregate cache counters without exposing participant-level
+   * partitions.
    */
   getStats() {
     return {
@@ -147,13 +101,13 @@ export class CombinationCache {
   }
 
   /**
-   * Returns the cache entry for a stable combination, computing partition and
+   * Returns the cache entry for a stable subset, computing partition and
    * metrics once when the key is first requested.
    */
   getEntry(stableAttributeIds) {
     const canonicalStableAttributeIds =
       canonicalizeStableAttributeIds(stableAttributeIds);
-    const key = createCombinationKey(canonicalStableAttributeIds);
+    const key = createSubsetKey(canonicalStableAttributeIds);
 
     if (this.cache.has(key)) {
       this.hitCount += 1;
@@ -162,7 +116,7 @@ export class CombinationCache {
 
     this.missCount += 1;
     const partition = this.buildPartition(canonicalStableAttributeIds);
-    const metrics = buildCombinationStatistics(
+    const metrics = buildSubsetStatistics(
       canonicalStableAttributeIds,
       partition.classSizes,
       this.analysedRecordCount
@@ -179,8 +133,8 @@ export class CombinationCache {
   }
 
   /**
-   * Builds a partition by recursively reusing the cached parent combination
-   * and refining it with the next encoded source column.
+   * Builds a partition by recursively reusing the cached parent subset and
+   * refining it with the next encoded source column.
    */
   buildPartition(canonicalStableAttributeIds) {
     if (canonicalStableAttributeIds.length === 1) {
@@ -197,32 +151,5 @@ export class CombinationCache {
     const nextColumn = this.columnsBySourceField.get(nextStableAttributeId);
 
     return refinePartition(parent.partition, nextColumn.encoded.codes);
-  }
-
-  /**
-   * Converts cache-stored stable metrics into a search result using current
-   * display names and current search options.
-   */
-  materializeResult(
-    entry,
-    candidateMap,
-    options,
-    localIndices,
-    displayStableAttributeIds
-  ) {
-    const result = {
-      ...entry.metrics,
-      key: entry.key,
-      stableAttributeIds: entry.stableAttributeIds,
-      attributeNames: displayStableAttributeIds.map((stableAttributeId) =>
-        getDisplayName(stableAttributeId, candidateMap)
-      ),
-      indices: localIndices,
-      partition: entry.partition,
-    };
-
-    result.score = calculateSearchScore(result, options);
-    result.targetSatisfied = isTargetSatisfied(result, options);
-    return result;
   }
 }

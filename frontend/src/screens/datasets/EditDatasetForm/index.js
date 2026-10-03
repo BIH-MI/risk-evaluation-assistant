@@ -296,9 +296,8 @@ export default function EditDatasetForm() {
   );
 
   /**
-   * Saves the reviewed schema and aggregate QID metadata. Edit Dataset never
-   * reconstructs raw rows, so obsolete combinations are filtered by included
-   * attributes before the payload is sent.
+   * Saves the reviewed schema and aggregate Distinguishability evidence. Edit
+   * Dataset never reconstructs raw rows.
    */
   const handleSubmit = useCallback(
     async (e) => {

@@ -442,15 +442,15 @@ export function shouldAutoExcludeDirectIdentifier(evidence) {
 /**
  * Detects generic ID-like field-name evidence without changing its LOW
  * confidence classification. The policy layer uses this to default-exclude
- * record/subject/patient/study IDs from QID search while still surfacing them
- * as ambiguous potential identifiers.
+ * record/subject/patient/study IDs from subset profiling while still surfacing
+ * them as ambiguous potential identifiers.
  */
 export function hasGenericIdentifierFieldEvidence(evidence) {
   return Boolean(evidence?.sources?.includes(GENERIC_IDENTIFIER_FIELD_SOURCE));
 }
 
 /**
- * Returns true when an identifier should be excluded from QID candidates by
+ * Returns true when an identifier should be excluded from subset profiling by
  * default. Confirmed Direct Identifiers qualify through HIGH evidence; generic
  * IDs qualify only through their LOW generic field-name source.
  */

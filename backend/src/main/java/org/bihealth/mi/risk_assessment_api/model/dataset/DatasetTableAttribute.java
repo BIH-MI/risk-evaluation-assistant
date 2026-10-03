@@ -1,11 +1,17 @@
 package org.bihealth.mi.risk_assessment_api.model.dataset;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 import org.bihealth.mi.risk_assessment_api.enums.DataType;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Represents a single attribute (column) within a DatasetTable.
@@ -46,7 +52,7 @@ public class DatasetTableAttribute {
 
     // These fields contain descriptive statistics calculated
     // locally during dataset definition. They provide quantitative evidence for
-    // later risk assessment but are not final QID classifications.
+    // later risk assessment but are not final qualitative classifications.
     @Column(name = "record_count")
     private Long recordCount;
 
@@ -89,23 +95,11 @@ public class DatasetTableAttribute {
     @Column(name = "separation")
     private Double separation;
 
-    // Empirical Replicability evidence from repeated-measurement analysis
-    // during dataset creation. Null when no subject key was selected or the
-    // attribute's datatype is not yet supported by the empirical method.
-    @Column(name = "replicability_available")
-    private Boolean replicabilityAvailable;
-
-    @Column(name = "replicability_score")
-    private Double replicabilityScore;
-
-    @Column(name = "replicability_comparison_count")
-    private Long replicabilityComparisonCount;
-
-    @Column(name = "replicability_method")
-    private String replicabilityMethod;
-
-    @Column(name = "replicability_unavailable_reason")
-    private String replicabilityUnavailableReason;
+    @OneToMany(mappedBy = "attribute", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("subsetSize ASC")
+    @JsonManagedReference("dataset-table-attribute-subset-evidence")
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    private List<DatasetTableAttributeSubsetEvidence> subsetEvidence = new ArrayList<>();
 
     @Column(name = "direct_identifier_evidence_source")
     private String directIdentifierEvidenceSource;

@@ -20,12 +20,8 @@ import { PreviewTable } from "./PreviewTable";
 import { useDatasetTableProfiling } from "./useDatasetTableProfiling";
 import { addDataset } from "store/datasets/datasetsThunks";
 import { fetchQidDiscoveryConfigurationsApi } from "api/qidDiscoveryConfigurations";
-import { getQidSearchTypeLabel } from "qidDiscovery/configuration/searchTypeLabels";
-import { getQidConfigurationValidationError } from "qidDiscovery/configuration/validateQidDiscoverySearchConfiguration";
-import {
-  toDatasetAttributePayload,
-  toDatasetQidCombinationPayload,
-} from "qidDiscovery/payload";
+import { getQidConfigurationValidationError } from "qidDiscovery/configuration/validateQidDiscoveryProfilingConfiguration";
+import { toDatasetAttributePayload } from "qidDiscovery/payload";
 import {
   buildDirectIdentifierOverrideWarning,
   buildDirectIdentifierSubmissionMessage,
@@ -114,7 +110,7 @@ export default function AddDatasetForm() {
     );
   }, [selectedQidDiscoveryConfiguration]);
 
-  const { profileTable, refreshTable, changeSubjectKey, disposeTableProfile } =
+  const { profileTable, refreshTable, disposeTableProfile } =
     useDatasetTableProfiling({
       tables,
       setTables,
@@ -236,13 +232,6 @@ export default function AddDatasetForm() {
     [profileTable, selectedQidDiscoveryConfiguration]
   );
 
-  const handleSubjectKeyChange = useCallback(
-    (tableId, sourceField) => {
-      changeSubjectKey(tableId, sourceField || null);
-    },
-    [changeSubjectKey]
-  );
-
   const handleAddManualTable = useCallback(() => {
     setTables((prev) => {
       const newName = getUniqueName(
@@ -258,8 +247,7 @@ export default function AddDatasetForm() {
           name: newName,
           columnMeta: [],
           data: [],
-          qidCombinations: [],
-          qidSearchMode: "none",
+          subsetProfilingSummary: null,
           isParsing: false,
           isManual: true,
         },
@@ -372,8 +360,8 @@ export default function AddDatasetForm() {
 
   /**
    * Renames an attribute and refreshes the cached profile. Source columns stay
-   * stable so Direct Identifier evidence and QID discovery can be recalculated
-   * without parsing the CSV again.
+   * stable so Direct Identifier evidence and Distinguishability evidence can be
+   * recalculated without parsing the CSV again.
    */
   const handleColumnNameChange = useCallback(
     (tableId, columnKey, newField) => {
@@ -415,9 +403,8 @@ export default function AddDatasetForm() {
   }, []);
 
   /**
-   * Applies the user's QID-candidacy decision. Unchecking an automatically
-   * excluded identifier records an override before refreshing discovery so the
-   * column immediately becomes a QID candidate and is not re-excluded.
+   * Applies the user's include/exclude decision. Unchecking an automatically
+   * excluded identifier records an override before refreshing profiling.
    */
   const handleExcludedChange = useCallback(
     (tableId, columnKey, excluded) => {
@@ -465,7 +452,7 @@ export default function AddDatasetForm() {
 
   /**
    * Persists aggregate profiling output and the reviewed exclusion decisions.
-   * Raw rows, encoded columns, and combination caches remain browser-local.
+   * Raw rows, encoded columns, and subset caches remain browser-local.
    */
   const handleSubmit = useCallback(
     (e) => {
@@ -501,10 +488,9 @@ export default function AddDatasetForm() {
       }
 
       const payloadTables = tables.map(
-        ({ name: fileName, columnMeta = [], qidCombinations = [] }) => ({
+        ({ name: fileName, columnMeta = [] }) => ({
           name: fileName.replace(/\.csv$/i, ""),
           attributes: columnMeta.map(toDatasetAttributePayload),
-          qidCombinations: qidCombinations.map(toDatasetQidCombinationPayload),
         })
       );
 
@@ -634,7 +620,16 @@ export default function AddDatasetForm() {
                   {configuration.name}
                 </RATypography>
                 <RATypography variant="caption" color="text">
-                  {getQidSearchTypeLabel(t, configuration.search?.searchType)}
+                  {t(
+                    "datasets.form.qidDiscoveryConfigurationSummary",
+                    "Max subset size {{maxSubsetSize}}, limit {{maxEvaluatedSubsets}} subsets",
+                    {
+                      maxSubsetSize:
+                        configuration.profiling?.maxSubsetSize ?? "-",
+                      maxEvaluatedSubsets:
+                        configuration.profiling?.maxEvaluatedSubsets ?? "-",
+                    }
+                  )}
                 </RATypography>
               </RABox>
             </MenuItem>
@@ -681,10 +676,6 @@ export default function AddDatasetForm() {
                 {t("datasets.add.dataTablesPreview")}
               </RATypography>
             </RABox>
-
-            <RATypography variant="body2" color="secondary" textAlign="center">
-              {t("datasets.add.directIdentifierInstruction")}
-            </RATypography>
           </>
         )}
 
@@ -699,7 +690,6 @@ export default function AddDatasetForm() {
             onExcludedChange={handleExcludedChange}
             onAddColumn={handleAddColumn}
             onDeleteColumn={handleDeleteColumn}
-            onSubjectKeyChange={handleSubjectKeyChange}
           />
         ))}
 

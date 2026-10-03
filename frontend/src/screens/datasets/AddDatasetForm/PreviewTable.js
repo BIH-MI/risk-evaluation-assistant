@@ -1,12 +1,11 @@
 // src/screens/datasets/AddDatasetForm/PreviewTable.js
 import React, { useEffect, useMemo, useState } from "react";
-import { CircularProgress, IconButton, MenuItem } from "@mui/material";
+import { CircularProgress, IconButton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import DeleteIcon from "@mui/icons-material/DeleteOutline";
 import { useTranslation } from "react-i18next";
 import DataTable from "components/display/Tables/DataTable";
 import RABox from "components/layout/RABox";
-import RAButton from "components/input/RAButton";
 import {
   MemoNameCell,
   MemoDataTypeCell,
@@ -26,61 +25,55 @@ export const PreviewTable = React.memo(function PreviewTable({
   onExcludedChange,
   onAddColumn,
   onDeleteColumn,
-  onSubjectKeyChange,
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [bufferName, setBufferName] = useState(file.name);
-  const [showSubjectKeySelect, setShowSubjectKeySelect] = useState(false);
 
   useEffect(() => {
     setBufferName(file.name);
   }, [file.name]);
 
   const { columnMeta = [], data = [] } = file;
-  const suggestedSubjectKeys = useMemo(
-    () => new Set(file.suggestedSubjectKeySourceFields || []),
-    [file.suggestedSubjectKeySourceFields]
-  );
-  const subjectKeyOptions = useMemo(() => {
-    const seen = new Set();
+  const subsetProfilingStatus = useMemo(() => {
+    if (file.isManual || !file._qidProfilingSession) return null;
 
-    return columnMeta
-      .map((column, index) => ({
-        sourceField: getColumnIdentity(column),
-        index,
-      }))
-      .filter(({ sourceField }) => {
-        if (!sourceField || seen.has(sourceField)) return false;
-        seen.add(sourceField);
-        return true;
-      })
-      .map((option) => ({
-        ...option,
-        suggested: suggestedSubjectKeys.has(option.sourceField),
-      }))
-      .sort((a, b) => {
-        if (a.suggested !== b.suggested) return a.suggested ? -1 : 1;
-        return a.index - b.index;
-      });
-  }, [columnMeta, suggestedSubjectKeys]);
-  const selectedSubjectKey = file.subjectKeySourceField || "";
-  const subjectKeyStatus = useMemo(() => {
-    if (file.isProfiling) return "Replicability key: updating...";
-    if (!selectedSubjectKey) return "Replicability key: not set";
-
-    const summary = file.repeatedMeasurementSummary;
-    const autoDetected = file.subjectKeyAutoDetected ? " (auto-detected)" : "";
-
-    if (summary?.hasRepeatedMeasurements) {
-      return `Replicability key: ${selectedSubjectKey}${autoDetected} · ${summary.subjectsWithRepeatedMeasurements}/${summary.subjectCount} repeated`;
+    if (file.isProfiling) {
+      return t(
+        "datasets.add.subsetProfilingUpdating",
+        "Profiling Distinguishability evidence..."
+      );
     }
 
-    return `Replicability key: ${selectedSubjectKey}${autoDetected} · no repeated observations`;
+    const summary = file.subsetProfilingSummary;
+    if (!summary) return null;
+
+    const attributeCount = Number(summary.candidateAttributeCount) || 0;
+    const subsetCount = Number(summary.evaluatedSubsetCount) || 0;
+
+    if (attributeCount < 2 || subsetCount <= 0) {
+      return t(
+        "datasets.add.noSubsetProfilingRequired",
+        "No multi-attribute subset profiling was required."
+      );
+    }
+
+    const formatter = new Intl.NumberFormat(i18n.language);
+
+    return t(
+      "datasets.add.subsetProfilingSummary",
+      "{{subsetCount}} attribute subsets evaluated across {{attributeCount}} eligible attributes.",
+      {
+        subsetCount: formatter.format(subsetCount),
+        attributeCount: formatter.format(attributeCount),
+      }
+    );
   }, [
+    file._qidProfilingSession,
+    file.isManual,
     file.isProfiling,
-    file.repeatedMeasurementSummary,
-    file.subjectKeyAutoDetected,
-    selectedSubjectKey,
+    file.subsetProfilingSummary,
+    i18n.language,
+    t,
   ]);
 
   const topValuesMap = useMemo(() => {
@@ -278,46 +271,19 @@ export const PreviewTable = React.memo(function PreviewTable({
         </IconButton>
       </RABox>
 
-      <RABox display="flex" alignItems="center" flexWrap="wrap" gap={1} mb={1}>
-        <RATypography variant="caption" color="text">
-          {subjectKeyStatus}
-        </RATypography>
-        <RAButton
-          type="button"
-          variant="text"
-          size="small"
-          disabled={file.isParsing || file.isProfiling}
-          onClick={() => setShowSubjectKeySelect((current) => !current)}
-          sx={{ minWidth: 0, px: 1, py: 0.25 }}
+      {subsetProfilingStatus && (
+        <RABox
+          display="flex"
+          alignItems="center"
+          flexWrap="wrap"
+          gap={1}
+          mb={1}
         >
-          {selectedSubjectKey ? "Change" : "Set"}
-        </RAButton>
-        {showSubjectKeySelect && (
-          <RAInput
-            select
-            value={selectedSubjectKey}
-            onChange={(event) => {
-              onSubjectKeyChange(
-                file._localTableId,
-                event.target.value || null
-              );
-              setShowSubjectKeySelect(false);
-            }}
-            disabled={file.isParsing || file.isProfiling}
-            size="small"
-            sx={{ minWidth: 220 }}
-            variant="standard"
-            SelectProps={{ displayEmpty: true }}
-          >
-            <MenuItem value="">None</MenuItem>
-            {subjectKeyOptions.map(({ sourceField, suggested }) => (
-              <MenuItem key={sourceField} value={sourceField}>
-                {suggested ? `${sourceField} (suggested)` : sourceField}
-              </MenuItem>
-            ))}
-          </RAInput>
-        )}
-      </RABox>
+          <RATypography variant="caption" color="text">
+            {subsetProfilingStatus}
+          </RATypography>
+        </RABox>
+      )}
 
       <DataTable
         table={{ columns, rows }}

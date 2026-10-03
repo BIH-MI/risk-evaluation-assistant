@@ -5,18 +5,14 @@ export {
   refreshUploadedTableProfile,
 } from "./workerClient";
 export {
-  calculateBeamSignal,
-  runBeamSearch,
-  updateBeamStagnation,
-} from "./search/beamSearch";
-export { runExactLevelWiseSearch } from "./search/exactLevelWiseSearch";
+  SubsetPartitionCache,
+  createSubsetKey,
+} from "./subsets/subsetPartitionCache";
 export {
-  CombinationCache,
-  createCombinationKey,
-} from "./search/combinationCache";
-export { resolveQidSearchMode } from "./configuration/resolveQidSearchMode";
+  calculateEvaluatedSubsetTotal,
+  profileAttributeSubsets,
+} from "./subsets/subsetProfiler";
 export {
-  QID_SEARCH_TYPES,
-  validateQidDiscoverySearchConfiguration,
+  validateQidDiscoveryProfilingConfiguration,
   getQidConfigurationValidationError,
-} from "./configuration/validateQidDiscoverySearchConfiguration";
+} from "./configuration/validateQidDiscoveryProfilingConfiguration";

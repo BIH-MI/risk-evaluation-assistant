@@ -32,7 +32,7 @@ public class DatasetResponseDTO {
     // Assessment IDs are enough for list views to link to existing assessments.
     private List<Long> assessmentIds;
 
-    // QID discovery configuration version that generated the stored QID metadata.
+    // QID discovery configuration version that generated stored evidence.
     private Long qidDiscoveryConfigurationId;
     private Long qidDiscoveryConfigurationVersionId;
     private Integer qidDiscoveryConfigurationVersion;

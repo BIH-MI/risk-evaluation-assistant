@@ -18,55 +18,19 @@ export const ATTRIBUTE_STATISTIC_FIELDS = [
   "separation",
 ];
 
-// Flattened field names for the empirical Replicability evidence
-// (`column.replicabilityEvidence.empirical`, see profiling/replicabilityEvidence.js).
-// `semantic`/`historical` evidence is not implemented yet and has no fields here.
-export const REPLICABILITY_ATTRIBUTE_FIELDS = [
-  "replicabilityAvailable",
-  "replicabilityScore",
-  "replicabilityComparisonCount",
-  "replicabilityMethod",
-  "replicabilityUnavailableReason",
-];
-
-export const QID_COMBINATION_STATISTIC_FIELDS = [
-  "attributeCount",
-  "distinction",
-  "separation",
-  "equivalenceClassCount",
-  "singletonClassCount",
-  "singletonRecordCount",
-  "singletonFraction",
-  "minimumEquivalenceClassSize",
-  "medianEquivalenceClassSize",
-  "maximumEquivalenceClassSize",
-];
-
-export const QID_COMBINATION_EVIDENCE_FIELDS = [
-  "targetSatisfied",
-  "minimalQualifying",
-];
-
 export const DIRECT_IDENTIFIER_SUMMARY_FIELDS = [
   "directIdentifierEvidenceSource",
   "directIdentifierConcept",
   "directIdentifierConfidence",
 ];
 
-// `empirical` is only present once a subject key with repeated measurements
-// is selected; `undefined` here leaves the flattened fields absent from the
-// payload rather than persisting a misleading `null`.
-function flattenEmpiricalReplicability(empirical) {
-  if (!empirical) return {};
-
-  return {
-    replicabilityAvailable: empirical.available,
-    replicabilityScore: empirical.score,
-    replicabilityComparisonCount: empirical.comparisonCount,
-    replicabilityMethod: empirical.method,
-    replicabilityUnavailableReason: empirical.reason ?? null,
-  };
-}
+const SUBSET_EVIDENCE_FIELDS = [
+  "subsetSize",
+  "evaluatedSubsetCount",
+  "meanDistinction",
+  "meanSeparation",
+  "meanSingletonFraction",
+];
 
 function hasPersistedValuePatternEvidence(source) {
   return (
@@ -85,10 +49,10 @@ function buildDirectIdentifierSummary(evidence, existingSummary = {}) {
     source.startsWith("value-pattern:")
   );
   const hasPersistedValuePatternSummary =
-    (evidence.schemaOnly &&
-      hasPersistedValuePatternEvidence(
-        existingSummary.directIdentifierEvidenceSource
-      ));
+    evidence.schemaOnly &&
+    hasPersistedValuePatternEvidence(
+      existingSummary.directIdentifierEvidenceSource
+    );
   const hasValuePatternEvidence =
     hasLiveValuePatternEvidence || hasPersistedValuePatternSummary;
   const directIdentifierEvidenceSource =
@@ -119,6 +83,15 @@ function buildDirectIdentifierSummary(evidence, existingSummary = {}) {
   };
 }
 
+export function toDatasetAttributeSubsetEvidencePayload(evidence) {
+  return SUBSET_EVIDENCE_FIELDS.reduce((payload, field) => {
+    if (evidence?.[field] !== undefined) {
+      payload[field] = evidence[field];
+    }
+    return payload;
+  }, {});
+}
+
 /**
  * Converts UI attribute metadata into the dataset API payload.
  */
@@ -131,17 +104,19 @@ export function toDatasetAttributePayload(attribute) {
   };
   const statistics = {
     ...(attribute.statistics || attribute),
-    // Edit Dataset attributes carry these as flat fields already returned by
-    // the backend; Add Dataset attributes carry live evidence to flatten here.
-    ...flattenEmpiricalReplicability(attribute.replicabilityEvidence?.empirical),
   };
 
-  [...ATTRIBUTE_STATISTIC_FIELDS, ...REPLICABILITY_ATTRIBUTE_FIELDS].forEach(
-    (field) => {
-      if (statistics[field] !== undefined) {
-        payload[field] = statistics[field];
-      }
+  ATTRIBUTE_STATISTIC_FIELDS.forEach((field) => {
+    if (statistics[field] !== undefined) {
+      payload[field] = statistics[field];
     }
+  });
+
+  const subsetEvidence = Array.isArray(attribute.subsetEvidence)
+    ? attribute.subsetEvidence
+    : [];
+  payload.subsetEvidence = subsetEvidence.map(
+    toDatasetAttributeSubsetEvidencePayload
   );
 
   const directIdentifierSummary = buildDirectIdentifierSummary(
@@ -158,35 +133,6 @@ export function toDatasetAttributePayload(attribute) {
       }
     });
   }
-
-  return payload;
-}
-
-/**
- * Converts a selected QID combination into the dataset API payload.
- */
-export function toDatasetQidCombinationPayload(combination) {
-  const payload = {};
-
-  if (combination.id !== undefined) payload.id = combination.id;
-  if (combination.attributeIds !== undefined) {
-    payload.attributeIds = combination.attributeIds;
-  }
-  if (combination.attributeNames !== undefined) {
-    payload.attributeNames = combination.attributeNames;
-  }
-
-  QID_COMBINATION_STATISTIC_FIELDS.forEach((field) => {
-    if (combination[field] !== undefined) {
-      payload[field] = combination[field];
-    }
-  });
-
-  QID_COMBINATION_EVIDENCE_FIELDS.forEach((field) => {
-    if (combination[field] !== undefined) {
-      payload[field] = combination[field];
-    }
-  });
 
   return payload;
 }

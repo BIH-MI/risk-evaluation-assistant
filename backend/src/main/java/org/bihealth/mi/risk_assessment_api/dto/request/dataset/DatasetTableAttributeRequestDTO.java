@@ -7,6 +7,7 @@ import org.bihealth.mi.risk_assessment_api.enums.DataType;
 import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTable;
 import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTableAttribute;
 
+import java.util.List;
 
 /**
  * Represents a single attribute (column) when creating or updating a DatasetTable.
@@ -42,17 +43,11 @@ public class DatasetTableAttributeRequestDTO {
     private Double distinction;
     private Double separation;
 
-    // Empirical Replicability evidence from repeated-measurement analysis.
-    // Omitted by the frontend when no subject key was selected.
-    private Boolean replicabilityAvailable;
-    private Double replicabilityScore;
-    private Long replicabilityComparisonCount;
-    private String replicabilityMethod;
-    private String replicabilityUnavailableReason;
-
     private String directIdentifierEvidenceSource;
     private String directIdentifierConcept;
     private String directIdentifierConfidence;
+
+    private List<DatasetTableAttributeSubsetEvidenceRequestDTO> subsetEvidence;
 
     /**
      * Converts this DTO into a new, non-persisted DatasetTableAttribute entity.
@@ -68,6 +63,7 @@ public class DatasetTableAttributeRequestDTO {
         attr.setExcluded(Boolean.TRUE.equals(excluded));
         applyStatisticsTo(attr);
         applyDirectIdentifierEvidenceSummaryTo(attr);
+        applySubsetEvidenceTo(attr);
         return attr;
     }
 
@@ -85,12 +81,7 @@ public class DatasetTableAttributeRequestDTO {
                 || medianEquivalenceClassSize != null
                 || maximumEquivalenceClassSize != null
                 || distinction != null
-                || separation != null
-                || replicabilityAvailable != null
-                || replicabilityScore != null
-                || replicabilityComparisonCount != null
-                || replicabilityMethod != null
-                || replicabilityUnavailableReason != null;
+                || separation != null;
     }
 
     public void applyStatisticsTo(DatasetTableAttribute attr) {
@@ -108,16 +99,23 @@ public class DatasetTableAttributeRequestDTO {
         attr.setMaximumEquivalenceClassSize(maximumEquivalenceClassSize);
         attr.setDistinction(distinction);
         attr.setSeparation(separation);
-        attr.setReplicabilityAvailable(replicabilityAvailable);
-        attr.setReplicabilityScore(replicabilityScore);
-        attr.setReplicabilityComparisonCount(replicabilityComparisonCount);
-        attr.setReplicabilityMethod(replicabilityMethod);
-        attr.setReplicabilityUnavailableReason(replicabilityUnavailableReason);
     }
 
     public void applyDirectIdentifierEvidenceSummaryTo(DatasetTableAttribute attr) {
         attr.setDirectIdentifierEvidenceSource(directIdentifierEvidenceSource);
         attr.setDirectIdentifierConcept(directIdentifierConcept);
         attr.setDirectIdentifierConfidence(directIdentifierConfidence);
+    }
+
+    public void applySubsetEvidenceTo(DatasetTableAttribute attr) {
+        if (subsetEvidence == null) {
+            return;
+        }
+
+        attr.getSubsetEvidence().clear();
+        subsetEvidence.stream()
+                .filter(evidence -> evidence.getSubsetSize() != null)
+                .map(evidence -> evidence.toEntity(attr))
+                .forEach(attr.getSubsetEvidence()::add);
     }
 }

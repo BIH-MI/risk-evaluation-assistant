@@ -6,10 +6,9 @@ import {
 } from "./profiling/directIdentifierEvidence";
 
 /*
- * Direct Identifier detection happens before QID candidate preparation.
- * Excluded identifiers remain available to transient profiling and
- * Replicability, but are omitted from QID search unless the user explicitly
- * includes them.
+ * Direct Identifier detection happens before subset profiling. Excluded
+ * identifiers remain available to transient profiling for field evidence, but
+ * are omitted from quantitative Distinguishability subset evidence.
  */
 
 const formatFallbackLabel = (value) =>

@@ -4,7 +4,7 @@ import org.bihealth.mi.risk_assessment_api.enums.DataType;
 import org.bihealth.mi.risk_assessment_api.model.dataset.Dataset;
 import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTable;
 import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTableAttribute;
-import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTableQidCombination;
+import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTableAttributeSubsetEvidence;
 import org.bihealth.mi.risk_assessment_api.model.qid.QidDiscoveryConfiguration;
 import org.bihealth.mi.risk_assessment_api.model.qid.QidDiscoveryConfigurationVersion;
 import org.bihealth.mi.risk_assessment_api.repository.dataset.DatasetRepository;
@@ -19,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -91,6 +90,8 @@ public class DemoDatasetEvidenceSeeder implements CommandLineRunner {
 
         Map<String, DatasetTableAttribute> attributesByName =
                 attributesByName(table);
+        Map<String, List<SubsetEvidence>> subsetEvidenceByAttribute =
+                leossSubsetEvidence();
         leossAttributes().forEach((name, dataType) -> {
             DatasetTableAttribute attribute = attributesByName.computeIfAbsent(
                     name,
@@ -99,8 +100,8 @@ public class DemoDatasetEvidenceSeeder implements CommandLineRunner {
             attribute.setDataType(dataType);
             attribute.setExcluded("insurance_number".equals(name));
             clearDirectIdentifierEvidence(attribute);
-            clearReplicabilityEvidence(attribute);
             applyStatistics(attribute, leossStatistics().get(name));
+            replaceSubsetEvidence(attribute, subsetEvidenceByAttribute.get(name));
         });
 
         DatasetTableAttribute insuranceNumber =
@@ -110,60 +111,6 @@ public class DemoDatasetEvidenceSeeder implements CommandLineRunner {
             insuranceNumber.setDirectIdentifierConcept(null);
             insuranceNumber.setDirectIdentifierConfidence("LOW");
         }
-
-        replaceQidCombinations(table, List.of(
-                qidCombination(
-                        List.of(
-                                "age_at_diagnosis",
-                                "date_of_diagnosis",
-                                "superinfection_uncomplicated_phase",
-                                "superinfection_complicated_phase"
-                        ),
-                        0.9531936128,
-                        0.9999898596,
-                        9551L,
-                        9120L,
-                        9120L,
-                        0.9101796407,
-                        1L,
-                        1.0,
-                        4L
-                ),
-                qidCombination(
-                        List.of(
-                                "age_at_diagnosis",
-                                "date_of_diagnosis",
-                                "superinfection_uncomplicated_phase",
-                                "symptoms_in_recovery_phase"
-                        ),
-                        0.9559880240,
-                        0.9999905967,
-                        9579L,
-                        9167L,
-                        9167L,
-                        0.9148702595,
-                        1L,
-                        1.0,
-                        4L
-                ),
-                qidCombination(
-                        List.of(
-                                "age_at_diagnosis",
-                                "date_of_diagnosis",
-                                "superinfection_complicated_phase",
-                                "symptoms_in_recovery_phase"
-                        ),
-                        0.9580838323,
-                        0.9999913139,
-                        9600L,
-                        9195L,
-                        9195L,
-                        0.9176646707,
-                        1L,
-                        1.0,
-                        4L
-                )
-        ));
 
         datasetRepository.save(leoss);
     }
@@ -255,47 +202,23 @@ public class DemoDatasetEvidenceSeeder implements CommandLineRunner {
         attribute.setDirectIdentifierConfidence(null);
     }
 
-    private void clearReplicabilityEvidence(DatasetTableAttribute attribute) {
-        attribute.setReplicabilityAvailable(null);
-        attribute.setReplicabilityScore(null);
-        attribute.setReplicabilityComparisonCount(null);
-        attribute.setReplicabilityMethod(null);
-        attribute.setReplicabilityUnavailableReason(null);
-    }
-
-    private void replaceQidCombinations(
-            DatasetTable table,
-            List<QidCombinationEvidence> evidence
+    private void replaceSubsetEvidence(
+            DatasetTableAttribute attribute,
+            List<SubsetEvidence> evidence
     ) {
-        Map<String, DatasetTableAttribute> attributesByName = attributesByName(table);
-        table.getQidCombinations().clear();
+        attribute.getSubsetEvidence().clear();
+        if (evidence == null) return;
 
         evidence.forEach(item -> {
-            DatasetTableQidCombination combination = new DatasetTableQidCombination();
-            combination.setTable(table);
-            item.attributeNames().stream()
-                    .map(attributesByName::get)
-                    .filter(Objects::nonNull)
-                    .forEach(combination.getAttributes()::add);
-            combination.setAttributeCount(combination.getAttributes().size());
-            combination.setDistinction(item.distinction());
-            combination.setSeparation(item.separation());
-            combination.setEquivalenceClassCount(item.equivalenceClassCount());
-            combination.setSingletonClassCount(item.singletonClassCount());
-            combination.setSingletonRecordCount(item.singletonRecordCount());
-            combination.setSingletonFraction(item.singletonFraction());
-            combination.setMinimumEquivalenceClassSize(
-                    item.minimumEquivalenceClassSize()
-            );
-            combination.setMedianEquivalenceClassSize(
-                    item.medianEquivalenceClassSize()
-            );
-            combination.setMaximumEquivalenceClassSize(
-                    item.maximumEquivalenceClassSize()
-            );
-            combination.setTargetSatisfied(true);
-            combination.setMinimalQualifying(true);
-            table.getQidCombinations().add(combination);
+            DatasetTableAttributeSubsetEvidence subsetEvidence =
+                    new DatasetTableAttributeSubsetEvidence();
+            subsetEvidence.setAttribute(attribute);
+            subsetEvidence.setSubsetSize(item.subsetSize());
+            subsetEvidence.setEvaluatedSubsetCount(item.evaluatedSubsetCount());
+            subsetEvidence.setMeanDistinction(item.meanDistinction());
+            subsetEvidence.setMeanSeparation(item.meanSeparation());
+            subsetEvidence.setMeanSingletonFraction(item.meanSingletonFraction());
+            attribute.getSubsetEvidence().add(subsetEvidence);
         });
     }
 
@@ -388,6 +311,36 @@ public class DemoDatasetEvidenceSeeder implements CommandLineRunner {
         );
     }
 
+    private static Map<String, List<SubsetEvidence>> leossSubsetEvidence() {
+        Map<String, List<SubsetEvidence>> evidence = new LinkedHashMap<>();
+        evidence.put("age_at_diagnosis", List.of(
+                subsetEvidence(2, 14L, 0.071, 0.997, 0.018),
+                subsetEvidence(3, 91L, 0.412, 0.9996, 0.291),
+                subsetEvidence(4, 364L, 0.956, 0.99999, 0.914)
+        ));
+        evidence.put("date_of_diagnosis", List.of(
+                subsetEvidence(2, 14L, 0.113, 0.9981, 0.034),
+                subsetEvidence(3, 91L, 0.547, 0.9998, 0.418),
+                subsetEvidence(4, 364L, 0.956, 0.99999, 0.914)
+        ));
+        evidence.put("superinfection_uncomplicated_phase", List.of(
+                subsetEvidence(2, 14L, 0.058, 0.834, 0.009),
+                subsetEvidence(3, 91L, 0.352, 0.996, 0.224),
+                subsetEvidence(4, 364L, 0.955, 0.99999, 0.912)
+        ));
+        evidence.put("superinfection_complicated_phase", List.of(
+                subsetEvidence(2, 14L, 0.061, 0.842, 0.010),
+                subsetEvidence(3, 91L, 0.361, 0.997, 0.238),
+                subsetEvidence(4, 364L, 0.956, 0.99999, 0.913)
+        ));
+        evidence.put("symptoms_in_recovery_phase", List.of(
+                subsetEvidence(2, 14L, 0.064, 0.858, 0.012),
+                subsetEvidence(3, 91L, 0.372, 0.997, 0.251),
+                subsetEvidence(4, 364L, 0.957, 0.99999, 0.915)
+        ));
+        return evidence;
+    }
+
     private static Map<String, AttributeEvidence> mapOfStats(
             AttributeEvidence... evidence
     ) {
@@ -434,29 +387,19 @@ public class DemoDatasetEvidenceSeeder implements CommandLineRunner {
         );
     }
 
-    private static QidCombinationEvidence qidCombination(
-            List<String> attributeNames,
-            Double distinction,
-            Double separation,
-            Long equivalenceClassCount,
-            Long singletonClassCount,
-            Long singletonRecordCount,
-            Double singletonFraction,
-            Long minimumEquivalenceClassSize,
-            Double medianEquivalenceClassSize,
-            Long maximumEquivalenceClassSize
+    private static SubsetEvidence subsetEvidence(
+            Integer subsetSize,
+            Long evaluatedSubsetCount,
+            Double meanDistinction,
+            Double meanSeparation,
+            Double meanSingletonFraction
     ) {
-        return new QidCombinationEvidence(
-                attributeNames,
-                distinction,
-                separation,
-                equivalenceClassCount,
-                singletonClassCount,
-                singletonRecordCount,
-                singletonFraction,
-                minimumEquivalenceClassSize,
-                medianEquivalenceClassSize,
-                maximumEquivalenceClassSize
+        return new SubsetEvidence(
+                subsetSize,
+                evaluatedSubsetCount,
+                meanDistinction,
+                meanSeparation,
+                meanSingletonFraction
         );
     }
 
@@ -479,17 +422,12 @@ public class DemoDatasetEvidenceSeeder implements CommandLineRunner {
     ) {
     }
 
-    private record QidCombinationEvidence(
-            List<String> attributeNames,
-            Double distinction,
-            Double separation,
-            Long equivalenceClassCount,
-            Long singletonClassCount,
-            Long singletonRecordCount,
-            Double singletonFraction,
-            Long minimumEquivalenceClassSize,
-            Double medianEquivalenceClassSize,
-            Long maximumEquivalenceClassSize
+    private record SubsetEvidence(
+            Integer subsetSize,
+            Long evaluatedSubsetCount,
+            Double meanDistinction,
+            Double meanSeparation,
+            Double meanSingletonFraction
     ) {
     }
 }

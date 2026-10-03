@@ -186,7 +186,6 @@ export function mapAssessmentAttributeToFormState({
     directIdentifierConcept: displayEvidence.directIdentifierConcept ?? null,
     directIdentifierConfidence:
       displayEvidence.directIdentifierConfidence ?? null,
-    candidateQidCombinations: displayEvidence.candidateQidCombinations || [],
   };
 }
 
@@ -322,11 +321,6 @@ export function reconcileTableReferences({
           }
         });
 
-        const candidateQidCombinations =
-          displayEvidence.candidateQidCombinations || [];
-        if (attribute.candidateQidCombinations !== candidateQidCombinations) {
-          updates.candidateQidCombinations = candidateQidCombinations;
-        }
       }
 
       if (Object.keys(updates).length === 0) {

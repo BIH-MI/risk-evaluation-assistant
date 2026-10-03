@@ -102,9 +102,11 @@
     "add": {
       "title": "Neuen Datensatz hinzufügen",
       "dataTablesPreview": "Datentabellen-Vorschau",
-      "directIdentifierInstruction": "Automatisch erkannte direkte Identifikatoren und generische ID-ähnliche Felder werden standardmäßig ausgeschlossen. Bitte prüfen Sie die Attribute und passen Sie die QID-Kandidatur über das entsprechende Kontrollkästchen in der Spalte Ausgeschlossen an. Direkte Identifikatoren sollten in diesem Schritt entfernt werden, bevor Sie fortfahren.",
       "createButton": "Datensatz erstellen",
       "parsing": "Analysiere {{name}}...",
+      "subsetProfilingUpdating": "Unterscheidbarkeits-Evidenz wird profiliert...",
+      "subsetProfilingSummary": "{{subsetCount}} Attribut-Teilmengen über {{attributeCount}} geeignete Attribute ausgewertet.",
+      "noSubsetProfilingRequired": "Es war keine Multi-Attribut-Teilmengenprofilierung erforderlich.",
       "newTable": "Neue Tabelle",
       "newTableCounter": "Neue Tabelle ({{counter}})",
       "newAttribute": "Neues Attribut",
@@ -122,7 +124,7 @@
       "reviewAction": "Diese Attribute haben mehrdeutige Identifikator-Evidenz; prüfen Sie, ob sie eingeschlossen bleiben sollen.",
       "potentialIdentifier": "Potenzieller Identifikator",
       "overrideWarning": "Das Attribut '{{attribute}}' wurde automatisch als wahrscheinlicher direkter Identifikator erkannt.",
-      "overrideGuidance": "Direkte Identifikatoren sollten vor quantitativer QID-Analyse und Datensatzbewertung normalerweise ausgeschlossen werden.",
+      "overrideGuidance": "Direkte Identifikatoren sollten vor quantitativer Unterscheidbarkeitsprofilierung und Datensatzbewertung normalerweise ausgeschlossen werden.",
       "detectedAs": "Erkannt als: {{concept}}.",
       "evidence": "Evidenz: {{sources}}.",
       "concepts": {
@@ -133,6 +135,7 @@
         "NATIONAL_IDENTIFIER": "Nationale Kennung",
         "PASSPORT": "Passnummer",
         "MEDICAL_RECORD_NUMBER": "Medizinische Aktennummer",
+        "HEALTH_INSURANCE_IDENTIFIER": "Krankenversicherungskennung",
         "IP_ADDRESS": "IP-Adresse"
       },
       "evidenceSources": {
@@ -140,13 +143,7 @@
         "valuePattern": "Wertemuster"
       }
     },
-    "longitudinal": {
-      "subjectKeyLabel": "Subjekt-Gruppierungsschlüssel",
-      "subjectKeyNone": "Keine Subjekt-Gruppierung",
-      "subjectKeySuggested": "Vorgeschlagen: {{field}}",
-      "subjectKeyHelper": "Nur auswählen, wenn bestätigt wurde, dass dieses Feld Wiederholungsmessungen gruppiert.",
-      "suggested": "vorgeschlagen"
-    }
+    "longitudinal": {}
   },
   "datasetAssessments": {
     "attributesTable": {
@@ -169,6 +166,12 @@
     "evidence": {
       "info": "Evidenz",
       "statisticalEvidence": "Statistische Evidenz",
+      "quantitativeDistinguishabilityEvidence": "Quantitative Unterscheidbarkeits-Evidenz",
+      "individualAttribute": "Einzelattribut",
+      "combinationWithOtherAttributes": "In Kombination mit anderen Attributen",
+      "combinationWithOtherAttributesInfo": "Durchschnittswerte aus ausgewerteten Attribut-Teilmengen, die dieses Attribut enthalten; jede Teilmengengröße wird gleich gewichtet.",
+      "averageDistinction": "Durchschnittliche Distinction",
+      "averageSeparation": "Durchschnittliche Separation",
       "unavailable": "Nicht verfügbar",
       "replicabilityUnavailable": "Empirische Replizierbarkeit nicht verfügbar:",
       "replicabilityEvidence": "Replizierbarkeits-Evidenz",
@@ -178,13 +181,7 @@
       "validComparisons": "Gültige Vergleiche",
       "distinction": "Distinction",
       "separation": "Separation",
-      "equivalenceClassSize": "Äquiv.-Klassengröße",
-      "minimumShort": "min",
-      "maximumShort": "max",
       "singletonFraction": "Singleton-Anteil",
-      "minimumEquivalenceClassSize": "Minimale Äquivalenzklassengröße",
-      "medianEquivalenceClassSize": "Mediane Äquivalenzklassengröße",
-      "maximumEquivalenceClassSize": "Maximale Äquivalenzklassengröße",
       "historicalEvidence": "Historische Evidenz",
       "previousAssessment": "Vorherige Bewertung",
       "historicalValue": "Historischer Wert",
@@ -193,8 +190,6 @@
       "semantic": "Semantisch",
       "semanticAvailable": "Evidenz verfügbar",
       "directIdentifierEvidence": "Evidenz für direkten Identifikator",
-      "candidateQidEvidence": "Kandidaten-QID-Evidenz",
-      "candidateCombination": "Kandidatenkombination",
       "evidenceSource": "Quelle",
       "attributeName": "Attributname",
       "valuePattern": "Wertemuster",
@@ -708,71 +703,22 @@
       "version": "Version",
       "active": "Aktiv",
       "default": "Standard",
-      "searchType": "QID-Suchtyp",
-      "exactSearchMaxCandidateCount": "Maximale Kandidatenanzahl für die exakte Suche",
-      "maxCombinationSize": "Maximale Kombinationsgröße",
-      "beamWidth": "Beam-Breite",
-      "minImprovement": "Minimale Verbesserung",
-      "stagnationDepthLimit": "Stagnationstiefen-Grenzwert",
-      "targetDistinction": "Ziel-Distinction",
-      "targetSeparation": "Ziel-Separation",
-      "distinctionWeight": "Distinction-Gewichtung",
-      "separationWeight": "Separation-Gewichtung",
-      "attributeCountPenalty": "Attributanzahl-Strafwert",
-      "maxPersistedCombinations": "Maximal gespeicherte Kombinationen"
+      "maxSubsetSize": "Maximale Teilmengengröße",
+      "maxEvaluatedSubsets": "Maximal ausgewertete Teilmengen"
     },
-    "searchTypes": {
-      "automatic": "Automatisch",
-      "exact": "Exakte stufenweise Suche",
-      "beam": "Beam-Suche"
-    },
-    "searchStrategy": {
-      "title": "Suchstrategie",
-      "automaticDescription": "REA wählt die Suchstrategie automatisch anhand der Anzahl geeigneter Kandidatenattribute. Bis zur konfigurierten Kandidatengrenze wird die exakte stufenweise Suche verwendet; größere Kandidatenmengen nutzen die Beam-Suche.",
-      "exactDescription": "Die exakte stufenweise Suche untersucht systematisch geeignete Attributkombinationen bis zur konfigurierten maximalen Kombinationsgröße. Sie bietet eine vollständigere Exploration, kann bei großen Kandidatenmengen jedoch rechenintensiv werden.",
-      "beamDescription": "Die Beam-Suche verwendet eine heuristische Suche, die bei jeder Tiefe nur die bestbewerteten Kandidatenkombinationen beibehält. Sie ist bei großen Kandidatenmengen skalierbarer, wertet aber nicht jede mögliche Kombination aus.",
-      "exactSearchMaxCandidateCountHelper": "Maximale Anzahl geeigneter Kandidatenattribute für die exakte stufenweise Suche im automatischen Modus.",
-      "maxCombinationSizeHelper": "Maximale Anzahl von Attributen, die in einer durchsuchten QID-Kombination erlaubt sind."
-    },
-    "beamSearch": {
-      "title": "Beam-Suche",
-      "automaticDescription": "Diese Einstellungen werden verwendet, wenn die automatische Suchauswahl für eine größere Kandidatenmenge die Beam-Suche wählt.",
-      "beamDescription": "Die Beam-Suche behält bei jeder Suchtiefe nur die bestbewerteten Kandidatenkombinationen. Ein größerer Beam untersucht mehr Alternativen, erfordert aber mehr Rechenaufwand.",
-      "beamWidthHelper": "Maximale Anzahl bewerteter Kandidatenkombinationen, die bei jeder Suchtiefe zur weiteren Expansion beibehalten werden.",
-      "minImprovementHelper": "Minimale Erhöhung des besten Suchsignals, die zwischen aufeinanderfolgenden Tiefen als bedeutsam gilt.",
-      "stagnationDepthLimitHelper": "Anzahl aufeinanderfolgender Suchtiefen ohne ausreichende Verbesserung, bevor die Beam-Suche stoppt."
-    },
-    "searchTargets": {
-      "title": "Suchziele",
-      "description": "Suchziele legen fest, wann ein bereits starker Kandidat nicht mehr zu größeren Kombinationen erweitert werden muss. Beide Ziele müssen erreicht werden. Dies sind Suchsteuerungswerte, keine Distinguishability-Bewertungsschwellenwerte.",
-      "targetDistinctionHelper": "Minimales Distinction-Ziel, das bei der Entscheidung verwendet wird, ob ein Kandidat weiter erweitert werden soll.",
-      "targetSeparationHelper": "Minimales Separation-Ziel, das zusammen mit dem Ziel-Distinction bei der Entscheidung verwendet wird, ob ein Kandidat weiter erweitert werden soll."
-    },
-    "candidateRanking": {
-      "title": "Kandidatenranking",
-      "automaticDescription": "Das Ranking ordnet Kandidatenkombinationen und bestimmt, wenn die Beam-Suche gewählt ist, welche Kandidaten für eine weitere Expansion verfügbar bleiben.",
-      "exactDescription": "Das Ranking ordnet gefundene Kombinationen und beeinflusst, welche Ergebnisse beibehalten werden. Es bestimmt nicht, welche Kombinationen die exakte Suche auswertet.",
-      "beamDescription": "Das Ranking bestimmt, welche Kandidatenkombinationen im Beam verbleiben, und beeinflusst dadurch direkt, welche Suchzweige untersucht werden.",
-      "distinctionWeightHelper": "Relativer Beitrag von Distinction zum Kandidatenranking-Score.",
-      "separationWeightHelper": "Relativer Beitrag von Separation zum Kandidatenranking-Score.",
-      "attributeCountPenaltyHelper": "Strafwert für größere Kombinationen, sodass kleinere Kombinationen bei ansonsten ähnlicher Bewertung bevorzugt werden."
-    },
-    "resultRetention": {
-      "title": "Ergebnisaufbewahrung",
-      "description": "Legt fest, wie viele der gefundenen aggregierten QID-Kombinationen nach Abschluss der Suche aufbewahrt werden.",
-      "maxPersistedCombinationsHelper": "Maximale Anzahl aggregierter QID-Kombinationsergebnisse, die nach der Suche aufbewahrt werden. Dies begrenzt nicht, wie viele Kombinationen während der Suche ausgewertet werden können."
+    "subsetProfiling": {
+      "title": "Teilmengenprofilierung",
+      "maxSubsetSizeHelper": "Maximale Anzahl von Attributen, die gemeinsam betrachtet werden, um kontextuelle Unterscheidbarkeits-Evidenz abzuleiten.",
+      "maxEvaluatedSubsetsHelper": "Sicherheitsgrenze für exhaustive Teilmengenprofilierung. Die Profilierung stoppt mit einem Fehler, wenn die angeforderte Konfiguration diese Anzahl überschreiten würde."
     },
     "errors": {
       "nameRequired": "Name ist erforderlich.",
       "nameNotUnique": "Es existiert bereits eine QID-Discovery-Konfiguration mit diesem Namen.",
       "defaultNotActive": "Die Standard-QID-Discovery-Konfiguration muss aktiv sein.",
-      "searchTypeRequired": "QID-Suchtyp ist erforderlich.",
       "fieldRequired": "{{field}} ist erforderlich.",
       "fieldInvalidNumber": "{{field}} muss eine gültige Zahl sein.",
       "fieldNotInteger": "{{field}} muss eine ganze Zahl sein.",
-      "fieldBelowMin": "{{field}} muss mindestens {{min}} betragen.",
-      "fieldAboveMax": "{{field}} darf höchstens {{max}} betragen.",
-      "weightsCannotBothBeZero": "{{distinctionField}} und {{separationField}} dürfen nicht beide 0 sein."
+      "fieldBelowMin": "{{field}} muss mindestens {{min}} betragen."
     }
   },
   "documentation": {

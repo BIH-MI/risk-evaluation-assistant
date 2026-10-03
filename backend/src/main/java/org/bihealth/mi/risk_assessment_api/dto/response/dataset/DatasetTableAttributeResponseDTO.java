@@ -4,7 +4,11 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTableAttribute;
+import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTableAttributeSubsetEvidence;
 
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Represents a single attribute (column) of a dataset table in an API response.
@@ -39,15 +43,11 @@ public class DatasetTableAttributeResponseDTO {
     private Double distinction;
     private Double separation;
 
-    private Boolean replicabilityAvailable;
-    private Double replicabilityScore;
-    private Long replicabilityComparisonCount;
-    private String replicabilityMethod;
-    private String replicabilityUnavailableReason;
-
     private String directIdentifierEvidenceSource;
     private String directIdentifierConcept;
     private String directIdentifierConfidence;
+
+    private List<DatasetTableAttributeSubsetEvidenceResponseDTO> subsetEvidence;
 
     /**
      * Constructor to map a DatasetTableAttribute entity to this DTO.
@@ -73,13 +73,12 @@ public class DatasetTableAttributeResponseDTO {
         this.maximumEquivalenceClassSize = entity.getMaximumEquivalenceClassSize();
         this.distinction = entity.getDistinction();
         this.separation = entity.getSeparation();
-        this.replicabilityAvailable = entity.getReplicabilityAvailable();
-        this.replicabilityScore = entity.getReplicabilityScore();
-        this.replicabilityComparisonCount = entity.getReplicabilityComparisonCount();
-        this.replicabilityMethod = entity.getReplicabilityMethod();
-        this.replicabilityUnavailableReason = entity.getReplicabilityUnavailableReason();
         this.directIdentifierEvidenceSource = entity.getDirectIdentifierEvidenceSource();
         this.directIdentifierConcept = entity.getDirectIdentifierConcept();
         this.directIdentifierConfidence = entity.getDirectIdentifierConfidence();
+        this.subsetEvidence = entity.getSubsetEvidence().stream()
+                .sorted(Comparator.comparing(DatasetTableAttributeSubsetEvidence::getSubsetSize))
+                .map(DatasetTableAttributeSubsetEvidenceResponseDTO::new)
+                .collect(Collectors.toList());
     }
 }

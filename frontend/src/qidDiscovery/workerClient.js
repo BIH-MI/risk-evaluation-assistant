@@ -104,12 +104,7 @@ async function profileTableSynchronously(
     headers: fields,
     data: rows.slice(0, previewRowLimit),
     columnMeta: profile.columnMeta,
-    qidCombinations: profile.qidCombinations,
-    qidSearchMode: profile.qidSearchMode,
-    subjectKeySourceField: profile.subjectKeySourceField,
-    subjectKeyAutoDetected: profile.subjectKeyAutoDetected,
-    suggestedSubjectKeySourceFields: profile.suggestedSubjectKeySourceFields,
-    repeatedMeasurementSummary: profile.repeatedMeasurementSummary,
+    subsetProfilingSummary: profile.subsetProfilingSummary,
     profilingSession: {
       type: "sync",
       source: profile.profilingSource,
@@ -122,8 +117,9 @@ async function profileTableSynchronously(
 
 /**
  * Profiles an uploaded CSV file, encodes each observed source column, evaluates
- * Direct Identifier evidence, and runs initial QID discovery. The worker path
- * keeps large CSV parsing and search work off the React UI thread.
+ * Direct Identifier evidence, and calculates initial Distinguishability
+ * evidence. The worker path keeps large CSV parsing and subset profiling work
+ * off the React UI thread.
  *
  * If Worker support is unavailable, the same pure profiling functions run
  * synchronously so the data flow and privacy boundary remain identical.
@@ -132,19 +128,15 @@ export async function profileUploadedTable(file, options = {}) {
   const {
     previewRowLimit = CSV_PREVIEW_ROW_LIMIT,
     qidDiscoveryConfiguration,
-    subjectKeySourceField,
   } = options;
 
-  if (!qidDiscoveryConfiguration?.search) {
+  if (!qidDiscoveryConfiguration?.profiling) {
     throw new Error("QID Discovery Configuration must be selected.");
   }
 
   const qidOptions = {
-    qidDiscoverySearchConfiguration: qidDiscoveryConfiguration.search,
+    qidDiscoveryProfilingConfiguration: qidDiscoveryConfiguration.profiling,
   };
-  if (subjectKeySourceField) {
-    qidOptions.subjectKeySourceField = subjectKeySourceField;
-  }
   const worker = getQidWorker();
 
   if (worker) {
@@ -170,9 +162,9 @@ export async function profileUploadedTable(file, options = {}) {
 }
 
 /**
- * Refreshes QID discovery from the existing profiling session after schema,
- * exclusion, or subject-key changes. Encoded source columns and combination
- * cache entries are reused, avoiding another CSV scan.
+ * Refreshes Distinguishability evidence from the existing profiling session
+ * after schema or exclusion changes. Encoded source columns and subset cache
+ * entries are reused, avoiding another CSV scan.
  */
 export async function refreshUploadedTableProfile(
   profilingSession,
@@ -181,30 +173,20 @@ export async function refreshUploadedTableProfile(
 ) {
   const {
     qidDiscoveryConfiguration = profilingSession?.qidDiscoveryConfiguration,
-    subjectKeySourceField,
   } = options;
 
-  if (!qidDiscoveryConfiguration?.search) {
+  if (!qidDiscoveryConfiguration?.profiling) {
     throw new Error("QID Discovery Configuration must be selected.");
   }
 
   const qidOptions = {
-    qidDiscoverySearchConfiguration: qidDiscoveryConfiguration.search,
+    qidDiscoveryProfilingConfiguration: qidDiscoveryConfiguration.profiling,
   };
-
-  if (Object.prototype.hasOwnProperty.call(options, "subjectKeySourceField")) {
-    qidOptions.subjectKeySourceField = subjectKeySourceField;
-  }
 
   if (!profilingSession) {
     return {
       columnMeta,
-      qidCombinations: [],
-      qidSearchMode: "none",
-      subjectKeySourceField: qidOptions.subjectKeySourceField || null,
-      subjectKeyAutoDetected: false,
-      suggestedSubjectKeySourceFields: [],
-      repeatedMeasurementSummary: null,
+      subsetProfilingSummary: null,
     };
   }
 

@@ -1,6 +1,5 @@
 import React from "react";
 import { IconButton, Tooltip } from "@mui/material";
-import { alpha } from "@mui/material/styles";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import RABox from "components/layout/RABox";
 import { MemoNameCell } from "../../RowComponents";
@@ -19,8 +18,7 @@ function hasAutomaticDirectIdentifierSummary(attribute) {
 
 function hasNameCellEvidence(attribute) {
   return Boolean(
-    attribute?.candidateQidCombinations?.length ||
-      hasAutomaticDirectIdentifierSummary(attribute) ||
+    hasAutomaticDirectIdentifierSummary(attribute) ||
       attribute?.isDirectIdentifier ||
       attribute?.isExcluded
   );
@@ -65,31 +63,13 @@ function NameEvidenceInfoIcon({ attribute, t }) {
 
 function NameCellWithEvidence({ row, t }) {
   const attribute = row.original;
-  const hasCandidateQidEvidence =
-    attribute.candidateQidCombinations?.length > 0;
 
   return (
     <RABox
-      sx={(theme) => ({
+      sx={{
         position: "relative",
         width: "100%",
-        ...(hasCandidateQidEvidence
-          ? {
-              "& .MuiOutlinedInput-root": {
-                backgroundColor: alpha(
-                  theme.palette.warning.main,
-                  theme.palette.mode === "dark" ? 0.24 : 0.16
-                ),
-              },
-              "& .MuiOutlinedInput-root.Mui-disabled": {
-                backgroundColor: alpha(
-                  theme.palette.warning.main,
-                  theme.palette.mode === "dark" ? 0.24 : 0.16
-                ),
-              },
-            }
-          : {}),
-      })}
+      }}
     >
       <MemoNameCell
         disabled

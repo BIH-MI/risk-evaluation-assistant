@@ -15,5 +15,5 @@ public class QidDiscoveryConfigurationRequestDTO {
     private String description;
     private Boolean active;
     private Boolean defaultConfiguration;
-    private QidDiscoverySearchConfigurationRequestDTO search;
+    private QidDiscoveryProfilingConfigurationRequestDTO profiling;
 }

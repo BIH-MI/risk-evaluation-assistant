@@ -1,5 +1,4 @@
 import React from "react";
-import CandidateQidNameEvidence from "./CandidateQidEvidence";
 import DirectIdentifierNameEvidence from "./DirectIdentifierEvidence";
 import {
   EvidenceLine,
@@ -41,10 +40,6 @@ export function NameEvidenceTooltip({ attribute, t }) {
   return (
     <EvidenceTooltipContainer width={350}>
       <DirectIdentifierNameEvidence attribute={attribute} t={t} />
-      <CandidateQidNameEvidence
-        combinations={attribute.candidateQidCombinations || []}
-        t={t}
-      />
     </EvidenceTooltipContainer>
   );
 }

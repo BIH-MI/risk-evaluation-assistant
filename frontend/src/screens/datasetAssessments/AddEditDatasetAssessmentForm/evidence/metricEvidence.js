@@ -1,21 +1,10 @@
-const distinguishabilityMetricFields = [
+const individualDistinguishabilityFields = [
   "distinction",
   "separation",
   "singletonFraction",
   "minimumEquivalenceClassSize",
   "medianEquivalenceClassSize",
   "maximumEquivalenceClassSize",
-];
-
-const replicabilityEvidenceFields = [
-  "replicabilityAvailable",
-  "replicabilityScore",
-  "replicabilityComparisonCount",
-  "replicabilityMethod",
-  "replicabilityUnavailableReason",
-  "repeatedSubjectCount",
-  "repeatedSubjectFraction",
-  "analysisUnit",
 ];
 
 const hasValue = (value) => value !== null && value !== undefined;
@@ -29,49 +18,63 @@ function pickExistingFields(source, fields) {
   }, {});
 }
 
-export function buildDistinguishabilityQuantitativeEvidence(attribute) {
-  const evidence = pickExistingFields(attribute, distinguishabilityMetricFields);
-  return Object.keys(evidence).length > 0 ? evidence : null;
+function mean(values) {
+  const numericValues = values
+    .map(Number)
+    .filter((value) => Number.isFinite(value));
+
+  return numericValues.length
+    ? numericValues.reduce((sum, value) => sum + value, 0) /
+        numericValues.length
+    : null;
 }
 
-export function buildReplicabilityEmpiricalEvidence(attribute) {
-  const hasReplicabilityEvidence = replicabilityEvidenceFields.some((field) =>
-    hasValue(attribute?.[field])
-  );
+function buildSubsetContext(attribute) {
+  const bySubsetSize = (attribute?.subsetEvidence || [])
+    .filter((evidence) => hasValue(evidence.subsetSize))
+    .map((evidence) => ({
+      subsetSize: evidence.subsetSize,
+      evaluatedSubsetCount: evidence.evaluatedSubsetCount,
+      meanDistinction: evidence.meanDistinction,
+      meanSeparation: evidence.meanSeparation,
+      meanSingletonFraction: evidence.meanSingletonFraction,
+    }))
+    .sort((left, right) => left.subsetSize - right.subsetSize);
 
-  if (!hasReplicabilityEvidence) return null;
+  if (!bySubsetSize.length) return null;
 
-  const available =
-    attribute.replicabilityAvailable === undefined ||
-    attribute.replicabilityAvailable === null
-      ? hasValue(attribute.replicabilityScore)
-      : Boolean(attribute.replicabilityAvailable);
-
-  // An unavailable empirical Replicability score means the dataset could not
-  // estimate stability; it does not imply low Replicability.
-  const evidence = {
-    available,
-    score: available ? attribute.replicabilityScore ?? null : null,
-    reason: available
-      ? null
-      : attribute.replicabilityUnavailableReason ?? "unavailable",
+  return {
+    bySubsetSize,
+    overall: {
+      evaluatedSubsetCount: bySubsetSize.reduce(
+        (sum, evidence) => sum + (Number(evidence.evaluatedSubsetCount) || 0),
+        0
+      ),
+      maxSubsetSize: bySubsetSize[bySubsetSize.length - 1].subsetSize,
+      meanDistinction: mean(
+        bySubsetSize.map((evidence) => evidence.meanDistinction)
+      ),
+      meanSeparation: mean(
+        bySubsetSize.map((evidence) => evidence.meanSeparation)
+      ),
+      meanSingletonFraction: mean(
+        bySubsetSize.map((evidence) => evidence.meanSingletonFraction)
+      ),
+    },
   };
+}
 
-  if (hasValue(attribute.replicabilityComparisonCount)) {
-    evidence.comparisonCount = attribute.replicabilityComparisonCount;
-  }
-  if (hasValue(attribute.replicabilityMethod)) {
-    evidence.method = attribute.replicabilityMethod;
-  }
-  if (hasValue(attribute.repeatedSubjectCount)) {
-    evidence.repeatedSubjectCount = attribute.repeatedSubjectCount;
-  }
-  if (hasValue(attribute.repeatedSubjectFraction)) {
-    evidence.repeatedSubjectFraction = attribute.repeatedSubjectFraction;
-  }
-  if (hasValue(attribute.analysisUnit)) {
-    evidence.analysisUnit = attribute.analysisUnit;
-  }
+export function buildDistinguishabilityQuantitativeEvidence(attribute) {
+  const individual = pickExistingFields(
+    attribute,
+    individualDistinguishabilityFields
+  );
+  const subsetContext = buildSubsetContext(attribute);
 
-  return evidence;
+  if (!Object.keys(individual).length && !subsetContext) return null;
+
+  return {
+    individual: Object.keys(individual).length ? individual : null,
+    subsetContext,
+  };
 }

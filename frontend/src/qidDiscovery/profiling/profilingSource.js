@@ -1,12 +1,7 @@
 import { profileAndEncodeColumn } from "./profileAndEncodeColumn";
 import { applyDirectIdentifierEvidenceDefaults } from "../directIdentifierPolicy";
 import { buildDirectIdentifierEvidenceForCurrentFieldName } from "./directIdentifierEvidence";
-import {
-  buildSubjectGrouping,
-  getReplicabilityEvidenceForSourceField,
-  refreshReplicabilityEvidence,
-  suggestSubjectKeySourceFields,
-} from "./replicabilityEvidence";
+import { shouldAutoExcludeDirectIdentifier } from "./directIdentifierEvidence";
 
 const hasOwn = (object, key) =>
   Object.prototype.hasOwnProperty.call(object, key);
@@ -30,36 +25,6 @@ function getSourceField(column, rows) {
   return null;
 }
 
-function resolveInitialSubjectKeySourceField(profilingSource, options = {}) {
-  if (options.subjectKeySourceField) {
-    return {
-      subjectKeySourceField: options.subjectKeySourceField,
-      subjectKeyAutoDetected: false,
-    };
-  }
-
-  const suggestedFields = profilingSource.suggestedSubjectKeySourceFields || [];
-  if (suggestedFields.length !== 1) {
-    return {
-      subjectKeySourceField: null,
-      subjectKeyAutoDetected: false,
-    };
-  }
-
-  const [suggestedField] = suggestedFields;
-  const grouping = buildSubjectGrouping(profilingSource, suggestedField);
-
-  return grouping.hasRepeatedMeasurements
-    ? {
-        subjectKeySourceField: suggestedField,
-        subjectKeyAutoDetected: true,
-      }
-    : {
-        subjectKeySourceField: null,
-        subjectKeyAutoDetected: false,
-      };
-}
-
 /**
  * Creates initial column metadata from parsed CSV headers. The display name
  * and source identity start as the same value; later user renames update
@@ -79,7 +44,7 @@ export function createColumnMetaFromFields(fields = []) {
  * Builds the reusable profiling source for one uploaded table. Each observed
  * source column is normalized, profiled, encoded, and checked for aggregate
  * Direct Identifier evidence once. Later schema edits reuse this object so
- * excluded identifiers can still support Replicability without rescanning rows.
+ * attribute subset profiling can refresh without rescanning rows.
  */
 export function buildProfilingSource(rows = [], columnMeta = [], options = {}) {
   const profileColumn = options.profileColumn || profileAndEncodeColumn;
@@ -99,56 +64,11 @@ export function buildProfilingSource(rows = [], columnMeta = [], options = {}) {
 
   const profilingSource = {
     recordCount: rows.length,
-    replicabilityConfiguration: options.replicability,
     columnsBySourceField,
-    suggestedSubjectKeySourceFields: suggestSubjectKeySourceFields(
-      Array.from(columnsBySourceField.keys()),
-      options.replicability,
-      options.directIdentifier
-    ),
-    subjectKeySourceField: null,
-    subjectKeyAutoDetected: false,
-    repeatedMeasurementSummary: null,
-    replicabilityCache: null,
-    combinationCache: null,
+    subsetPartitionCache: null,
   };
-
-  const { subjectKeySourceField, subjectKeyAutoDetected } =
-    resolveInitialSubjectKeySourceField(profilingSource, options);
-  profilingSource.subjectKeyAutoDetected = subjectKeyAutoDetected;
-
-  refreshReplicabilityEvidence(
-    profilingSource,
-    subjectKeySourceField,
-    options.replicability
-  );
 
   return profilingSource;
-}
-
-/**
- * Updates only the Replicability-related cache when the selected subject key
- * changes. Subject grouping is independent of `excluded`: an excluded
- * identifier can still group repeated observations because encoded source
- * columns remain in the transient profiling source.
- */
-export function updateSubjectKeySourceField(
-  profilingSource,
-  subjectKeySourceField,
-  options = {}
-) {
-  if (!options.preserveSubjectKeyAutoDetected) {
-    profilingSource.subjectKeyAutoDetected = false;
-  }
-  refreshReplicabilityEvidence(
-    profilingSource,
-    subjectKeySourceField || null,
-    options.replicability || profilingSource?.replicabilityConfiguration
-  );
-  return {
-    subjectKeySourceField: profilingSource.subjectKeySourceField,
-    repeatedMeasurementSummary: profilingSource.repeatedMeasurementSummary,
-  };
 }
 
 /**
@@ -192,26 +112,22 @@ export function applyStatistics(
       level: column.level || source?.dataType || "STRING",
       statistics: source ? source.statistics : column.statistics || null,
       directIdentifierEvidence,
-      replicabilityEvidence: source
-        ? getReplicabilityEvidenceForSourceField(profilingSource, sourceField)
-        : column.replicabilityEvidence || {
-            empirical: null,
-            semantic: null,
-            historical: null,
-          },
     };
   });
 }
 
 /**
- * Builds the QID search input from current schema state. Candidate preparation
- * deliberately checks only two things: a profiled source column exists, and the
- * user has not marked the attribute `excluded`.
+ * Builds the subset-profiling input from current schema state. Candidate
+ * preparation keeps Direct Identifier detection separate: excluded columns and
+ * confirmed Direct Identifiers are omitted from quantitative subset profiling.
  */
 export function buildCandidateColumns(columnMeta = [], profilingSource) {
   return columnMeta
     .map((column) => {
       if (column.excluded === true) return null;
+      if (shouldAutoExcludeDirectIdentifier(column.directIdentifierEvidence)) {
+        return null;
+      }
 
       const profiledSource = getProfiledSourceForColumn(
         profilingSource,

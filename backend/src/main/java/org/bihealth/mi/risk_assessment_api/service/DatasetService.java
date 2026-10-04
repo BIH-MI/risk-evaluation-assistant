@@ -2,7 +2,6 @@ package org.bihealth.mi.risk_assessment_api.service;
 
 import org.bihealth.mi.risk_assessment_api.dto.request.dataset.*;
 import org.bihealth.mi.risk_assessment_api.dto.response.dataset.DatasetResponseDTO;
-import org.bihealth.mi.risk_assessment_api.enums.DataType;
 import org.bihealth.mi.risk_assessment_api.exception.DatasetNameAlreadyExistsException;
 import org.bihealth.mi.risk_assessment_api.model.dataset.*;
 import org.bihealth.mi.risk_assessment_api.model.qid.QidDiscoveryConfigurationVersion;
@@ -94,69 +93,104 @@ public class DatasetService {
         Dataset existing = datasetRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Dataset not found: " + id));
 
-        // Dataset edits are allowed for admins, owners, and explicitly shared users.
-        if (!isAdmin && !existing.getCreatorUsername().equals(username)
-                && !existing.getSharedUsernames().contains(username)) {
-            throw new SecurityException("Not owner of dataset");
-        }
-
+        assertCanEditDataset(existing, username, isAdmin);
         String normalizedName = requiredDatasetName(dto.getName());
         ensureDatasetNameAvailable(normalizedName, id);
 
-        existing.setName(normalizedName);
-        existing.setDescription(dto.getDescription());
+        updateDatasetMetadata(existing, dto, normalizedName);
         applyQidDiscoveryConfiguration(existing, dto, false);
-
-        List<String> incomingUsernames = dto.getSharedUsernames() != null ? dto.getSharedUsernames() : Collections.emptyList();
-        existing.getSharedUsernames().clear();
-        existing.getSharedUsernames().addAll(incomingUsernames);
-
-        // Build lookups for current nested rows so updates can preserve entity IDs.
-        Map<Long, DatasetTable> tableMap = existing.getTables().stream()
-                .collect(Collectors.toMap(DatasetTable::getId, t -> t));
-        List<DatasetTableRequestDTO> tableDTOs = dto.getTables() != null ? dto.getTables() : Collections.emptyList();
-
-        // Remove tables that are no longer present in the request.
-        existing.getTables().removeIf(tbl -> tableDTOs.stream().noneMatch(td -> td.getId() != null && td.getId().equals(tbl.getId())));
-
-        for (DatasetTableRequestDTO td : tableDTOs) {
-            if (td.getId() != null && tableMap.containsKey(td.getId())) {
-                // Update an existing table and synchronize its attributes.
-                DatasetTable tbl = tableMap.get(td.getId());
-                tbl.setName(td.getName());
-
-                Map<Long, DatasetTableAttribute> attrMap = tbl.getAttributes().stream()
-                        .collect(Collectors.toMap(DatasetTableAttribute::getId, a -> a));
-                List<DatasetTableAttributeRequestDTO> attrDTOs = td.getAttributes() != null ? td.getAttributes() : Collections.emptyList();
-
-                // Remove attributes omitted from the request.
-                tbl.getAttributes().removeIf(attr -> attrDTOs.stream().noneMatch(ad -> ad.getId() != null && ad.getId().equals(attr.getId())));
-
-                for (DatasetTableAttributeRequestDTO ad : attrDTOs) {
-                    if (ad.getId() != null && attrMap.containsKey(ad.getId())) {
-                        // Update an existing column in place.
-                        DatasetTableAttribute existingAttr = attrMap.get(ad.getId());
-                        existingAttr.setName(ad.getName());
-                        existingAttr.setDataType(DataType.valueOf(ad.getDataType()));
-                        existingAttr.setExcluded(Boolean.TRUE.equals(ad.getExcluded()));
-                        if (ad.hasAnyStatistics()) {
-                            ad.applyStatisticsTo(existingAttr);
-                        }
-                        ad.applyDirectIdentifierEvidenceSummaryTo(existingAttr);
-                        ad.applySubsetEvidenceTo(existingAttr);
-                    } else {
-                        // Add a new column under the existing table.
-                        tbl.getAttributes().add(ad.toEntity(tbl));
-                    }
-                }
-            } else {
-                // Add a new table with its nested attributes.
-                existing.getTables().add(td.toEntity(existing, username));
-            }
-        }
+        replaceSharedUsers(existing, dto.getSharedUsernames());
+        syncTables(existing, dto.getTables(), username);
 
         Dataset saved = saveDatasetHandlingDuplicateName(existing, normalizedName);
         return new DatasetResponseDTO(saved);
+    }
+
+    private void assertCanEditDataset(Dataset dataset, String username, boolean isAdmin) {
+        // Dataset edits are allowed for admins, owners, and explicitly shared users.
+        if (!isAdmin && !dataset.getCreatorUsername().equals(username)
+                && !dataset.getSharedUsernames().contains(username)) {
+            throw new SecurityException("Not owner of dataset");
+        }
+    }
+
+    private void updateDatasetMetadata(Dataset dataset, DatasetRequestDTO dto, String normalizedName) {
+        dataset.setName(normalizedName);
+        dataset.setDescription(dto.getDescription());
+    }
+
+    private void replaceSharedUsers(Dataset dataset, List<String> incomingUsernames) {
+        dataset.getSharedUsernames().clear();
+        dataset.getSharedUsernames().addAll(
+                incomingUsernames != null ? incomingUsernames : Collections.emptyList()
+        );
+    }
+
+    private void syncTables(Dataset dataset, List<DatasetTableRequestDTO> incomingTables, String username) {
+        List<DatasetTableRequestDTO> tableDTOs =
+                incomingTables != null ? incomingTables : Collections.emptyList();
+        Map<Long, DatasetTable> tablesById = dataset.getTables().stream()
+                .collect(Collectors.toMap(DatasetTable::getId, table -> table));
+        Set<Long> incomingTableIds = tableDTOs.stream()
+                .map(DatasetTableRequestDTO::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        dataset.getTables().removeIf(table -> !incomingTableIds.contains(table.getId()));
+
+        for (DatasetTableRequestDTO tableDTO : tableDTOs) {
+            DatasetTable existingTable = tableDTO.getId() == null
+                    ? null
+                    : tablesById.get(tableDTO.getId());
+
+            if (existingTable != null) {
+                syncExistingTable(existingTable, tableDTO);
+            } else {
+                dataset.getTables().add(tableDTO.toEntity(dataset, username));
+            }
+        }
+    }
+
+    private void syncExistingTable(DatasetTable table, DatasetTableRequestDTO tableDTO) {
+        table.setName(tableDTO.getName());
+        syncAttributes(table, tableDTO.getAttributes());
+    }
+
+    private void syncAttributes(DatasetTable table, List<DatasetTableAttributeRequestDTO> incomingAttributes) {
+        List<DatasetTableAttributeRequestDTO> attributeDTOs =
+                incomingAttributes != null ? incomingAttributes : Collections.emptyList();
+        Map<Long, DatasetTableAttribute> attributesById = table.getAttributes().stream()
+                .collect(Collectors.toMap(DatasetTableAttribute::getId, attribute -> attribute));
+        Set<Long> incomingAttributeIds = attributeDTOs.stream()
+                .map(DatasetTableAttributeRequestDTO::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        table.getAttributes().removeIf(attribute -> !incomingAttributeIds.contains(attribute.getId()));
+
+        for (DatasetTableAttributeRequestDTO attributeDTO : attributeDTOs) {
+            DatasetTableAttribute existingAttribute = attributeDTO.getId() == null
+                    ? null
+                    : attributesById.get(attributeDTO.getId());
+
+            if (existingAttribute != null) {
+                updateExistingAttribute(existingAttribute, attributeDTO);
+            } else {
+                table.getAttributes().add(attributeDTO.toEntity(table));
+            }
+        }
+    }
+
+    private void updateExistingAttribute(
+            DatasetTableAttribute attribute,
+            DatasetTableAttributeRequestDTO attributeDTO
+    ) {
+        attributeDTO.applySchemaTo(attribute);
+        if (attributeDTO.hasAnyStatistics()) {
+            attributeDTO.applyStatisticsTo(attribute);
+        }
+        attributeDTO.applyDirectIdentifierEvidenceSummaryTo(attribute);
+        attributeDTO.applySubsetEvidenceTo(attribute);
     }
 
     private String requiredDatasetName(String value) {

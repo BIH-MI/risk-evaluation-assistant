@@ -1,3 +1,5 @@
+import { DEFAULT_QID_DISCOVERY_PROFILING_CONFIGURATION } from "qidDiscovery";
+
 export const emptyQidDiscoveryConfigurationForm = () => ({
   id: null,
   name: "",
@@ -6,8 +8,12 @@ export const emptyQidDiscoveryConfigurationForm = () => ({
   defaultConfiguration: false,
   versionNumber: 1,
   profiling: {
-    maxSubsetSize: "4",
-    maxEvaluatedSubsets: "25000",
+    maxSubsetSize: String(
+      DEFAULT_QID_DISCOVERY_PROFILING_CONFIGURATION.maxSubsetSize
+    ),
+    maxEvaluatedSubsets: String(
+      DEFAULT_QID_DISCOVERY_PROFILING_CONFIGURATION.maxEvaluatedSubsets
+    ),
   },
 });
 

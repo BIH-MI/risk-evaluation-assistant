@@ -4,108 +4,70 @@ import {
   buildProfilingSource,
   createColumnMetaFromFields,
 } from "./profiling/profilingSource";
-import { profileAttributeSubsets } from "./subsets/subsetProfiler";
-import { validateQidDiscoveryProfilingConfiguration } from "./configuration/validateQidDiscoveryProfilingConfiguration";
+import {
+  createEmptySubsetProfilingSummary,
+  profileAttributeSubsets,
+} from "./subsets/subsetProfiler";
 
 export const CSV_PREVIEW_ROW_LIMIT = 10000;
 
-function getProfilingConfiguration(options = {}) {
-  return validateQidDiscoveryProfilingConfiguration(
-    options.qidDiscoveryProfilingConfiguration || options.profilingConfiguration
-  );
+function attachSubsetEvidence(columnMeta, evidenceBySourceField) {
+  return columnMeta.map((column) => ({
+    ...column,
+    subsetEvidence:
+      evidenceBySourceField.get(column.sourceField || column.field) || [],
+  }));
 }
-
-function attachSubsetEvidence(
-  columnMeta = [],
-  profilingSource,
-  evidenceByStableAttributeId
-) {
-  return columnMeta.map((column) => {
-    const sourceField = column.sourceField || column.field;
-    const source = profilingSource?.columnsBySourceField?.get(sourceField);
-    const subsetContext = source
-      ? evidenceByStableAttributeId.get(source.stableAttributeId)
-      : null;
-
-    return {
-      ...column,
-      subsetEvidence: subsetContext?.bySubsetSize || [],
-    };
-  });
-}
-
-const emptySubsetProfilingSummary = (configuration) => ({
-  maxSubsetSize: configuration.maxSubsetSize,
-  maxEvaluatedSubsets: configuration.maxEvaluatedSubsets,
-  evaluatedSubsetCount: 0,
-  candidateAttributeCount: 0,
-});
 
 /**
- * Reruns profiling refresh from an existing profiling source. Individual
- * attribute statistics and Direct Identifier evidence are projected onto the
- * current schema before exhaustive subset profiling is rerun and aggregated
- * back onto each participating attribute.
+ * Recomputes Distinguishability evidence for the current schema from an
+ * existing profiling source. Individual attribute statistics and Direct
+ * Identifier evidence are projected onto the schema, then exhaustive subset
+ * profiling runs over the eligible attributes and its per-size evidence is
+ * attached to each participating attribute.
  */
 export function profileTableFromSource(
   profilingSource,
   columnMeta = [],
-  options = {}
+  profilingConfiguration
 ) {
-  const profilingConfiguration = getProfilingConfiguration(options);
-
   if (!profilingSource) {
     return {
       columnMeta,
-      subsetProfilingSummary: emptySubsetProfilingSummary(
+      subsetProfilingSummary: createEmptySubsetProfilingSummary(
         profilingConfiguration
       ),
     };
   }
 
-  const profiledColumnMeta = applyStatistics(
-    columnMeta,
-    profilingSource,
-    options
-  );
-  const candidateColumns = buildCandidateColumns(
-    profiledColumnMeta,
-    profilingSource
-  );
-  const { evidenceByStableAttributeId, summary } = profileAttributeSubsets(
-    candidateColumns,
+  const profiledColumnMeta = applyStatistics(columnMeta, profilingSource);
+  const { evidenceBySourceField, summary } = profileAttributeSubsets(
+    buildCandidateColumns(profiledColumnMeta, profilingSource),
     profilingSource,
     profilingConfiguration
   );
 
   return {
-    columnMeta: attachSubsetEvidence(
-      profiledColumnMeta,
-      profilingSource,
-      evidenceByStableAttributeId
-    ),
+    columnMeta: attachSubsetEvidence(profiledColumnMeta, evidenceBySourceField),
     subsetProfilingSummary: summary,
   };
 }
 
 /**
- * Builds a reusable profiling source from parsed rows, then immediately
- * calculates individual and attribute-subset Distinguishability evidence. The
- * returned profilingSource is transient browser-local state containing encoded
- * columns and caches for later refreshes.
+ * Profiles freshly parsed CSV rows. The returned profilingSource is transient
+ * browser-local state (encoded columns and subset cache) that later refreshes
+ * reuse instead of rescanning rows.
  */
-export function profileTableRows(rows = [], columnMeta = [], options = {}) {
-  const profilingSource = buildProfilingSource(rows, columnMeta, options);
+export function profileParsedTable({ rows, fields }, profilingConfiguration) {
+  const columnMeta = createColumnMetaFromFields(fields);
+  const profilingSource = buildProfilingSource(rows, columnMeta);
 
   return {
-    ...profileTableFromSource(profilingSource, columnMeta, options),
+    ...profileTableFromSource(
+      profilingSource,
+      columnMeta,
+      profilingConfiguration
+    ),
     profilingSource,
   };
 }
-
-export {
-  applyStatistics,
-  buildCandidateColumns,
-  buildProfilingSource,
-  createColumnMetaFromFields,
-};

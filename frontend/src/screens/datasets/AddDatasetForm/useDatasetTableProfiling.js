@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef } from "react";
 
+import { applySchemaDirectIdentifierEvidence } from "qidDiscovery";
 import {
   disposeUploadedTableProfile,
   profileUploadedTable,
   refreshUploadedTableProfile,
-} from "qidDiscovery";
-import { applySchemaDirectIdentifierEvidence } from "qidDiscovery/directIdentifierPolicy";
+} from "qidDiscovery/workerClient";
 
 function applyUnprofiledColumnDefaults(columnMeta = []) {
   return columnMeta.map((column) =>
@@ -16,8 +16,8 @@ function applyUnprofiledColumnDefaults(columnMeta = []) {
 /**
  * Owns the Add Dataset profiling session lifecycle. Uploaded CSVs are profiled
  * once; later rename, exclusion, datatype, and delete changes use cached
- * encoded columns so Distinguishability evidence updates without another CSV
- * scan.
+ * encoded source columns so Distinguishability evidence updates without
+ * another CSV scan.
  */
 export function useDatasetTableProfiling({ tables, setTables, setErrors, t }) {
   const tablesRef = useRef(tables);

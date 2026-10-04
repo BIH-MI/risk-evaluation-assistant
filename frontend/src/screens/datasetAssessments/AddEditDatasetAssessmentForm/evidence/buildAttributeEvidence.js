@@ -6,19 +6,13 @@ import {
   buildHistoricalEvidenceForAttribute,
 } from "./previousAssessmentEvidence";
 
-export function getSemanticAttributeEvidence() {
-  return null;
-}
-
 function buildDimensionEvidence({
   dimension,
   attribute,
   historicalEvidence,
-  semanticEvidence,
 }) {
   const baseEvidence = {
     historical: historicalEvidence,
-    semantic: semanticEvidence?.[dimension] || null,
   };
 
   if (dimension === "distinguishability") {
@@ -48,7 +42,6 @@ export function buildAttributeEvidence({
     (table.attributes || []).forEach((attribute) => {
       if (attribute.excluded || attribute.isExcluded) return;
 
-      const semanticEvidence = getSemanticAttributeEvidence(attribute);
       const historicalByDimension = buildHistoricalEvidenceForAttribute({
         previousAssessments: historicalAssessments,
         attributeId: attribute.id,
@@ -63,7 +56,6 @@ export function buildAttributeEvidence({
             dimension,
             attribute,
             historicalEvidence: historicalByDimension[dimension],
-            semanticEvidence,
           });
           return acc;
         }, {});

@@ -1,11 +1,11 @@
 /* eslint-env worker */
 /* global globalThis */
-import Papa from "papaparse";
+import { parseCsvFile } from "../parsing/parseCsvFile";
 import {
-  buildProfilingSource,
-  createColumnMetaFromFields,
-} from "../profiling/profilingSource";
-import { CSV_PREVIEW_ROW_LIMIT, profileTableFromSource } from "../qidProfiler";
+  CSV_PREVIEW_ROW_LIMIT,
+  profileParsedTable,
+  profileTableFromSource,
+} from "../qidProfiler";
 
 const sessions = new Map();
 let nextSessionCounter = 0;
@@ -27,24 +27,6 @@ function serializeError(error) {
   };
 }
 
-function parseCsvFile(file) {
-  return new Promise((resolve, reject) => {
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      dynamicTyping: false,
-      worker: false,
-      complete: ({ data: rows, meta: { fields = [] } }) => {
-        resolve({
-          rows,
-          fields,
-        });
-      },
-      error: reject,
-    });
-  });
-}
-
 /**
  * Parses the uploaded File inside the QID worker, builds the reusable
  * profiling source, calculates aggregate Distinguishability evidence, stores
@@ -55,7 +37,6 @@ async function profileTable({
   file,
   previewRowLimit = CSV_PREVIEW_ROW_LIMIT,
   qidDiscoveryConfiguration,
-  options,
 }) {
   const { rows, fields } = await parseCsvFile(file);
   const parsedPreviewRowLimit = Number(previewRowLimit);
@@ -63,9 +44,10 @@ async function profileTable({
     ? Math.max(0, parsedPreviewRowLimit)
     : CSV_PREVIEW_ROW_LIMIT;
   const sessionId = createSessionId(file?.name);
-  const columnMeta = createColumnMetaFromFields(fields);
-  const profilingSource = buildProfilingSource(rows, columnMeta, options);
-  const profile = profileTableFromSource(profilingSource, columnMeta, options);
+  const { profilingSource, ...profile } = profileParsedTable(
+    { rows, fields },
+    qidDiscoveryConfiguration.profiling
+  );
 
   sessions.set(sessionId, profilingSource);
 
@@ -87,23 +69,25 @@ async function profileTable({
 
 /**
  * Reuses an existing worker-local profiling source after schema edits. This
- * refresh does not rescan rows and keeps the session-level subset cache.
+ * refresh does not rescan rows and reuses the session's cached subset metrics.
  */
-function refreshTableProfile({ sessionId, columnMeta, options }) {
+function refreshTableProfile({ sessionId, columnMeta, profilingConfiguration }) {
   const profilingSource = sessions.get(sessionId);
 
   if (!profilingSource) {
     throw new Error("QID profiling session was not found.");
   }
 
-  return profileTableFromSource(profilingSource, columnMeta, options);
+  return profileTableFromSource(
+    profilingSource,
+    columnMeta,
+    profilingConfiguration
+  );
 }
 
 /**
- * Worker-local cache invalidation handler.
- *
- * Disposes transient encoded columns, partitions, rowGroupIds, and cached
- * subset entries for a table profiling session.
+ * Drops the worker-local profiling source (encoded columns and cached subset
+ * metrics) for a table profiling session.
  */
 function disposeProfilingSession({ sessionId }) {
   sessions.delete(sessionId);

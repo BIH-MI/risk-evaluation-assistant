@@ -3,7 +3,6 @@ package org.bihealth.mi.risk_assessment_api.dto.request.dataset;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTableAttribute;
 import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTableAttributeSubsetEvidence;
 
 @Data
@@ -17,9 +16,8 @@ public class DatasetTableAttributeSubsetEvidenceRequestDTO {
     private Double meanSeparation;
     private Double meanSingletonFraction;
 
-    public DatasetTableAttributeSubsetEvidence toEntity(DatasetTableAttribute attribute) {
+    public DatasetTableAttributeSubsetEvidence toEntity() {
         DatasetTableAttributeSubsetEvidence evidence = new DatasetTableAttributeSubsetEvidence();
-        evidence.setAttribute(attribute);
         evidence.setSubsetSize(subsetSize);
         evidence.setEvaluatedSubsetCount(evaluatedSubsetCount);
         evidence.setMeanDistinction(meanDistinction);

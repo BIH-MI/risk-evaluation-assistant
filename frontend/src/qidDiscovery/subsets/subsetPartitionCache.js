@@ -1,24 +1,23 @@
 import { buildSubsetStatistics } from "../metrics/profile";
 
-// Convert an attribute subset into one standard ordering so that the same
-// subset is always represented by the same cache key.
-export const canonicalizeStableAttributeIds = (stableAttributeIds = []) =>
-  [...stableAttributeIds].sort();
+// Sorting gives every attribute subset one canonical ordering, so the same
+// subset always maps to the same cache key and the same parent prefix.
+const canonicalizeSourceFields = (sourceFields = []) => [...sourceFields].sort();
 
 /**
- * Builds a stable cache key from source-column identities rather than current
- * candidate-array positions or display names. JSON encoding avoids collisions
- * when source field names contain a separator character.
+ * Builds a cache key from source fields rather than display names or
+ * candidate-array positions. JSON encoding avoids collisions when source field
+ * names contain a separator character.
  */
-export function createSubsetKey(stableAttributeIds = []) {
-  return JSON.stringify(canonicalizeStableAttributeIds(stableAttributeIds));
+function createSubsetKey(sourceFields = []) {
+  return JSON.stringify(canonicalizeSourceFields(sourceFields));
 }
 
 /**
  * Creates the initial equivalence-class partition for one encoded attribute.
  * Records with the same encoded value receive the same group ID.
  */
-export function buildSingleColumnPartition(codes) {
+function buildSingleColumnPartition(codes) {
   const classSizes = [];
 
   for (const code of codes) {
@@ -36,7 +35,7 @@ export function buildSingleColumnPartition(codes) {
  * equivalence class according to the encoded value of the new attribute. This
  * reuses the parent partition and avoids reconstruction from raw rows.
  */
-export function refinePartition(parentPartition, columnCodes) {
+function refinePartition(parentPartition, columnCodes) {
   const refinedGroups = new Map();
   const rowGroupIds = new Uint32Array(columnCodes.length);
   const classSizes = [];
@@ -62,94 +61,96 @@ export function refinePartition(parentPartition, columnCodes) {
 }
 
 /**
- * Caches evaluated attribute subsets and their partitions for one table
- * profiling source. The cache survives rename, exclude/include, datatype
- * display edits, and candidate reordering because keys use stable source
- * identities. It is discarded with the profiling source when the table is
- * removed or replaced.
+ * Caches attribute subset results for one table profiling session, keyed by
+ * source fields so renames keep hitting the same entries.
  *
- * Cached partitions, rowGroupIds, and encoded values are transient
- * browser-local state and must never be persisted to the backend.
+ * The two tiers have deliberately different lifetimes:
+ * - Subset metrics are a handful of aggregate numbers. They are kept for the
+ *   whole session, so refreshes after rename/exclude/include reuse every
+ *   subset that was already evaluated.
+ * - Partitions hold one rowGroupId per record (memory ~ subsets x rows). They
+ *   are only needed as parents for the next subset size, so the subset
+ *   profiler releases them layer by layer and drops all of them at the end of
+ *   each profiling run. A later miss rebuilds the parent chain from the
+ *   encoded columns, which yields identical partitions.
+ *
+ * Partitions, rowGroupIds, and encoded values are transient browser-local
+ * state and must never be persisted to the backend.
  */
 export class SubsetPartitionCache {
   constructor(profilingSource) {
     this.columnsBySourceField = profilingSource.columnsBySourceField;
     this.analysedRecordCount = profilingSource.recordCount;
-    this.cache = new Map();
-    this.hitCount = 0;
-    this.missCount = 0;
+    this.metricsByKey = new Map();
+    this.partitionsBySubsetSize = new Map();
   }
 
   /**
-   * Exposes a cached entry for diagnostics. Do not serialize the returned
-   * object into application state or backend payloads.
+   * Returns aggregate metrics for an attribute subset, building its partition
+   * only when the subset has not been evaluated before in this session.
    */
-  peek(stableAttributeIds) {
-    return this.cache.get(createSubsetKey(stableAttributeIds));
-  }
+  getMetrics(sourceFields) {
+    const canonicalSourceFields = canonicalizeSourceFields(sourceFields);
+    const key = createSubsetKey(canonicalSourceFields);
+    const cachedMetrics = this.metricsByKey.get(key);
+    if (cachedMetrics) return cachedMetrics;
 
-  /**
-   * Returns aggregate cache counters without exposing participant-level
-   * partitions.
-   */
-  getStats() {
-    return {
-      size: this.cache.size,
-      hitCount: this.hitCount,
-      missCount: this.missCount,
-    };
-  }
-
-  /**
-   * Returns the cache entry for a stable subset, computing partition and
-   * metrics once when the key is first requested.
-   */
-  getEntry(stableAttributeIds) {
-    const canonicalStableAttributeIds =
-      canonicalizeStableAttributeIds(stableAttributeIds);
-    const key = createSubsetKey(canonicalStableAttributeIds);
-
-    if (this.cache.has(key)) {
-      this.hitCount += 1;
-      return this.cache.get(key);
-    }
-
-    this.missCount += 1;
-    const partition = this.buildPartition(canonicalStableAttributeIds);
+    const partition = this.getPartition(canonicalSourceFields, key);
     const metrics = buildSubsetStatistics(
-      canonicalStableAttributeIds,
+      canonicalSourceFields,
       partition.classSizes,
       this.analysedRecordCount
     );
-    const entry = {
-      key,
-      stableAttributeIds: canonicalStableAttributeIds,
-      partition,
-      metrics,
-    };
 
-    this.cache.set(key, entry);
-    return entry;
+    this.metricsByKey.set(key, metrics);
+    return metrics;
   }
 
   /**
-   * Builds a partition by recursively reusing the cached parent subset and
-   * refining it with the next encoded source column.
+   * Returns the partition for canonical source fields by refining the cached
+   * parent subset (all but the last source field) with the next encoded
+   * column. Missing parents are rebuilt recursively.
    */
-  buildPartition(canonicalStableAttributeIds) {
-    if (canonicalStableAttributeIds.length === 1) {
-      const source = this.columnsBySourceField.get(
-        canonicalStableAttributeIds[0]
-      );
-      return buildSingleColumnPartition(source.encoded.codes);
+  getPartition(
+    canonicalSourceFields,
+    key = createSubsetKey(canonicalSourceFields)
+  ) {
+    const subsetSize = canonicalSourceFields.length;
+    let partitionsByKey = this.partitionsBySubsetSize.get(subsetSize);
+    const cachedPartition = partitionsByKey?.get(key);
+    if (cachedPartition) return cachedPartition;
+
+    const lastSourceField = canonicalSourceFields[subsetSize - 1];
+    const lastColumnCodes =
+      this.columnsBySourceField.get(lastSourceField).encoded.codes;
+    const partition =
+      subsetSize === 1
+        ? buildSingleColumnPartition(lastColumnCodes)
+        : refinePartition(
+            this.getPartition(canonicalSourceFields.slice(0, -1)),
+            lastColumnCodes
+          );
+
+    if (!partitionsByKey) {
+      partitionsByKey = new Map();
+      this.partitionsBySubsetSize.set(subsetSize, partitionsByKey);
     }
+    partitionsByKey.set(key, partition);
 
-    const parentStableAttributeIds = canonicalStableAttributeIds.slice(0, -1);
-    const nextStableAttributeId =
-      canonicalStableAttributeIds[canonicalStableAttributeIds.length - 1];
-    const parent = this.getEntry(parentStableAttributeIds);
-    const nextColumn = this.columnsBySourceField.get(nextStableAttributeId);
+    return partition;
+  }
 
-    return refinePartition(parent.partition, nextColumn.encoded.codes);
+  /**
+   * Releases partitions that can no longer be parents: subsets of size k+1
+   * only refine partitions of size k.
+   */
+  releasePartitionsSmallerThan(subsetSize) {
+    Array.from(this.partitionsBySubsetSize.keys()).forEach((size) => {
+      if (size < subsetSize) this.partitionsBySubsetSize.delete(size);
+    });
+  }
+
+  releaseAllPartitions() {
+    this.partitionsBySubsetSize.clear();
   }
 }

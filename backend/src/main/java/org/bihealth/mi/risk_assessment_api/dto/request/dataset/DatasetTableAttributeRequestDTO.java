@@ -6,8 +6,10 @@ import lombok.AllArgsConstructor;
 import org.bihealth.mi.risk_assessment_api.enums.DataType;
 import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTable;
 import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTableAttribute;
+import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTableAttributeSubsetEvidence;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Represents a single attribute (column) when creating or updating a DatasetTable.
@@ -58,13 +60,17 @@ public class DatasetTableAttributeRequestDTO {
     public DatasetTableAttribute toEntity(DatasetTable table) {
         DatasetTableAttribute attr = new DatasetTableAttribute();
         attr.setTable(table);
-        attr.setName(name);
-        attr.setDataType(DataType.valueOf(dataType));
-        attr.setExcluded(Boolean.TRUE.equals(excluded));
+        applySchemaTo(attr);
         applyStatisticsTo(attr);
         applyDirectIdentifierEvidenceSummaryTo(attr);
         applySubsetEvidenceTo(attr);
         return attr;
+    }
+
+    public void applySchemaTo(DatasetTableAttribute attr) {
+        attr.setName(name);
+        attr.setDataType(DataType.valueOf(dataType));
+        attr.setExcluded(Boolean.TRUE.equals(excluded));
     }
 
     public boolean hasAnyStatistics() {
@@ -107,15 +113,22 @@ public class DatasetTableAttributeRequestDTO {
         attr.setDirectIdentifierConfidence(directIdentifierConfidence);
     }
 
+    /**
+     * Replaces the attribute's per-subset-size evidence. A null list means the
+     * client did not send subset evidence, so existing evidence is kept.
+     */
     public void applySubsetEvidenceTo(DatasetTableAttribute attr) {
         if (subsetEvidence == null) {
             return;
         }
 
-        attr.getSubsetEvidence().clear();
-        subsetEvidence.stream()
+        attr.replaceSubsetEvidence(toSubsetEvidenceEntities());
+    }
+
+    private List<DatasetTableAttributeSubsetEvidence> toSubsetEvidenceEntities() {
+        return subsetEvidence.stream()
                 .filter(evidence -> evidence.getSubsetSize() != null)
-                .map(evidence -> evidence.toEntity(attr))
-                .forEach(attr.getSubsetEvidence()::add);
+                .map(DatasetTableAttributeSubsetEvidenceRequestDTO::toEntity)
+                .collect(Collectors.toList());
     }
 }

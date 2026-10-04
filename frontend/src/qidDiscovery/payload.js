@@ -1,7 +1,7 @@
 // Persisted attribute fields are aggregate statistics only. Raw rows, observed
 // values, frequency maps, encoded columns, partitions, and cache entries stay
 // transient in the browser/worker.
-export const ATTRIBUTE_STATISTIC_FIELDS = [
+const ATTRIBUTE_STATISTIC_FIELDS = [
   "recordCount",
   "analysedRecordCount",
   "missingCount",
@@ -18,7 +18,7 @@ export const ATTRIBUTE_STATISTIC_FIELDS = [
   "separation",
 ];
 
-export const DIRECT_IDENTIFIER_SUMMARY_FIELDS = [
+const DIRECT_IDENTIFIER_SUMMARY_FIELDS = [
   "directIdentifierEvidenceSource",
   "directIdentifierConcept",
   "directIdentifierConfidence",
@@ -83,7 +83,7 @@ function buildDirectIdentifierSummary(evidence, existingSummary = {}) {
   };
 }
 
-export function toDatasetAttributeSubsetEvidencePayload(evidence) {
+function toDatasetAttributeSubsetEvidencePayload(evidence) {
   return SUBSET_EVIDENCE_FIELDS.reduce((payload, field) => {
     if (evidence?.[field] !== undefined) {
       payload[field] = evidence[field];

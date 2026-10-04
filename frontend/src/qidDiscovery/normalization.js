@@ -6,7 +6,7 @@ export const MISSING_VALUE = Symbol("REA_MISSING_VALUE");
  * equivalence-class value, which affects Distinction, Separation, and
  * singleton counts.
  */
-export function isMissingValue(value) {
+function isMissingValue(value) {
   if (value === null || value === undefined) return true;
   if (typeof value === "number" && Number.isNaN(value)) return true;
   return typeof value === "string" && value.trim() === "";

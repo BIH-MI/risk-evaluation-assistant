@@ -1,25 +1,8 @@
 import React from "react";
 import DirectIdentifierNameEvidence from "./DirectIdentifierEvidence";
-import {
-  EvidenceLine,
-  EvidenceSection,
-  EvidenceTooltipContainer,
-} from "./EvidencePrimitives";
+import { EvidenceTooltipContainer } from "./EvidencePrimitives";
 import HistoricalEvidence from "./HistoricalEvidence";
 import StatisticalEvidence from "./StatisticalEvidence";
-import { hasSemanticEvidenceDetails } from "./evidenceUtils";
-
-function SemanticEvidence({ semantic, t }) {
-  if (!hasSemanticEvidenceDetails(semantic)) return null;
-
-  return (
-    <EvidenceSection
-      title={t("datasetAssessments.evidence.semantic", "Semantic")}
-    >
-      <EvidenceLine>{semantic.summary || semantic.concept}</EvidenceLine>
-    </EvidenceSection>
-  );
-}
 
 function EvidenceTooltip({ evidence, field, scoringSystem, t }) {
   return (
@@ -31,7 +14,6 @@ function EvidenceTooltip({ evidence, field, scoringSystem, t }) {
         scoringSystem={scoringSystem}
         t={t}
       />
-      <SemanticEvidence semantic={evidence.semantic} t={t} />
     </EvidenceTooltipContainer>
   );
 }

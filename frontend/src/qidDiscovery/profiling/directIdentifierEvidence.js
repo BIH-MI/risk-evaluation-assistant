@@ -1,14 +1,17 @@
 import {
-  DEFAULT_VALUE_PATTERN_THRESHOLDS,
   DIRECT_IDENTIFIER_CONCEPTS,
   DIRECT_IDENTIFIER_CONFIDENCE,
+  GENERIC_IDENTIFIER_FIELD_SOURCE,
   GENERIC_IDENTIFIER_TOKENS,
   TOKEN_ABBREVIATIONS,
   VALUE_PATTERN_MATCHERS,
   VALUE_PATTERN_SOURCE_NAMES,
+  VALUE_PATTERN_THRESHOLDS,
 } from "./directIdentifierRules";
 
-const GENERIC_IDENTIFIER_FIELD_SOURCE = "field-name:generic_identifier";
+// Answers "what Direct Identifier evidence was observed?" for a field name and
+// its values. Deciding what REA does with that evidence (default exclusion,
+// overrides, submission validation) belongs to directIdentifierPolicy.js.
 
 // Splits a field name into lowercase word tokens: camelCase boundaries and
 // non-alphanumeric separators both become token breaks (e.g. "PatientID_2"
@@ -35,7 +38,7 @@ function splitFieldNameTokens(fieldName = "") {
  * of the same concept resolve to the same key; `rawKey`/`rawCompactKey` keep
  * the un-expanded tokens for exact-alias matches like "ssn" itself.
  */
-export function normalizeFieldName(fieldName = "") {
+function normalizeFieldName(fieldName = "") {
   const rawTokens = splitFieldNameTokens(fieldName);
   const tokens = rawTokens.flatMap(
     (token) => TOKEN_ABBREVIATIONS[token] || [token]
@@ -88,6 +91,20 @@ function buildFieldNameAliasIndex() {
 
 const FIELD_NAME_ALIAS_INDEX = buildFieldNameAliasIndex();
 
+/**
+ * @typedef {Object} DirectIdentifierEvidence
+ * @property {boolean} detected True for supported Direct Identifier evidence.
+ * @property {"HIGH"|"LOW"} confidence HIGH for detected evidence, LOW otherwise.
+ * @property {string|null} concept Matched Direct Identifier concept.
+ * @property {string[]} sources Field-name and value-pattern evidence sources.
+ * @property {boolean} requiresReview True for LOW-confidence potential identifiers.
+ * @property {boolean} [schemaOnly] Set when evidence comes from a field name
+ * without scanned values.
+ * @property {Object<string, ValuePatternEvidence>} valuePatternEvidence
+ * Aggregate value-pattern counts by concept (never raw values).
+ * @property {Object} fieldName Normalized current field-name tokens and keys.
+ */
+
 function getFieldNameKeys(normalizedFieldName) {
   return uniqueKeys([
     normalizedFieldName.key,
@@ -139,24 +156,22 @@ function getWeakIdentifierFieldEvidence(fieldName) {
   };
 }
 
-function getValuePatternThreshold(concept, options = {}) {
-  return {
-    ...DEFAULT_VALUE_PATTERN_THRESHOLDS[concept],
-    ...(options.valuePatternThresholds?.[concept] || {}),
-  };
-}
+/**
+ * Aggregate value-pattern counts for one concept. Both freshly observed and
+ * stored evidence are normalized to this shape before classification.
+ *
+ * @typedef {Object} ValuePatternEvidence
+ * @property {number} matchedValueCount
+ * @property {number} analysedNonMissingCount
+ * @property {number} matchedFraction
+ */
 
-// Classifies freshly counted value-pattern matches (from one CSV scan) into
-// "supported" (meets minMatchedFraction -> counts as detection evidence) and
-// "review" (meets the lower reviewFraction only -> flagged but not detected).
-function summarizeValuePatternEvidence(
-  patternCounts,
-  analysedNonMissingCount,
-  options = {}
+// Counts from a single column pass. Concepts that never matched are omitted.
+function normalizeObservedPatternEvidence(
+  patternCounts = {},
+  analysedNonMissingCount = 0
 ) {
   const valuePatternEvidence = {};
-  const supportedPatterns = [];
-  const reviewPatterns = [];
 
   Object.entries(patternCounts).forEach(([concept, matchedValueCount]) => {
     if (!matchedValueCount) return;
@@ -164,7 +179,6 @@ function summarizeValuePatternEvidence(
     const matchedFraction = analysedNonMissingCount
       ? matchedValueCount / analysedNonMissingCount
       : 0;
-    const threshold = getValuePatternThreshold(concept, options);
     const patternEvidence = {
       matchedValueCount,
       analysedNonMissingCount,
@@ -172,53 +186,15 @@ function summarizeValuePatternEvidence(
     };
 
     valuePatternEvidence[concept] = patternEvidence;
-
-    const hasMinimumSupport =
-      analysedNonMissingCount >= threshold.minAnalysedNonMissingCount &&
-      matchedValueCount >= threshold.minMatchedValueCount;
-
-    if (hasMinimumSupport && matchedFraction >= threshold.minMatchedFraction) {
-      supportedPatterns.push({
-        concept,
-        evidence: patternEvidence,
-      });
-      return;
-    }
-
-    if (hasMinimumSupport && matchedFraction >= threshold.reviewFraction) {
-      reviewPatterns.push({
-        concept,
-        evidence: patternEvidence,
-      });
-    }
   });
 
-  supportedPatterns.sort(
-    (a, b) =>
-      b.evidence.matchedFraction - a.evidence.matchedFraction ||
-      b.evidence.matchedValueCount - a.evidence.matchedValueCount
-  );
-
-  return {
-    valuePatternEvidence,
-    supportedPatterns,
-    reviewPatterns,
-  };
+  return valuePatternEvidence;
 }
 
-// Same classification as summarizeValuePatternEvidence, but replayed against
-// value-pattern counts cached from the original CSV scan (see
-// buildDirectIdentifierEvidenceForCurrentFieldName) instead of re-observing
-// values, so a rename can be re-evaluated without rescanning rows.
-function summarizeStoredValuePatternEvidence(
-  valuePatternEvidence = {},
-  options = {}
-) {
-  const supportedPatterns = [];
-  const reviewPatterns = [];
-
-  Object.entries(valuePatternEvidence || {}).forEach(
-    ([concept, storedEvidence]) => {
+// Counts cached from the original CSV scan, re-read after a rename.
+function normalizeStoredPatternEvidence(valuePatternEvidence = {}) {
+  return Object.entries(valuePatternEvidence || {}).reduce(
+    (normalized, [concept, storedEvidence]) => {
       const matchedValueCount = storedEvidence?.matchedValueCount || 0;
       const analysedNonMissingCount =
         storedEvidence?.analysedNonMissingCount || 0;
@@ -227,46 +203,68 @@ function summarizeStoredValuePatternEvidence(
         (analysedNonMissingCount
           ? matchedValueCount / analysedNonMissingCount
           : 0);
-      const evidence = {
+
+      normalized[concept] = {
         ...storedEvidence,
         matchedValueCount,
         analysedNonMissingCount,
         matchedFraction,
       };
-      const threshold = getValuePatternThreshold(concept, options);
-      const hasMinimumSupport =
-        analysedNonMissingCount >= threshold.minAnalysedNonMissingCount &&
-        matchedValueCount >= threshold.minMatchedValueCount;
 
-      if (
-        hasMinimumSupport &&
-        matchedFraction >= threshold.minMatchedFraction
-      ) {
-        supportedPatterns.push({
-          concept,
-          evidence,
-        });
-        return;
-      }
+      return normalized;
+    },
+    {}
+  );
+}
 
-      if (hasMinimumSupport && matchedFraction >= threshold.reviewFraction) {
-        reviewPatterns.push({
-          concept,
-          evidence,
-        });
-      }
+function sortValuePatternClassifications(patterns) {
+  patterns.sort(
+    (left, right) =>
+      right.evidence.matchedFraction - left.evidence.matchedFraction ||
+      right.evidence.matchedValueCount - left.evidence.matchedValueCount
+  );
+
+  return patterns;
+}
+
+// The single implementation of the value-pattern threshold rules. Classifies
+// normalized evidence into "supported" (detection evidence, strongest first)
+// and "review" (flagged but not detected).
+function classifyValuePatternEvidence(normalizedValuePatternEvidence) {
+  const supportedPatterns = [];
+  const reviewPatterns = [];
+
+  Object.entries(normalizedValuePatternEvidence).forEach(([concept, evidence]) => {
+    const threshold = VALUE_PATTERN_THRESHOLDS[concept] || {};
+    const hasMinimumSupport =
+      evidence.analysedNonMissingCount >=
+        threshold.minAnalysedNonMissingCount &&
+      evidence.matchedValueCount >= threshold.minMatchedValueCount;
+
+    if (
+      hasMinimumSupport &&
+      evidence.matchedFraction >= threshold.minMatchedFraction
+    ) {
+      supportedPatterns.push({
+        concept,
+        evidence,
+      });
+      return;
     }
-  );
 
-  supportedPatterns.sort(
-    (a, b) =>
-      b.evidence.matchedFraction - a.evidence.matchedFraction ||
-      b.evidence.matchedValueCount - a.evidence.matchedValueCount
-  );
+    if (
+      hasMinimumSupport &&
+      evidence.matchedFraction >= threshold.reviewFraction
+    ) {
+      reviewPatterns.push({
+        concept,
+        evidence,
+      });
+    }
+  });
 
   return {
-    valuePatternEvidence,
-    supportedPatterns,
+    supportedPatterns: sortValuePatternClassifications(supportedPatterns),
     reviewPatterns,
   };
 }
@@ -337,10 +335,7 @@ function buildEvidence({
  * source column. Call `observe()` once per row and `finalize()` once at the
  * end of the pass to get the combined field-name + value-pattern evidence.
  */
-export function createDirectIdentifierEvidenceAccumulator(
-  sourceField,
-  options = {}
-) {
+export function createDirectIdentifierEvidenceAccumulator(sourceField) {
   const strongFieldNameEvidence = getStrongFieldNameEvidence(sourceField);
   const weakFieldEvidence = getWeakIdentifierFieldEvidence(sourceField);
   const patternCounts = Object.keys(VALUE_PATTERN_MATCHERS).reduce(
@@ -365,12 +360,12 @@ export function createDirectIdentifierEvidenceAccumulator(
     },
 
     finalize() {
-      const { valuePatternEvidence, supportedPatterns, reviewPatterns } =
-        summarizeValuePatternEvidence(
-          patternCounts,
-          analysedNonMissingCount,
-          options
-        );
+      const valuePatternEvidence = normalizeObservedPatternEvidence(
+        patternCounts,
+        analysedNonMissingCount
+      );
+      const { supportedPatterns, reviewPatterns } =
+        classifyValuePatternEvidence(valuePatternEvidence);
 
       return buildEvidence({
         fieldName: sourceField,
@@ -389,14 +384,8 @@ export function createDirectIdentifierEvidenceAccumulator(
  * observed values (e.g. a manually added column, or a schema-only Edit
  * Dataset attribute that has no CSV to scan).
  */
-export function buildDirectIdentifierEvidenceFromFieldName(
-  fieldName,
-  options = {}
-) {
-  return createDirectIdentifierEvidenceAccumulator(
-    fieldName,
-    options
-  ).finalize();
+export function buildDirectIdentifierEvidenceFromFieldName(fieldName) {
+  return createDirectIdentifierEvidenceAccumulator(fieldName).finalize();
 }
 
 /**
@@ -407,14 +396,14 @@ export function buildDirectIdentifierEvidenceFromFieldName(
  */
 export function buildDirectIdentifierEvidenceForCurrentFieldName(
   fieldName,
-  cachedSourceEvidence = null,
-  options = {}
+  cachedSourceEvidence = null
 ) {
-  const { valuePatternEvidence, supportedPatterns, reviewPatterns } =
-    summarizeStoredValuePatternEvidence(
-      cachedSourceEvidence?.valuePatternEvidence || {},
-      options
-    );
+  // The stored object is passed through unchanged; normalization only feeds
+  // the classifier.
+  const valuePatternEvidence = cachedSourceEvidence?.valuePatternEvidence || {};
+  const { supportedPatterns, reviewPatterns } = classifyValuePatternEvidence(
+    normalizeStoredPatternEvidence(valuePatternEvidence)
+  );
 
   return buildEvidence({
     fieldName,
@@ -424,39 +413,4 @@ export function buildDirectIdentifierEvidenceForCurrentFieldName(
     supportedPatterns,
     reviewPatterns,
   });
-}
-
-/**
- * True only for HIGH-confidence evidence (a strong field-name alias or a
- * supported value pattern). LOW-confidence/`requiresReview` evidence -
- * including every ID-like field name matched by GENERIC_IDENTIFIER_TOKENS -
- * is kept semantically separate from confirmed Direct Identifiers.
- */
-export function shouldAutoExcludeDirectIdentifier(evidence) {
-  return (
-    evidence?.detected === true &&
-    evidence.confidence === DIRECT_IDENTIFIER_CONFIDENCE.HIGH
-  );
-}
-
-/**
- * Detects generic ID-like field-name evidence without changing its LOW
- * confidence classification. The policy layer uses this to default-exclude
- * record/subject/patient/study IDs from subset profiling while still surfacing
- * them as ambiguous potential identifiers.
- */
-export function hasGenericIdentifierFieldEvidence(evidence) {
-  return Boolean(evidence?.sources?.includes(GENERIC_IDENTIFIER_FIELD_SOURCE));
-}
-
-/**
- * Returns true when an identifier should be excluded from subset profiling by
- * default. Confirmed Direct Identifiers qualify through HIGH evidence; generic
- * IDs qualify only through their LOW generic field-name source.
- */
-export function shouldExcludeIdentifierByDefault(evidence) {
-  return (
-    shouldAutoExcludeDirectIdentifier(evidence) ||
-    hasGenericIdentifierFieldEvidence(evidence)
-  );
 }

@@ -1,3 +1,5 @@
+import { summarizeSubsetEvidence } from "qidDiscovery";
+
 const individualDistinguishabilityFields = [
   "distinction",
   "separation",
@@ -18,17 +20,6 @@ function pickExistingFields(source, fields) {
   }, {});
 }
 
-function mean(values) {
-  const numericValues = values
-    .map(Number)
-    .filter((value) => Number.isFinite(value));
-
-  return numericValues.length
-    ? numericValues.reduce((sum, value) => sum + value, 0) /
-        numericValues.length
-    : null;
-}
-
 function buildSubsetContext(attribute) {
   const bySubsetSize = (attribute?.subsetEvidence || [])
     .filter((evidence) => hasValue(evidence.subsetSize))
@@ -45,22 +36,7 @@ function buildSubsetContext(attribute) {
 
   return {
     bySubsetSize,
-    overall: {
-      evaluatedSubsetCount: bySubsetSize.reduce(
-        (sum, evidence) => sum + (Number(evidence.evaluatedSubsetCount) || 0),
-        0
-      ),
-      maxSubsetSize: bySubsetSize[bySubsetSize.length - 1].subsetSize,
-      meanDistinction: mean(
-        bySubsetSize.map((evidence) => evidence.meanDistinction)
-      ),
-      meanSeparation: mean(
-        bySubsetSize.map((evidence) => evidence.meanSeparation)
-      ),
-      meanSingletonFraction: mean(
-        bySubsetSize.map((evidence) => evidence.meanSingletonFraction)
-      ),
-    },
+    overall: summarizeSubsetEvidence(bySubsetSize),
   };
 }
 

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { useAuth } from "react-oidc-context";
 import { useTranslation } from "react-i18next";
+import { MenuItem } from "@mui/material";
 
 import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
@@ -12,46 +13,20 @@ import RAUserAutocomplete from "components/input/RAUserAutocomplete";
 import RAButton from "components/input/RAButton";
 import RAFloatingAlertStack from "components/feedback/RAFloatingAlertStack";
 import RAInput from "components/input/RAInput";
-import { MenuItem } from "@mui/material";
-
 import { CSVDropzone } from "utils/CSVDropzone";
 import { getErrorMessage } from "utils/errors";
-import { PreviewTable } from "./PreviewTable";
-import { useDatasetTableProfiling } from "./useDatasetTableProfiling";
 import { addDataset } from "store/datasets/datasetsThunks";
-import { fetchQidDiscoveryConfigurationsApi } from "api/qidDiscoveryConfigurations";
-import { getQidConfigurationValidationError } from "qidDiscovery/configuration/validateQidDiscoveryProfilingConfiguration";
-import { toDatasetAttributePayload } from "qidDiscovery/payload";
 import {
-  buildDirectIdentifierOverrideWarning,
   buildDirectIdentifierSubmissionMessage,
-  isDefaultExcludedIdentifierColumn,
   validateDirectIdentifierExclusions,
-} from "qidDiscovery/directIdentifierPolicy";
+} from "qidDiscovery";
+import { PreviewTable } from "./PreviewTable";
+import { buildAddDatasetPayload } from "./buildAddDatasetPayload";
+import { useDatasetSchemaEditor } from "./useDatasetSchemaEditor";
+import { useDatasetTableProfiling } from "./useDatasetTableProfiling";
+import { useQidDiscoveryConfigurationSelection } from "./useQidDiscoveryConfigurationSelection";
 
 const DATASET_NAME_ALREADY_EXISTS = "DATASET_NAME_ALREADY_EXISTS";
-
-let nextLocalTableId = 0;
-
-const createLocalTableId = () => {
-  nextLocalTableId += 1;
-  return `add-dataset-table-${nextLocalTableId}`;
-};
-
-const getUniqueName = (existingNames, baseName, getFallbackName) => {
-  const usedNames = new Set(existingNames);
-  let candidate = baseName;
-  let counter = 0;
-
-  while (usedNames.has(candidate)) {
-    counter += 1;
-    candidate = getFallbackName(counter);
-  }
-
-  return candidate;
-};
-
-const getColumnIdentity = (column = {}) => column.sourceField || column.field;
 
 export default function AddDatasetForm() {
   const navigate = useNavigate();
@@ -70,15 +45,17 @@ export default function AddDatasetForm() {
     tableName: "",
   });
   const [warnings, setWarnings] = useState({ directIdentifier: "" });
-  const [qidDiscoveryConfigurations, setQidDiscoveryConfigurations] = useState(
-    []
-  );
-  const [
-    selectedQidDiscoveryConfigurationId,
-    setSelectedQidDiscoveryConfigurationId,
-  ] = useState("");
-  const [qidConfigurationsLoading, setQidConfigurationsLoading] =
-    useState(false);
+
+  const {
+    configurations: qidDiscoveryConfigurations,
+    selectedConfiguration: selectedQidDiscoveryConfiguration,
+    selectedConfigurationId: selectedQidDiscoveryConfigurationId,
+    setSelectedConfigurationId: setSelectedQidDiscoveryConfigurationId,
+    selectedConfigurationError: selectedQidDiscoveryConfigurationError,
+    loading: qidConfigurationsLoading,
+    loadFailed: qidConfigurationsLoadFailed,
+    loadError: qidConfigurationsLoadError,
+  } = useQidDiscoveryConfigurationSelection(token);
 
   const directIdentifierValidation = useMemo(
     () => validateDirectIdentifierExclusions(tables),
@@ -88,27 +65,6 @@ export default function AddDatasetForm() {
     () => buildDirectIdentifierSubmissionMessage(t, directIdentifierValidation),
     [directIdentifierValidation, t]
   );
-  const selectedQidDiscoveryConfiguration = useMemo(
-    () =>
-      qidDiscoveryConfigurations.find(
-        (configuration) =>
-          String(configuration.id) ===
-          String(selectedQidDiscoveryConfigurationId)
-      ) || null,
-    [qidDiscoveryConfigurations, selectedQidDiscoveryConfigurationId]
-  );
-
-  /**
-   * Surface an incomplete/invalid persisted QID Discovery Configuration as
-   * soon as it's selected, rather than only discovering it once a CSV upload
-   * reaches QID profiling.
-   */
-  const selectedQidDiscoveryConfigurationError = useMemo(() => {
-    if (!selectedQidDiscoveryConfiguration) return "";
-    return getQidConfigurationValidationError(
-      selectedQidDiscoveryConfiguration
-    );
-  }, [selectedQidDiscoveryConfiguration]);
 
   const { profileTable, refreshTable, disposeTableProfile } =
     useDatasetTableProfiling({
@@ -118,142 +74,36 @@ export default function AddDatasetForm() {
       t,
     });
 
+  const {
+    addUploadedTablePlaceholder,
+    addManualTable,
+    addAttribute,
+    deleteAttribute,
+    removeTable,
+    renameTable,
+    renameAttribute,
+    changeAttributeDataType,
+    changeAttributeExclusion,
+  } = useDatasetSchemaEditor({
+    tables,
+    setTables,
+    setErrors,
+    setWarnings,
+    refreshTable,
+    disposeTableProfile,
+    t,
+  });
+
   useEffect(() => {
-    if (!token) return undefined;
+    if (!qidConfigurationsLoadFailed) return;
 
-    let mounted = true;
-    const loadQidConfigurations = async () => {
-      setQidConfigurationsLoading(true);
-      try {
-        const data = await fetchQidDiscoveryConfigurationsApi(token, {
-          activeOnly: true,
-        });
-        if (!mounted) return;
-
-        const activeConfigurations = Array.isArray(data) ? data : [];
-        setQidDiscoveryConfigurations(activeConfigurations);
-        setSelectedQidDiscoveryConfigurationId((current) => {
-          if (
-            current &&
-            activeConfigurations.some(
-              (configuration) => String(configuration.id) === String(current)
-            )
-          ) {
-            return current;
-          }
-
-          const defaultConfiguration =
-            activeConfigurations.find(
-              (configuration) => configuration.defaultConfiguration
-            ) || activeConfigurations[0];
-          return defaultConfiguration ? String(defaultConfiguration.id) : "";
-        });
-      } catch (error) {
-        if (mounted) {
-          setErrors((current) => ({
-            ...current,
-            tables:
-              error.message || t("datasets.alerts.loadQidConfigurationsFailed"),
-          }));
-        }
-      } finally {
-        if (mounted) setQidConfigurationsLoading(false);
-      }
-    };
-
-    loadQidConfigurations();
-
-    return () => {
-      mounted = false;
-    };
-  }, [t, token]);
-
-  const handleAddTable = useCallback(
-    (file) => {
-      if (!selectedQidDiscoveryConfiguration) {
-        setErrors((e) => ({
-          ...e,
-          tables: t("datasets.alerts.qidConfigurationRequiredForProfiling"),
-        }));
-        return false;
-      }
-
-      if (selectedQidDiscoveryConfigurationError) {
-        setErrors((e) => ({
-          ...e,
-          tables: t("datasets.alerts.qidConfigurationInvalid"),
-        }));
-        return false;
-      }
-
-      if (tables.some((table) => table.name === file.name)) {
-        setErrors((e) => ({
-          ...e,
-          tables: t("datasets.alerts.duplicateCsv", { name: file.name }),
-        }));
-        return false;
-      }
-
-      const localTableId = createLocalTableId();
-
-      setTables((prev) => {
-        if (prev.some((table) => table.name === file.name)) {
-          setErrors((e) => ({
-            ...e,
-            tables: t("datasets.alerts.duplicateCsv", { name: file.name }),
-          }));
-          return prev;
-        }
-        setErrors((e) => ({ ...e, tables: "" }));
-        return [
-          ...prev,
-          {
-            _localTableId: localTableId,
-            name: file.name,
-            isParsing: true,
-            isManual: false,
-          },
-        ];
-      });
-      return localTableId;
-    },
-    [
-      selectedQidDiscoveryConfiguration,
-      selectedQidDiscoveryConfigurationError,
-      tables,
-      t,
-    ]
-  );
-
-  const handleTableParse = useCallback(
-    (file, tableId) => {
-      profileTable(file, tableId, selectedQidDiscoveryConfiguration);
-    },
-    [profileTable, selectedQidDiscoveryConfiguration]
-  );
-
-  const handleAddManualTable = useCallback(() => {
-    setTables((prev) => {
-      const newName = getUniqueName(
-        prev.map((table) => table.name),
-        t("datasets.add.newTable"),
-        (counter) => t("datasets.add.newTableCounter", { counter })
-      );
-
-      return [
-        ...prev,
-        {
-          _localTableId: createLocalTableId(),
-          name: newName,
-          columnMeta: [],
-          data: [],
-          subsetProfilingSummary: null,
-          isParsing: false,
-          isManual: true,
-        },
-      ];
-    });
-  }, [t]);
+    setErrors((current) => ({
+      ...current,
+      tables:
+        qidConfigurationsLoadError ||
+        t("datasets.alerts.loadQidConfigurationsFailed"),
+    }));
+  }, [qidConfigurationsLoadError, qidConfigurationsLoadFailed, t]);
 
   const clearNameError = useCallback(() => {
     setErrors((current) =>
@@ -269,209 +119,67 @@ export default function AddDatasetForm() {
     [clearNameError]
   );
 
-  const handleAddColumn = useCallback(
-    (tableId) => {
-      setTables((prev) =>
-        prev.map((table) => {
-          if (table._localTableId !== tableId) return table;
-
-          const fieldName = getUniqueName(
-            (table.columnMeta || []).map((column) => column.field),
-            t("datasets.add.newAttribute"),
-            (counter) => t("datasets.add.newAttributeCounter", { counter })
-          );
-
-          return {
-            ...table,
-            columnMeta: [
-              ...(table.columnMeta || []),
-              {
-                field: fieldName,
-                sourceField: null,
-                hasObservedData: false,
-                level: "STRING",
-                excluded: false,
-                statistics: null,
-              },
-            ],
-          };
-        })
-      );
-    },
-    [t]
-  );
-
-  const handleDeleteColumn = useCallback(
-    (tableId, columnKey) => {
-      const table = tables.find(
-        (currentTable) => currentTable._localTableId === tableId
-      );
-      if (!table) return;
-
-      refreshTable(
-        tableId,
-        table.columnMeta.filter(
-          (column) => getColumnIdentity(column) !== columnKey
-        )
-      );
-    },
-    [refreshTable, tables]
-  );
-
-  const handleRemoveTable = useCallback(
-    (tableId) => {
-      disposeTableProfile(tableId);
-      setTables((prev) =>
-        prev.filter((table) => table._localTableId !== tableId)
-      );
-      setErrors((e) => ({ ...e, tableName: "" }));
-    },
-    [disposeTableProfile]
-  );
-
-  /**
-   * Renames the table shown in Add Dataset. The table name is persisted as
-   * metadata only, but duplicate names would make later table/attribute review
-   * ambiguous.
-   */
-  const handleTableNameChange = useCallback(
-    (tableId, newName) => {
-      const dup = tables.some(
-        (table) => table._localTableId !== tableId && table.name === newName
-      );
-      if (dup) {
-        setErrors((e) => ({
-          ...e,
-          tableName: t("datasets.alerts.duplicateTableName", { name: newName }),
+  const handleAddTable = useCallback(
+    (file) => {
+      if (!selectedQidDiscoveryConfiguration) {
+        setErrors((current) => ({
+          ...current,
+          tables: t("datasets.alerts.qidConfigurationRequiredForProfiling"),
         }));
-        setTables((prev) => [...prev]);
         return false;
       }
-      setErrors((e) => ({ ...e, tableName: "" }));
-      setTables((prev) =>
-        prev.map((table) =>
-          table._localTableId === tableId ? { ...table, name: newName } : table
-        )
-      );
-      return true;
-    },
-    [tables, t]
-  );
 
-  /**
-   * Renames an attribute and refreshes the cached profile. Source columns stay
-   * stable so Direct Identifier evidence and Distinguishability evidence can be
-   * recalculated without parsing the CSV again.
-   */
-  const handleColumnNameChange = useCallback(
-    (tableId, columnKey, newField) => {
-      const table = tables.find(
-        (currentTable) => currentTable._localTableId === tableId
-      );
-      if (!table) return;
-
-      refreshTable(
-        tableId,
-        table.columnMeta.map((column) =>
-          getColumnIdentity(column) === columnKey
-            ? {
-                ...column,
-                field: newField,
-              }
-            : column
-        )
-      );
-    },
-    [refreshTable, tables]
-  );
-
-  const handleDataTypeChange = useCallback((tableId, columnKey, newType) => {
-    setTables((prev) =>
-      prev.map((table) =>
-        table._localTableId === tableId
-          ? {
-              ...table,
-              columnMeta: table.columnMeta.map((column) =>
-                getColumnIdentity(column) === columnKey
-                  ? { ...column, level: newType }
-                  : column
-              ),
-            }
-          : table
-      )
-    );
-  }, []);
-
-  /**
-   * Applies the user's include/exclude decision. Unchecking an automatically
-   * excluded identifier records an override before refreshing profiling.
-   */
-  const handleExcludedChange = useCallback(
-    (tableId, columnKey, excluded) => {
-      const table = tables.find(
-        (currentTable) => currentTable._localTableId === tableId
-      );
-      if (!table) return;
-
-      const changedColumn = table.columnMeta.find(
-        (column) => getColumnIdentity(column) === columnKey
-      );
-      const overrideWarning = buildDirectIdentifierOverrideWarning(
-        t,
-        changedColumn,
-        excluded
-      );
-      if (overrideWarning) {
-        setWarnings((current) => ({
+      if (selectedQidDiscoveryConfigurationError) {
+        setErrors((current) => ({
           ...current,
-          directIdentifier: overrideWarning,
+          tables: t("datasets.alerts.qidConfigurationInvalid"),
         }));
-      } else if (excluded) {
-        setWarnings((current) => ({
-          ...current,
-          directIdentifier: "",
-        }));
+        return false;
       }
 
-      refreshTable(
-        tableId,
-        table.columnMeta.map((column) =>
-          getColumnIdentity(column) === columnKey
-            ? {
-                ...column,
-                excluded,
-                directIdentifierExclusionOverridden:
-                  !excluded && isDefaultExcludedIdentifierColumn(column),
-              }
-            : column
-        )
-      );
+      return addUploadedTablePlaceholder(file);
     },
-    [refreshTable, tables, t]
+    [
+      addUploadedTablePlaceholder,
+      selectedQidDiscoveryConfiguration,
+      selectedQidDiscoveryConfigurationError,
+      setErrors,
+      t,
+    ]
+  );
+
+  const handleTableParse = useCallback(
+    (file, tableId) => {
+      profileTable(file, tableId, selectedQidDiscoveryConfiguration);
+    },
+    [profileTable, selectedQidDiscoveryConfiguration]
   );
 
   /**
-   * Persists aggregate profiling output and the reviewed exclusion decisions.
-   * Raw rows, encoded columns, and subset caches remain browser-local.
+   * Persists aggregate profiling output and reviewed exclusion decisions. Raw
+   * rows, encoded columns, and subset partitions remain browser-local.
    */
   const handleSubmit = useCallback(
-    (e) => {
-      e.preventDefault();
+    (event) => {
+      event.preventDefault();
       if (!name.trim()) return;
       if (!selectedQidDiscoveryConfiguration) {
-        setErrors((e) => ({
-          ...e,
+        setErrors((current) => ({
+          ...current,
           tables: t("datasets.alerts.qidConfigurationRequiredForSubmit"),
         }));
         return;
       }
       if (!tables.length) {
-        setErrors((e) => ({ ...e, tables: t("datasets.alerts.noTables") }));
+        setErrors((current) => ({
+          ...current,
+          tables: t("datasets.alerts.noTables"),
+        }));
         return;
       }
       if (tables.some((table) => table.isParsing || table.isProfiling)) {
-        setErrors((e) => ({
-          ...e,
+        setErrors((current) => ({
+          ...current,
           tables: t(
             "datasets.alerts.parsingInProgress",
             "Please wait until all CSV files finish parsing."
@@ -480,31 +188,22 @@ export default function AddDatasetForm() {
         return;
       }
       if (!directIdentifierValidation.canSubmit) {
-        setErrors((e) => ({
-          ...e,
+        setErrors((current) => ({
+          ...current,
           tables: directIdentifierSubmissionMessage,
         }));
         return;
       }
 
-      const payloadTables = tables.map(
-        ({ name: fileName, columnMeta = [] }) => ({
-          name: fileName.replace(/\.csv$/i, ""),
-          attributes: columnMeta.map(toDatasetAttributePayload),
-        })
-      );
-
       dispatch(
         addDataset({
-          newDataset: {
-            name: name.trim(),
-            description: description.trim(),
-            qidDiscoveryConfigurationId: selectedQidDiscoveryConfiguration.id,
-            qidDiscoveryConfigurationVersionId:
-              selectedQidDiscoveryConfiguration.versionId,
-            sharedUsernames: sharedUsers.map((u) => u.username),
-            tables: payloadTables,
-          },
+          newDataset: buildAddDatasetPayload({
+            name,
+            description,
+            sharedUsers,
+            selectedQidDiscoveryConfiguration,
+            tables,
+          }),
           token,
         })
       )
@@ -512,34 +211,37 @@ export default function AddDatasetForm() {
         .then(() => {
           navigate("/datasets");
         })
-        .catch((err) => {
-          if (err?.code === DATASET_NAME_ALREADY_EXISTS) {
-            setErrors((e) => ({
-              ...e,
+        .catch((error) => {
+          if (error?.code === DATASET_NAME_ALREADY_EXISTS) {
+            setErrors((current) => ({
+              ...current,
               name: t("datasets.alerts.duplicateDatasetName"),
               tables: "",
             }));
             return;
           }
 
-          setErrors((e) => ({
-            ...e,
-            tables: getErrorMessage(err, t("datasets.alerts.submissionFailed")),
+          setErrors((current) => ({
+            ...current,
+            tables: getErrorMessage(
+              error,
+              t("datasets.alerts.submissionFailed")
+            ),
           }));
         });
     },
     [
-      name,
       description,
-      sharedUsers,
-      selectedQidDiscoveryConfiguration,
-      tables,
-      directIdentifierValidation,
       directIdentifierSubmissionMessage,
+      directIdentifierValidation,
       dispatch,
-      token,
+      name,
       navigate,
+      selectedQidDiscoveryConfiguration,
+      sharedUsers,
+      tables,
       t,
+      token,
     ]
   );
 
@@ -593,7 +295,7 @@ export default function AddDatasetForm() {
           multiple
           label={t("datasets.form.sharedUsers")}
           value={sharedUsers}
-          onChange={(_e, newUsers) => setSharedUsers(newUsers || [])}
+          onChange={(_event, newUsers) => setSharedUsers(newUsers || [])}
           placeholder={t("datasets.form.searchUsersPlaceholder")}
         />
 
@@ -639,8 +341,10 @@ export default function AddDatasetForm() {
         <CSVDropzone
           onParse={handleTableParse}
           onAddTable={handleAddTable}
-          onManualAdd={handleAddManualTable}
-          setError={(msg) => setErrors((e) => ({ ...e, tables: msg }))}
+          onManualAdd={addManualTable}
+          setError={(message) =>
+            setErrors((current) => ({ ...current, tables: message }))
+          }
           disabled={Boolean(selectedQidDiscoveryConfigurationError)}
         />
 
@@ -664,32 +368,30 @@ export default function AddDatasetForm() {
         )}
 
         {hasReadyTables && (
-          <>
-            <RABox
-              display="flex"
-              justifyContent="center"
-              alignItems="center"
-              mt={4}
-              gap={2}
-            >
-              <RATypography variant="h6" textAlign="center">
-                {t("datasets.add.dataTablesPreview")}
-              </RATypography>
-            </RABox>
-          </>
+          <RABox
+            display="flex"
+            justifyContent="center"
+            alignItems="center"
+            mt={4}
+            gap={2}
+          >
+            <RATypography variant="h6" textAlign="center">
+              {t("datasets.add.dataTablesPreview")}
+            </RATypography>
+          </RABox>
         )}
 
         {tables.map((table) => (
           <PreviewTable
             key={table._localTableId}
             file={table}
-            onRemove={handleRemoveTable}
-            onTableNameChange={handleTableNameChange}
-            onColumnNameChange={handleColumnNameChange}
-            onDataTypeChange={handleDataTypeChange}
-            onExcludedChange={handleExcludedChange}
-            onAddColumn={handleAddColumn}
-            onDeleteColumn={handleDeleteColumn}
+            onRemove={removeTable}
+            onTableNameChange={renameTable}
+            onColumnNameChange={renameAttribute}
+            onDataTypeChange={changeAttributeDataType}
+            onExcludedChange={changeAttributeExclusion}
+            onAddColumn={addAttribute}
+            onDeleteColumn={deleteAttribute}
           />
         ))}
 
@@ -716,13 +418,15 @@ export default function AddDatasetForm() {
             id: "tables",
             color: "error",
             message: errors.tables,
-            onClose: () => setErrors((e) => ({ ...e, tables: "" })),
+            onClose: () =>
+              setErrors((current) => ({ ...current, tables: "" })),
           },
           {
             id: "tableName",
             color: "error",
             message: errors.tableName,
-            onClose: () => setErrors((e) => ({ ...e, tableName: "" })),
+            onClose: () =>
+              setErrors((current) => ({ ...current, tableName: "" })),
           },
           {
             id: "directIdentifier",

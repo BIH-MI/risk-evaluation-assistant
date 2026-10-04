@@ -12,14 +12,12 @@ import { createDirectIdentifierEvidenceAccumulator } from "./directIdentifierEvi
  * - assigns a compact integer dictionary code;
  * - writes the encoded code for each row.
  */
-export function profileAndEncodeColumn(rows = [], sourceField, options = {}) {
+export function profileAndEncodeColumn(rows = [], sourceField) {
   const valueProfiles = new Map();
   const observedDistinctValues = [];
   const encodedCodes = new Uint32Array(rows.length);
-  const directIdentifierAccumulator = createDirectIdentifierEvidenceAccumulator(
-    sourceField,
-    options.directIdentifier || options.directIdentifierEvidence || {}
-  );
+  const directIdentifierAccumulator =
+    createDirectIdentifierEvidenceAccumulator(sourceField);
   let missingCount = 0;
   let missingCode = null;
   let nextCode = 0;
@@ -61,7 +59,6 @@ export function profileAndEncodeColumn(rows = [], sourceField, options = {}) {
 
   return {
     sourceField,
-    stableAttributeId: sourceField,
     statistics: buildAttributeStatistics({
       recordCount: rows.length,
       analysedRecordCount: rows.length,

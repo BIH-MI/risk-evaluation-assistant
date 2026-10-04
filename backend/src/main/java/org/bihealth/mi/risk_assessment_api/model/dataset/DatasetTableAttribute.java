@@ -123,4 +123,24 @@ public class DatasetTableAttribute {
         this.name = name;
         this.dataType = dataType;
     }
+
+    public void clearSubsetEvidence() {
+        subsetEvidence.clear();
+    }
+
+    public void addSubsetEvidence(DatasetTableAttributeSubsetEvidence evidence) {
+        if (evidence == null) {
+            return;
+        }
+        evidence.setAttribute(this);
+        subsetEvidence.add(evidence);
+    }
+
+    public void replaceSubsetEvidence(List<DatasetTableAttributeSubsetEvidence> evidence) {
+        clearSubsetEvidence();
+        if (evidence == null) {
+            return;
+        }
+        evidence.forEach(this::addSubsetEvidence);
+    }
 }

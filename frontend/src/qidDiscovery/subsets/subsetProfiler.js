@@ -1,19 +1,38 @@
+import { validateQidDiscoveryProfilingConfiguration } from "../configuration/validateQidDiscoveryProfilingConfiguration";
 import { SubsetPartitionCache } from "./subsetPartitionCache";
 
-export const DEFAULT_MAX_SUBSET_SIZE = 4;
-export const DEFAULT_MAX_EVALUATED_SUBSETS = 25000;
+/**
+ * @typedef {Object} SubsetProfilingSummary
+ * @property {number} maxSubsetSize Configured maximum subset size.
+ * @property {number} maxEvaluatedSubsets Configured subset-count safety limit.
+ * @property {number} candidateAttributeCount Eligible attributes considered.
+ * @property {number} evaluatedSubsetCount Attribute subsets evaluated.
+ */
 
-const emptySummary = ({
+/**
+ * Attribute as prepared by buildCandidateColumns for subset profiling.
+ *
+ * @typedef {Object} SubsetCandidateColumn
+ * @property {string} attributeName Current display name.
+ * @property {string} sourceField Source field of the encoded column.
+ * @property {Uint32Array} codes Browser-local encoded values.
+ */
+
+const MIN_SUBSET_SIZE = 2;
+
+function createSubsetProfilingSummary({
   maxSubsetSize,
   maxEvaluatedSubsets,
-  candidateAttributeCount,
+  candidateAttributeCount = 0,
   evaluatedSubsetCount = 0,
-}) => ({
-  maxSubsetSize,
-  maxEvaluatedSubsets,
-  candidateAttributeCount,
-  evaluatedSubsetCount,
-});
+}) {
+  return {
+    maxSubsetSize,
+    maxEvaluatedSubsets,
+    candidateAttributeCount,
+    evaluatedSubsetCount,
+  };
+}
 
 function calculateBinomial(n, k) {
   if (k < 0 || k > n) return 0;
@@ -29,98 +48,24 @@ function calculateBinomial(n, k) {
   return Math.round(result);
 }
 
-export function calculateEvaluatedSubsetTotal(attributeCount, maxSubsetSize) {
-  const largestSubsetSize = Math.min(maxSubsetSize, attributeCount);
+function calculateEvaluatedSubsetTotal(attributeCount, largestSubsetSize) {
   let total = 0;
 
-  for (let subsetSize = 2; subsetSize <= largestSubsetSize; subsetSize += 1) {
+  for (
+    let subsetSize = MIN_SUBSET_SIZE;
+    subsetSize <= largestSubsetSize;
+    subsetSize += 1
+  ) {
     total += calculateBinomial(attributeCount, subsetSize);
   }
 
   return total;
 }
 
-function createAggregateBucket() {
-  return {
-    evaluatedSubsetCount: 0,
-    distinctionSum: 0,
-    separationSum: 0,
-    singletonFractionSum: 0,
-  };
-}
-
-function addSubsetMetrics(aggregate, subsetSize, metrics) {
-  let bucket = aggregate.bySubsetSize.get(subsetSize);
-
-  if (!bucket) {
-    bucket = createAggregateBucket();
-    aggregate.bySubsetSize.set(subsetSize, bucket);
-  }
-
-  bucket.evaluatedSubsetCount += 1;
-  bucket.distinctionSum += metrics.distinction || 0;
-  bucket.separationSum += metrics.separation || 0;
-  bucket.singletonFractionSum += metrics.singletonFraction || 0;
-}
-
-function mean(sum, count) {
-  return count ? sum / count : null;
-}
-
-function materializeAggregate(aggregate) {
-  const bySubsetSize = Array.from(aggregate.bySubsetSize.entries())
-    .sort(([left], [right]) => left - right)
-    .map(([subsetSize, bucket]) => ({
-      subsetSize,
-      evaluatedSubsetCount: bucket.evaluatedSubsetCount,
-      meanDistinction: mean(
-        bucket.distinctionSum,
-        bucket.evaluatedSubsetCount
-      ),
-      meanSeparation: mean(bucket.separationSum, bucket.evaluatedSubsetCount),
-      meanSingletonFraction: mean(
-        bucket.singletonFractionSum,
-        bucket.evaluatedSubsetCount
-      ),
-    }));
-
-  const overall = bySubsetSize.length
-    ? {
-        evaluatedSubsetCount: bySubsetSize.reduce(
-          (sum, item) => sum + item.evaluatedSubsetCount,
-          0
-        ),
-        maxSubsetSize: bySubsetSize[bySubsetSize.length - 1].subsetSize,
-        meanDistinction: mean(
-          bySubsetSize.reduce(
-            (sum, item) => sum + (item.meanDistinction || 0),
-            0
-          ),
-          bySubsetSize.length
-        ),
-        meanSeparation: mean(
-          bySubsetSize.reduce(
-            (sum, item) => sum + (item.meanSeparation || 0),
-            0
-          ),
-          bySubsetSize.length
-        ),
-        meanSingletonFraction: mean(
-          bySubsetSize.reduce(
-            (sum, item) => sum + (item.meanSingletonFraction || 0),
-            0
-          ),
-          bySubsetSize.length
-        ),
-      }
-    : null;
-
-  return {
-    bySubsetSize,
-    overall,
-  };
-}
-
+/**
+ * Visits every combination of `subsetSize` candidates in lexicographic index
+ * order, so enumeration is deterministic for a given candidate order.
+ */
 function enumerateSubsets(candidateColumns, subsetSize, onSubset) {
   const selected = [];
 
@@ -143,7 +88,57 @@ function enumerateSubsets(candidateColumns, subsetSize, onSubset) {
   visit(0);
 }
 
-function getSubsetPartitionCache(profilingSource) {
+/**
+ * Running sums for one attribute: subsetSize -> sums over every evaluated
+ * subset of that size containing the attribute.
+ */
+function createAttributeSubsetEvidenceAccumulator() {
+  return new Map();
+}
+
+function accumulateSubsetMetrics(accumulator, subsetSize, metrics) {
+  let sums = accumulator.get(subsetSize);
+
+  if (!sums) {
+    sums = {
+      evaluatedSubsetCount: 0,
+      distinctionSum: 0,
+      separationSum: 0,
+      singletonFractionSum: 0,
+    };
+    accumulator.set(subsetSize, sums);
+  }
+
+  sums.evaluatedSubsetCount += 1;
+  sums.distinctionSum += metrics.distinction || 0;
+  sums.separationSum += metrics.separation || 0;
+  sums.singletonFractionSum += metrics.singletonFraction || 0;
+}
+
+const mean = (sum, count) => (count ? sum / count : null);
+
+/**
+ * @returns {import("./subsetEvidenceSummary").SubsetSizeEvidence[]} Per-size
+ * means, ordered by subset size.
+ */
+function materializeSubsetSizeEvidence(accumulator) {
+  return Array.from(accumulator.entries())
+    .sort(([left], [right]) => left - right)
+    .map(([subsetSize, sums]) => ({
+      subsetSize,
+      evaluatedSubsetCount: sums.evaluatedSubsetCount,
+      meanDistinction: mean(sums.distinctionSum, sums.evaluatedSubsetCount),
+      meanSeparation: mean(sums.separationSum, sums.evaluatedSubsetCount),
+      meanSingletonFraction: mean(
+        sums.singletonFractionSum,
+        sums.evaluatedSubsetCount
+      ),
+    }));
+}
+
+// The cache lives on the profiling source so metrics survive refreshes for
+// the lifetime of the profiling session, and are discarded with it.
+function getSessionSubsetCache(profilingSource) {
   if (!profilingSource.subsetPartitionCache) {
     profilingSource.subsetPartitionCache = new SubsetPartitionCache(
       profilingSource
@@ -153,93 +148,98 @@ function getSubsetPartitionCache(profilingSource) {
   return profilingSource.subsetPartitionCache;
 }
 
+export function createEmptySubsetProfilingSummary(profilingConfiguration) {
+  return createSubsetProfilingSummary(
+    validateQidDiscoveryProfilingConfiguration(profilingConfiguration)
+  );
+}
+
 /**
- * Exhaustively evaluates every eligible attribute subset of size 2..m and
- * streams each result into per-attribute/per-size running aggregates. The full
- * list of subset results is intentionally never retained in application state:
- * only aggregated Distinguishability evidence leaves this function.
+ * Exhaustively evaluates every eligible attribute subset of size
+ * 2..maxSubsetSize and streams each result into per-attribute, per-size
+ * running sums. Individual subset results are never retained: only aggregated
+ * Distinguishability evidence leaves this function.
+ *
+ * @param {SubsetCandidateColumn[]} candidateColumns
+ * @param {import("../profiling/profilingSource").ProfilingSource} profilingSource
+ * @param {{ maxSubsetSize: number, maxEvaluatedSubsets: number }} profilingConfiguration
+ * @returns {{
+ *   evidenceBySourceField: Map<string, import("./subsetEvidenceSummary").SubsetSizeEvidence[]>,
+ *   summary: SubsetProfilingSummary
+ * }}
  */
 export function profileAttributeSubsets(
-  candidateColumns = [],
+  candidateColumns,
   profilingSource,
-  configuration = {}
+  profilingConfiguration
 ) {
-  const maxSubsetSize = Number(configuration.maxSubsetSize);
-  const maxEvaluatedSubsets = Number(configuration.maxEvaluatedSubsets);
-  const safeMaxSubsetSize = Number.isInteger(maxSubsetSize)
-    ? maxSubsetSize
-    : DEFAULT_MAX_SUBSET_SIZE;
-  const safeMaxEvaluatedSubsets = Number.isInteger(maxEvaluatedSubsets)
-    ? maxEvaluatedSubsets
-    : DEFAULT_MAX_EVALUATED_SUBSETS;
+  const { maxSubsetSize, maxEvaluatedSubsets } =
+    validateQidDiscoveryProfilingConfiguration(profilingConfiguration);
   const candidateAttributeCount = candidateColumns.length;
-  const boundedMaxSubsetSize = Math.min(
-    safeMaxSubsetSize,
-    candidateAttributeCount
-  );
+  const largestSubsetSize = Math.min(maxSubsetSize, candidateAttributeCount);
   const evaluatedSubsetCount = calculateEvaluatedSubsetTotal(
     candidateAttributeCount,
-    boundedMaxSubsetSize
+    largestSubsetSize
   );
 
-  if (
-    evaluatedSubsetCount > safeMaxEvaluatedSubsets
-  ) {
+  if (evaluatedSubsetCount > maxEvaluatedSubsets) {
     throw new Error(
-      `Subset profiling would evaluate ${evaluatedSubsetCount.toLocaleString()} subsets for ${candidateAttributeCount.toLocaleString()} eligible attributes, exceeding the configured limit of ${safeMaxEvaluatedSubsets.toLocaleString()}. Reduce the maximum subset size or increase the evaluated-subset safety limit.`
+      `Subset profiling would evaluate ${evaluatedSubsetCount.toLocaleString()} subsets for ${candidateAttributeCount.toLocaleString()} eligible attributes, exceeding the configured limit of ${maxEvaluatedSubsets.toLocaleString()}. Reduce the maximum subset size or increase the evaluated-subset safety limit.`
     );
   }
 
-  const summary = emptySummary({
-    maxSubsetSize: safeMaxSubsetSize,
-    maxEvaluatedSubsets: safeMaxEvaluatedSubsets,
+  const summary = createSubsetProfilingSummary({
+    maxSubsetSize,
+    maxEvaluatedSubsets,
     candidateAttributeCount,
     evaluatedSubsetCount,
   });
-
-  if (
-    candidateAttributeCount < 2 ||
-    boundedMaxSubsetSize < 2 ||
-    !profilingSource
-  ) {
-    return {
-      evidenceByStableAttributeId: new Map(),
-      summary,
-    };
-  }
-
-  const cache = getSubsetPartitionCache(profilingSource);
-  const aggregates = new Map(
+  const accumulatorsBySourceField = new Map(
     candidateColumns.map((candidate) => [
-      candidate.stableAttributeId,
-      {
-        bySubsetSize: new Map(),
-      },
+      candidate.sourceField,
+      createAttributeSubsetEvidenceAccumulator(),
     ])
   );
 
-  for (let subsetSize = 2; subsetSize <= boundedMaxSubsetSize; subsetSize += 1) {
-    enumerateSubsets(candidateColumns, subsetSize, (subsetColumns) => {
-      const stableAttributeIds = subsetColumns.map(
-        (column) => column.stableAttributeId
-      );
-      const { metrics } = cache.getEntry(stableAttributeIds);
+  if (largestSubsetSize >= MIN_SUBSET_SIZE && profilingSource) {
+    const subsetCache = getSessionSubsetCache(profilingSource);
 
-      stableAttributeIds.forEach((stableAttributeId) => {
-        const aggregate = aggregates.get(stableAttributeId);
-        if (aggregate) {
-          addSubsetMetrics(aggregate, subsetSize, metrics);
-        }
-      });
-    });
+    try {
+      for (
+        let subsetSize = MIN_SUBSET_SIZE;
+        subsetSize <= largestSubsetSize;
+        subsetSize += 1
+      ) {
+        enumerateSubsets(candidateColumns, subsetSize, (subsetColumns) => {
+          const sourceFields = subsetColumns.map(
+            (column) => column.sourceField
+          );
+          const metrics = subsetCache.getMetrics(sourceFields);
+
+          sourceFields.forEach((sourceField) => {
+            accumulateSubsetMetrics(
+              accumulatorsBySourceField.get(sourceField),
+              subsetSize,
+              metrics
+            );
+          });
+        });
+
+        subsetCache.releasePartitionsSmallerThan(subsetSize);
+      }
+    } finally {
+      subsetCache.releaseAllPartitions();
+    }
   }
 
   return {
-    evidenceByStableAttributeId: new Map(
-      Array.from(aggregates.entries()).map(([stableAttributeId, aggregate]) => [
-        stableAttributeId,
-        materializeAggregate(aggregate),
-      ])
+    evidenceBySourceField: new Map(
+      Array.from(accumulatorsBySourceField.entries()).map(
+        ([sourceField, accumulator]) => [
+          sourceField,
+          materializeSubsetSizeEvidence(accumulator),
+        ]
+      )
     ),
     summary,
   };

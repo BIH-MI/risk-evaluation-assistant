@@ -2,22 +2,14 @@ import MuiBadge from "@mui/material/Badge";
 import { styled } from "@mui/material/styles";
 
 export default styled(MuiBadge)(({ theme, ownerState }) => {
-  const { color, variant, size, circular, border, container, hasContent } =
-    ownerState;
+  const { color, variant, size, circular, border, container } = ownerState;
 
   const { palette, typography, borders, functions } = theme;
   const { white, dark, gradients, badgeColors } = palette;
-  const { size: fontSize, fontWeightBold } = typography;
+  const { size: fontSize } = typography;
   const { borderRadius, borderWidth } = borders;
   const { pxToRem, linearGradient } = functions;
 
-  // padding map
-  const paddings = {
-    xs: "0.45em 0.775em",
-    sm: "0.55em 0.9em",
-    md: "0.65em 1em",
-    lg: "0.85em 1.375em",
-  };
   const fontSizeValue = size === "xs" ? fontSize.xxs : fontSize.xs;
   const borderValue = border ? `${borderWidth[3]} solid ${white.main}` : "none";
   const borderRadiusValue = circular ? borderRadius.section : borderRadius.md;

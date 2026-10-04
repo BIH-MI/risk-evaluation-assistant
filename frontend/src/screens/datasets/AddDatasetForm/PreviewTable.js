@@ -16,6 +16,62 @@ import RAInput from "../../../components/input/RAInput";
 
 const getColumnIdentity = (column = {}) => column.sourceField || column.field;
 
+function getSubsetProfilingStatus(file, { t, language }) {
+  if (file.isManual || !file._qidProfilingSession) return null;
+
+  if (file.isProfiling) {
+    return t(
+      "datasets.add.subsetProfilingUpdating",
+      "Profiling Distinguishability evidence..."
+    );
+  }
+
+  const summary = file.subsetProfilingSummary;
+  if (!summary) return null;
+
+  const attributeCount = Number(summary.candidateAttributeCount) || 0;
+  const subsetCount = Number(summary.evaluatedSubsetCount) || 0;
+
+  if (attributeCount < 2 || subsetCount <= 0) {
+    return t(
+      "datasets.add.noSubsetProfilingRequired",
+      "No multi-attribute subset profiling was required."
+    );
+  }
+
+  const formatter = new Intl.NumberFormat(language);
+
+  return t(
+    "datasets.add.subsetProfilingSummary",
+    "{{subsetCount}} attribute subsets evaluated across {{attributeCount}} eligible attributes.",
+    {
+      subsetCount: formatter.format(subsetCount),
+      attributeCount: formatter.format(attributeCount),
+    }
+  );
+}
+
+function buildTopValuesMap(columnMeta = [], data = []) {
+  const map = {};
+  const sampleData = data.slice(0, 500);
+
+  for (const { field, sourceField } of columnMeta) {
+    const frequencies = {};
+    for (const row of sampleData) {
+      const value = row[sourceField || field];
+      if (value != null) {
+        frequencies[value] = (frequencies[value] || 0) + 1;
+      }
+    }
+    map[field] = Object.entries(frequencies)
+      .sort((left, right) => right[1] - left[1])
+      .slice(0, 3)
+      .map(([value]) => value);
+  }
+
+  return map;
+}
+
 export const PreviewTable = React.memo(function PreviewTable({
   file,
   onRemove,
@@ -34,66 +90,14 @@ export const PreviewTable = React.memo(function PreviewTable({
   }, [file.name]);
 
   const { columnMeta = [], data = [] } = file;
-  const subsetProfilingStatus = useMemo(() => {
-    if (file.isManual || !file._qidProfilingSession) return null;
-
-    if (file.isProfiling) {
-      return t(
-        "datasets.add.subsetProfilingUpdating",
-        "Profiling Distinguishability evidence..."
-      );
-    }
-
-    const summary = file.subsetProfilingSummary;
-    if (!summary) return null;
-
-    const attributeCount = Number(summary.candidateAttributeCount) || 0;
-    const subsetCount = Number(summary.evaluatedSubsetCount) || 0;
-
-    if (attributeCount < 2 || subsetCount <= 0) {
-      return t(
-        "datasets.add.noSubsetProfilingRequired",
-        "No multi-attribute subset profiling was required."
-      );
-    }
-
-    const formatter = new Intl.NumberFormat(i18n.language);
-
-    return t(
-      "datasets.add.subsetProfilingSummary",
-      "{{subsetCount}} attribute subsets evaluated across {{attributeCount}} eligible attributes.",
-      {
-        subsetCount: formatter.format(subsetCount),
-        attributeCount: formatter.format(attributeCount),
-      }
-    );
-  }, [
-    file._qidProfilingSession,
-    file.isManual,
-    file.isProfiling,
-    file.subsetProfilingSummary,
-    i18n.language,
-    t,
-  ]);
-
-  const topValuesMap = useMemo(() => {
-    const map = {};
-    const sampleData = data.slice(0, 500);
-
-    for (const { field, sourceField } of columnMeta) {
-      const freq = {};
-      for (const row of sampleData) {
-        const v = row[sourceField || field];
-        if (v != null) freq[v] = (freq[v] || 0) + 1;
-      }
-      const top3 = Object.entries(freq)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([val]) => val);
-      map[field] = top3;
-    }
-    return map;
-  }, [columnMeta, data]);
+  const subsetProfilingStatus = useMemo(
+    () => getSubsetProfilingStatus(file, { t, language: i18n.language }),
+    [file, i18n.language, t]
+  );
+  const topValuesMap = useMemo(
+    () => buildTopValuesMap(columnMeta, data),
+    [columnMeta, data]
+  );
 
   if (file.isParsing) {
     return (

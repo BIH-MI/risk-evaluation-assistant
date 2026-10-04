@@ -1,11 +1,15 @@
+import { buildDirectIdentifierEvidenceFromFieldName } from "./profiling/directIdentifierEvidence";
 import {
-  buildDirectIdentifierEvidenceFromFieldName,
-  hasGenericIdentifierFieldEvidence,
-  shouldAutoExcludeDirectIdentifier,
-  shouldExcludeIdentifierByDefault,
-} from "./profiling/directIdentifierEvidence";
+  DIRECT_IDENTIFIER_CONFIDENCE,
+  GENERIC_IDENTIFIER_FIELD_SOURCE,
+} from "./profiling/directIdentifierRules";
 
 /*
+ * Answers "what should REA do with Direct Identifier evidence?": default
+ * exclusion, preserving or clearing user override decisions, submission
+ * validation, and override warnings. Detection itself lives in
+ * profiling/directIdentifierEvidence.js.
+ *
  * Direct Identifier detection happens before subset profiling. Excluded
  * identifiers remain available to transient profiling for field evidence, but
  * are omitted from quantitative Distinguishability subset evidence.
@@ -22,7 +26,7 @@ const getTableAttributes = (table = {}) =>
     ? table.columnMeta
     : table.attributes || [];
 
-export const getAttributeName = (column = {}) =>
+const getAttributeName = (column = {}) =>
   column.field || column.name || "";
 
 const hasDirectIdentifierExclusionDecision = (column = {}) =>
@@ -30,6 +34,39 @@ const hasDirectIdentifierExclusionDecision = (column = {}) =>
   column.directIdentifierExclusionOverridden === true;
 
 const getDirectIdentifierConcept = (evidence) => evidence?.concept || null;
+
+/**
+ * True only for HIGH-confidence evidence (a strong field-name alias or a
+ * supported value pattern). LOW-confidence/`requiresReview` evidence is kept
+ * semantically separate from confirmed Direct Identifiers.
+ */
+export function shouldAutoExcludeDirectIdentifier(evidence) {
+  return (
+    evidence?.detected === true &&
+    evidence.confidence === DIRECT_IDENTIFIER_CONFIDENCE.HIGH
+  );
+}
+
+/**
+ * Detects generic ID-like field-name evidence without changing its LOW
+ * confidence classification. REA policy uses this to default-exclude generic
+ * IDs from subset profiling while still surfacing them for review.
+ */
+function hasGenericIdentifierFieldEvidence(evidence) {
+  return Boolean(evidence?.sources?.includes(GENERIC_IDENTIFIER_FIELD_SOURCE));
+}
+
+/**
+ * Returns true when an identifier should be excluded from subset profiling by
+ * default. Confirmed Direct Identifiers qualify through HIGH evidence; generic
+ * IDs qualify through their LOW generic field-name source.
+ */
+function shouldExcludeIdentifierByDefault(evidence) {
+  return (
+    shouldAutoExcludeDirectIdentifier(evidence) ||
+    hasGenericIdentifierFieldEvidence(evidence)
+  );
+}
 
 const shouldResetAutomaticDirectIdentifierDecision = (
   previousEvidence,
@@ -54,7 +91,7 @@ function resetAutomaticDirectIdentifierDecision(column = {}) {
   };
 }
 
-export const getDirectIdentifierConceptLabel = (t, concept) => {
+const getDirectIdentifierConceptLabel = (t, concept) => {
   if (!concept) return "";
   return t(
     `datasets.directIdentifiers.concepts.${concept}`,
@@ -62,7 +99,7 @@ export const getDirectIdentifierConceptLabel = (t, concept) => {
   );
 };
 
-export const getDirectIdentifierEvidenceSourceSummary = (t, evidence) => {
+const getDirectIdentifierEvidenceSourceSummary = (t, evidence) => {
   const sourceKinds = [];
 
   (evidence?.sources || []).forEach((source) => {
@@ -90,7 +127,7 @@ export const getDirectIdentifierEvidenceSourceSummary = (t, evidence) => {
     .join(" + ");
 };
 
-export const formatDirectIdentifierItem = (t, item) => {
+const formatDirectIdentifierItem = (t, item) => {
   const attributeName = getAttributeName(item.column);
   const evidence = item.column?.directIdentifierEvidence;
   const conceptLabel = evidence?.concept
@@ -270,7 +307,7 @@ export function validateDirectIdentifierExclusions(tables = []) {
  * True only for confirmed Direct Identifier evidence. This keeps blocking
  * validation and override warnings separate from generic ID default exclusion.
  */
-export function isHighConfidenceDirectIdentifierColumn(column) {
+function isHighConfidenceDirectIdentifierColumn(column) {
   return shouldAutoExcludeDirectIdentifier(column?.directIdentifierEvidence);
 }
 

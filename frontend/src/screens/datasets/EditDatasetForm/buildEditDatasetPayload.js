@@ -1,4 +1,4 @@
-import { toDatasetAttributePayload } from "qidDiscovery/payload";
+import { toDatasetAttributePayload } from "qidDiscovery";
 
 /**
  * Builds the API shape for one edited table. Attributes are always preserved so

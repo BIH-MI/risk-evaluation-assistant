@@ -1,32 +1,14 @@
-import Papa from "papaparse";
 import {
   CSV_PREVIEW_ROW_LIMIT,
-  createColumnMetaFromFields,
+  profileParsedTable,
   profileTableFromSource,
-  profileTableRows,
 } from "./qidProfiler";
+import { parseCsvFile } from "./parsing/parseCsvFile";
 
 let qidWorker = null;
 let qidWorkerUnavailable = false;
 let nextRequestId = 0;
 const pendingRequests = new Map();
-
-function parseCsvFile(file) {
-  return new Promise((resolve, reject) => {
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      dynamicTyping: false,
-      complete: ({ data: rows, meta: { fields = [] } }) => {
-        resolve({
-          rows,
-          fields,
-        });
-      },
-      error: reject,
-    });
-  });
-}
 
 function getQidWorker() {
   if (qidWorkerUnavailable || typeof Worker === "undefined") return null;
@@ -91,12 +73,13 @@ function postQidWorkerMessage(type, payload) {
 async function profileTableSynchronously(
   file,
   previewRowLimit,
-  qidDiscoveryConfiguration,
-  qidOptions
+  qidDiscoveryConfiguration
 ) {
   const { rows, fields } = await parseCsvFile(file);
-  const columnMeta = createColumnMetaFromFields(fields);
-  const profile = profileTableRows(rows, columnMeta, qidOptions);
+  const profile = profileParsedTable(
+    { rows, fields },
+    qidDiscoveryConfiguration.profiling
+  );
 
   return {
     name: file.name,
@@ -115,14 +98,21 @@ async function profileTableSynchronously(
   };
 }
 
+function requireProfilingConfiguration(qidDiscoveryConfiguration) {
+  if (!qidDiscoveryConfiguration?.profiling) {
+    throw new Error("QID Discovery Configuration must be selected.");
+  }
+}
+
 /**
  * Profiles an uploaded CSV file, encodes each observed source column, evaluates
  * Direct Identifier evidence, and calculates initial Distinguishability
  * evidence. The worker path keeps large CSV parsing and subset profiling work
  * off the React UI thread.
  *
- * If Worker support is unavailable, the same pure profiling functions run
- * synchronously so the data flow and privacy boundary remain identical.
+ * If Worker support is unavailable, the same parser and pure profiling
+ * functions run synchronously, so results and the privacy boundary (raw rows
+ * never leave the browser) are identical.
  */
 export async function profileUploadedTable(file, options = {}) {
   const {
@@ -130,13 +120,8 @@ export async function profileUploadedTable(file, options = {}) {
     qidDiscoveryConfiguration,
   } = options;
 
-  if (!qidDiscoveryConfiguration?.profiling) {
-    throw new Error("QID Discovery Configuration must be selected.");
-  }
+  requireProfilingConfiguration(qidDiscoveryConfiguration);
 
-  const qidOptions = {
-    qidDiscoveryProfilingConfiguration: qidDiscoveryConfiguration.profiling,
-  };
   const worker = getQidWorker();
 
   if (worker) {
@@ -144,7 +129,6 @@ export async function profileUploadedTable(file, options = {}) {
       file,
       previewRowLimit,
       qidDiscoveryConfiguration,
-      options: qidOptions,
     });
 
     return {
@@ -156,15 +140,14 @@ export async function profileUploadedTable(file, options = {}) {
   return profileTableSynchronously(
     file,
     previewRowLimit,
-    qidDiscoveryConfiguration,
-    qidOptions
+    qidDiscoveryConfiguration
   );
 }
 
 /**
  * Refreshes Distinguishability evidence from the existing profiling session
- * after schema or exclusion changes. Encoded source columns and subset cache
- * entries are reused, avoiding another CSV scan.
+ * after schema or exclusion changes. Encoded source columns and cached subset
+ * metrics are reused, avoiding another CSV scan.
  */
 export async function refreshUploadedTableProfile(
   profilingSession,
@@ -175,13 +158,7 @@ export async function refreshUploadedTableProfile(
     qidDiscoveryConfiguration = profilingSession?.qidDiscoveryConfiguration,
   } = options;
 
-  if (!qidDiscoveryConfiguration?.profiling) {
-    throw new Error("QID Discovery Configuration must be selected.");
-  }
-
-  const qidOptions = {
-    qidDiscoveryProfilingConfiguration: qidDiscoveryConfiguration.profiling,
-  };
+  requireProfilingConfiguration(qidDiscoveryConfiguration);
 
   if (!profilingSession) {
     return {
@@ -194,14 +171,14 @@ export async function refreshUploadedTableProfile(
     return postQidWorkerMessage("REFRESH_TABLE_PROFILE", {
       sessionId: profilingSession.sessionId,
       columnMeta,
-      options: qidOptions,
+      profilingConfiguration: qidDiscoveryConfiguration.profiling,
     });
   }
 
   return profileTableFromSource(
     profilingSession.source,
     columnMeta,
-    qidOptions
+    qidDiscoveryConfiguration.profiling
   );
 }
 

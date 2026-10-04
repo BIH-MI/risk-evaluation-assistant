@@ -1,5 +1,8 @@
-// Pure data for Direct Identifier detection: field-name aliases, value-pattern
-// matchers, and their confidence thresholds. Consumed by directIdentifierEvidence.js.
+// Pure Direct Identifier definitions: known concepts and their field-name
+// aliases, generic identifier tokens, value-pattern thresholds, and value
+// matchers. No detection or policy logic lives here.
+//
+// Dependency direction: rules -> directIdentifierEvidence -> directIdentifierPolicy.
 
 export const DIRECT_IDENTIFIER_CONFIDENCE = {
   HIGH: "HIGH",
@@ -108,7 +111,12 @@ export const GENERIC_IDENTIFIER_TOKENS = new Set([
   "guid",
 ]);
 
-export const DEFAULT_VALUE_PATTERN_THRESHOLDS = {
+export const GENERIC_IDENTIFIER_FIELD_SOURCE = "field-name:generic_identifier";
+
+// Value-pattern support thresholds per concept. A pattern needs minimum
+// support (enough analysed and matched values) and then either
+// minMatchedFraction (supported -> detected) or reviewFraction (review only).
+export const VALUE_PATTERN_THRESHOLDS = {
   EMAIL: {
     minAnalysedNonMissingCount: 10,
     minMatchedValueCount: 5,

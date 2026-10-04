@@ -5,12 +5,12 @@ import {
 
 const names = (attributes) => attributes.map((attribute) => attribute.name);
 
-test("groupAssessmentAttributes places direct identifiers first, candidate QIDs next, and preserves group order", () => {
+test("groupAssessmentAttributes places direct identifiers first and preserves group order", () => {
   const grouped = groupAssessmentAttributes([
     { name: "gender" },
-    { name: "age_at_diagnosis", candidateQidCombinations: [{ id: 1 }] },
+    { name: "age_at_diagnosis" },
     { name: "insurance_number", isExcluded: true },
-    { name: "date_of_diagnosis", candidateQidCombinations: [{ id: 2 }] },
+    { name: "date_of_diagnosis" },
     { name: "patient_code", isDirectIdentifier: true },
     { name: "last_known_patient_status" },
   ]);
@@ -18,9 +18,9 @@ test("groupAssessmentAttributes places direct identifiers first, candidate QIDs 
   expect(names(grouped)).toEqual([
     "insurance_number",
     "patient_code",
+    "gender",
     "age_at_diagnosis",
     "date_of_diagnosis",
-    "gender",
     "last_known_patient_status",
   ]);
   expect(grouped).toEqual(
@@ -28,7 +28,7 @@ test("groupAssessmentAttributes places direct identifiers first, candidate QIDs 
   );
 });
 
-test("buildAssessmentTables groups after candidate QID evidence is attached without duplicating rows", () => {
+test("buildAssessmentTables groups excluded attributes first without duplicating rows", () => {
   const tables = buildAssessmentTables({
     dataset: {
       tables: [
@@ -47,10 +47,6 @@ test("buildAssessmentTables groups after candidate QID evidence is attached with
             { id: 4, name: "date_of_diagnosis", dataType: "DATE" },
             { id: 5, name: "uncomplicated_phase", dataType: "TEXT" },
           ],
-          qidCombinations: [
-            { id: 100, candidateCombination: true, attributeIds: [2, 4] },
-            { id: 101, minimalQualifying: true, attributeIds: [2] },
-          ],
         },
       ],
     },
@@ -61,9 +57,9 @@ test("buildAssessmentTables groups after candidate QID evidence is attached with
 
   expect(names(tables[0].attributes)).toEqual([
     "insurance_number",
+    "gender",
     "age_at_diagnosis",
     "date_of_diagnosis",
-    "gender",
     "uncomplicated_phase",
   ]);
   expect(
@@ -71,9 +67,4 @@ test("buildAssessmentTables groups after candidate QID evidence is attached with
       (attribute) => attribute.name === "age_at_diagnosis"
     )
   ).toHaveLength(1);
-  expect(
-    tables[0].attributes.find(
-      (attribute) => attribute.name === "age_at_diagnosis"
-    ).candidateQidCombinations
-  ).toHaveLength(2);
 });

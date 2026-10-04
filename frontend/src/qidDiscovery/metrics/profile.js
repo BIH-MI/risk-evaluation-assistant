@@ -50,7 +50,7 @@ export function buildAttributeStatistics(profile) {
  * statistics remain transient browser-local cache state.
  */
 export function buildSubsetStatistics(
-  stableAttributeIds,
+  sourceFields,
   classSizes,
   analysedRecordCount
 ) {
@@ -59,8 +59,8 @@ export function buildSubsetStatistics(
     summarizeSingletons(classSizes);
 
   return {
-    stableAttributeIds,
-    attributeCount: stableAttributeIds.length,
+    sourceFields,
+    attributeCount: sourceFields.length,
     distinction: calculateDistinction(
       equivalenceClassCount,
       analysedRecordCount

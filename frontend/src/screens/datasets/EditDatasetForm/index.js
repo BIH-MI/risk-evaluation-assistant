@@ -37,7 +37,7 @@ import {
   buildDirectIdentifierSubmissionMessage,
   isDefaultExcludedIdentifierColumn,
   validateDirectIdentifierExclusions,
-} from "qidDiscovery/directIdentifierPolicy";
+} from "qidDiscovery";
 
 export default function EditDatasetForm() {
   const dispatch = useDispatch();

@@ -55,11 +55,21 @@ public class DatasetTableAttributeResponseDTO {
      * @param entity The entity to map from.
      */
     public DatasetTableAttributeResponseDTO(DatasetTableAttribute entity) {
-        this.id           = entity.getId();
-        this.name         = entity.getName();
-        this.dataType     = entity.getDataType().name();
-        this.excluded     = entity.isExcluded();
-        this.recordCount  = entity.getRecordCount();
+        mapSchema(entity);
+        mapIndividualStatistics(entity);
+        mapDirectIdentifierSummary(entity);
+        mapSubsetEvidence(entity);
+    }
+
+    private void mapSchema(DatasetTableAttribute entity) {
+        this.id = entity.getId();
+        this.name = entity.getName();
+        this.dataType = entity.getDataType().name();
+        this.excluded = entity.isExcluded();
+    }
+
+    private void mapIndividualStatistics(DatasetTableAttribute entity) {
+        this.recordCount = entity.getRecordCount();
         this.analysedRecordCount = entity.getAnalysedRecordCount();
         this.missingCount = entity.getMissingCount();
         this.missingFraction = entity.getMissingFraction();
@@ -73,9 +83,15 @@ public class DatasetTableAttributeResponseDTO {
         this.maximumEquivalenceClassSize = entity.getMaximumEquivalenceClassSize();
         this.distinction = entity.getDistinction();
         this.separation = entity.getSeparation();
+    }
+
+    private void mapDirectIdentifierSummary(DatasetTableAttribute entity) {
         this.directIdentifierEvidenceSource = entity.getDirectIdentifierEvidenceSource();
         this.directIdentifierConcept = entity.getDirectIdentifierConcept();
         this.directIdentifierConfidence = entity.getDirectIdentifierConfidence();
+    }
+
+    private void mapSubsetEvidence(DatasetTableAttribute entity) {
         this.subsetEvidence = entity.getSubsetEvidence().stream()
                 .sorted(Comparator.comparing(DatasetTableAttributeSubsetEvidence::getSubsetSize))
                 .map(DatasetTableAttributeSubsetEvidenceResponseDTO::new)

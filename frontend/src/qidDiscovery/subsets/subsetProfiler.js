@@ -88,14 +88,6 @@ function enumerateSubsets(candidateColumns, subsetSize, onSubset) {
   visit(0);
 }
 
-/**
- * Running sums for one attribute: subsetSize -> sums over every evaluated
- * subset of that size containing the attribute.
- */
-function createAttributeSubsetEvidenceAccumulator() {
-  return new Map();
-}
-
 function accumulateSubsetMetrics(accumulator, subsetSize, metrics) {
   let sums = accumulator.get(subsetSize);
 
@@ -194,11 +186,10 @@ export function profileAttributeSubsets(
     candidateAttributeCount,
     evaluatedSubsetCount,
   });
+  // Per attribute: subsetSize -> running sums over every evaluated subset of
+  // that size containing the attribute.
   const accumulatorsBySourceField = new Map(
-    candidateColumns.map((candidate) => [
-      candidate.sourceField,
-      createAttributeSubsetEvidenceAccumulator(),
-    ])
+    candidateColumns.map((candidate) => [candidate.sourceField, new Map()])
   );
 
   if (largestSubsetSize >= MIN_SUBSET_SIZE && profilingSource) {

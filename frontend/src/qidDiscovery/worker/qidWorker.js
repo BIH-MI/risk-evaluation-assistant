@@ -33,16 +33,8 @@ function serializeError(error) {
  * transient profiling and cache state in this worker, and returns aggregate
  * results plus the limited preview rows required by PreviewTable.
  */
-async function profileTable({
-  file,
-  previewRowLimit = CSV_PREVIEW_ROW_LIMIT,
-  qidDiscoveryConfiguration,
-}) {
+async function profileTable({ file, qidDiscoveryConfiguration }) {
   const { rows, fields } = await parseCsvFile(file);
-  const parsedPreviewRowLimit = Number(previewRowLimit);
-  const safePreviewRowLimit = Number.isFinite(parsedPreviewRowLimit)
-    ? Math.max(0, parsedPreviewRowLimit)
-    : CSV_PREVIEW_ROW_LIMIT;
   const sessionId = createSessionId(file?.name);
   const { profilingSource, ...profile } = profileParsedTable(
     { rows, fields },
@@ -53,9 +45,7 @@ async function profileTable({
 
   return {
     name: file.name,
-    rows: rows.length,
-    headers: fields,
-    data: rows.slice(0, safePreviewRowLimit),
+    data: rows.slice(0, CSV_PREVIEW_ROW_LIMIT),
     columnMeta: profile.columnMeta,
     subsetProfilingSummary: profile.subsetProfilingSummary,
     profilingSession: {
@@ -63,7 +53,6 @@ async function profileTable({
       sessionId,
       qidDiscoveryConfiguration,
     },
-    qidDiscoveryConfiguration,
   };
 }
 
@@ -71,7 +60,11 @@ async function profileTable({
  * Reuses an existing worker-local profiling source after schema edits. This
  * refresh does not rescan rows and reuses the session's cached subset metrics.
  */
-function refreshTableProfile({ sessionId, columnMeta, profilingConfiguration }) {
+function refreshTableProfile({
+  sessionId,
+  columnMeta,
+  profilingConfiguration,
+}) {
   const profilingSource = sessions.get(sessionId);
 
   if (!profilingSource) {

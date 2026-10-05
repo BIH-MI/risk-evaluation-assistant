@@ -66,9 +66,6 @@ export function useDatasetTableProfiling({ tables, setTables, setErrors, t }) {
                   ...profiledTable,
                   _localTableId: table._localTableId,
                   _qidProfilingSession: profilingSession,
-                  qidDiscoveryConfiguration:
-                    profiledTable.qidDiscoveryConfiguration ||
-                    qidDiscoveryConfiguration,
                   name: table.name || profiledTable.name,
                   isParsing: false,
                   isProfiling: false,
@@ -90,7 +87,7 @@ export function useDatasetTableProfiling({ tables, setTables, setErrors, t }) {
   );
 
   const refreshTable = useCallback(
-    (tableId, nextColumnMeta, refreshOptions = {}) => {
+    (tableId, nextColumnMeta) => {
       const table = getTable(tableId);
       if (!table) return;
 
@@ -126,11 +123,7 @@ export function useDatasetTableProfiling({ tables, setTables, setErrors, t }) {
         )
       );
 
-      refreshUploadedTableProfile(
-        table._qidProfilingSession,
-        nextColumnMeta,
-        refreshOptions
-      )
+      refreshUploadedTableProfile(table._qidProfilingSession, nextColumnMeta)
         .then((profile) => {
           setTables((currentTables) =>
             currentTables.map((currentTable) =>

@@ -7,23 +7,19 @@ const ratio = (numerator, denominator) =>
 
 /**
  * Converts the equivalence-class distribution of one observed source
- * attribute into aggregate statistics used later as quantitative QID evidence.
+ * attribute into aggregate statistics used as quantitative Distinguishability
+ * evidence.
  * The input is produced by profileAndEncodeColumn's single pass over the
  * original column and the returned object is safe to persist.
  */
 export function buildAttributeStatistics(profile) {
-  const {
-    recordCount,
-    analysedRecordCount,
-    missingCount,
-    classSizes = profile.frequency
-      ? Array.from(profile.frequency.values())
-      : [],
-  } = profile;
+  const { recordCount, analysedRecordCount, missingCount, classSizes } =
+    profile;
   const equivalenceClassCount = classSizes.length;
   const { singletonClassCount, singletonRecordCount } =
     summarizeSingletons(classSizes);
-  const statistics = {
+
+  return {
     recordCount,
     analysedRecordCount,
     missingCount,
@@ -40,36 +36,20 @@ export function buildAttributeStatistics(profile) {
     ),
     separation: calculateSeparation(classSizes, analysedRecordCount),
   };
-
-  return statistics;
 }
 
 /**
- * Converts a joint equivalence-class partition into aggregate statistics for an
- * attribute subset. The partition and row group IDs that produced these
- * statistics remain transient browser-local cache state.
+ * Converts a joint equivalence-class partition into the metrics that are
+ * aggregated into per-attribute, per-subset-size Distinguishability evidence.
+ * The partition that produced them remains transient browser-local cache state;
+ * subset identities are never part of the result.
  */
-export function buildSubsetStatistics(
-  sourceFields,
-  classSizes,
-  analysedRecordCount
-) {
-  const equivalenceClassCount = classSizes.length;
-  const { singletonClassCount, singletonRecordCount } =
-    summarizeSingletons(classSizes);
+export function buildSubsetStatistics(classSizes, analysedRecordCount) {
+  const { singletonRecordCount } = summarizeSingletons(classSizes);
 
   return {
-    sourceFields,
-    attributeCount: sourceFields.length,
-    distinction: calculateDistinction(
-      equivalenceClassCount,
-      analysedRecordCount
-    ),
+    distinction: calculateDistinction(classSizes.length, analysedRecordCount),
     separation: calculateSeparation(classSizes, analysedRecordCount),
-    equivalenceClassCount,
-    singletonClassCount,
-    singletonRecordCount,
     singletonFraction: ratio(singletonRecordCount, analysedRecordCount),
-    ...summarizeClassSizes(classSizes),
   };
 }

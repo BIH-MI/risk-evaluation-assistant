@@ -3,12 +3,12 @@ import { alpha } from "@mui/material/styles";
 import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
 
-export const getEvidenceTooltipSurfaceColor = (theme) =>
+const getEvidenceTooltipSurfaceColor = (theme) =>
   theme.palette.mode === "dark"
     ? theme.palette.background.card || theme.palette.grey[900]
     : theme.palette.grey[900];
 
-export const getEvidenceTooltipTextColor = (theme) =>
+const getEvidenceTooltipTextColor = (theme) =>
   theme.palette.white?.main || theme.palette.common?.white || "#fff";
 
 export const evidenceTooltipComponentsProps = {
@@ -144,21 +144,6 @@ export function EvidenceMetricRow({ label, value }) {
         {value}
       </RATypography>
     </RABox>
-  );
-}
-
-export function EvidenceDivider({ sx = {} }) {
-  return (
-    <RABox
-      sx={(theme) => ({
-        borderTop: `1px solid ${alpha(
-          getEvidenceTooltipTextColor(theme),
-          0.16
-        )}`,
-        my: 0.75,
-        ...sx,
-      })}
-    />
   );
 }
 

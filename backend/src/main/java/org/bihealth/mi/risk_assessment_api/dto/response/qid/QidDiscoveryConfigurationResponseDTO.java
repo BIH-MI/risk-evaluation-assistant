@@ -49,13 +49,4 @@ public class QidDiscoveryConfigurationResponseDTO {
         this.creationDate = configuration.getCreationDate();
         this.lastModifiedDate = configuration.getLastModifiedDate();
     }
-
-    public QidDiscoveryConfigurationResponseDTO(QidDiscoveryConfigurationVersion version) {
-        this(
-                version.getConfiguration(),
-                version,
-                0
-        );
-        this.datasetCount = null;
-    }
 }

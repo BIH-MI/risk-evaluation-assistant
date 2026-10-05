@@ -6,7 +6,7 @@ import {
 } from "./EvidencePrimitives";
 import { titleCaseToken } from "./evidenceUtils";
 
-export function getDirectIdentifierConceptLabel(concept, t) {
+function getDirectIdentifierConceptLabel(concept, t) {
   if (!concept) return "";
   return t(
     `datasets.directIdentifiers.concepts.${concept}`,
@@ -14,7 +14,7 @@ export function getDirectIdentifierConceptLabel(concept, t) {
   );
 }
 
-export function getDirectIdentifierConfidenceLabel(confidence, t) {
+function getDirectIdentifierConfidenceLabel(confidence, t) {
   if (confidence === "HIGH") {
     return t("datasetAssessments.evidence.high", "High");
   }
@@ -25,7 +25,7 @@ export function getDirectIdentifierConfidenceLabel(confidence, t) {
   return confidence ? titleCaseToken(confidence) : "";
 }
 
-export function getDirectIdentifierEvidenceSourceLabel(source, t) {
+function getDirectIdentifierEvidenceSourceLabel(source, t) {
   if (source === "FIELD_NAME") {
     return t("datasetAssessments.evidence.attributeName", "Attribute name");
   }
@@ -42,11 +42,24 @@ export function getDirectIdentifierEvidenceSourceLabel(source, t) {
   return source ? titleCaseToken(source) : "";
 }
 
-export function hasAutomaticDirectIdentifierSummary(attribute) {
+function hasAutomaticDirectIdentifierSummary(attribute) {
   return Boolean(
     attribute?.directIdentifierEvidenceSource ||
       attribute?.directIdentifierConcept ||
       attribute?.directIdentifierConfidence
+  );
+}
+
+/**
+ * True when the name tooltip has something to show: a persisted automatic
+ * Direct Identifier summary, or an attribute treated as a Direct Identifier or
+ * excluded in the assessment.
+ */
+export function hasDirectIdentifierNameEvidence(attribute) {
+  return Boolean(
+    hasAutomaticDirectIdentifierSummary(attribute) ||
+      attribute?.isDirectIdentifier ||
+      attribute?.isExcluded
   );
 }
 
@@ -73,9 +86,7 @@ function DirectIdentifierNameEvidence({ attribute, t }) {
         )
       : "");
 
-  if (!hasSummary && !(attribute.isDirectIdentifier || attribute.isExcluded)) {
-    return null;
-  }
+  if (!hasDirectIdentifierNameEvidence(attribute)) return null;
 
   return (
     <EvidenceSection

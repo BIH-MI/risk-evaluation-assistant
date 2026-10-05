@@ -12,6 +12,7 @@ import org.hibernate.annotations.OnDeleteAction;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Represents a single attribute (column) within a DatasetTable.
@@ -124,23 +125,20 @@ public class DatasetTableAttribute {
         this.dataType = dataType;
     }
 
-    public void clearSubsetEvidence() {
-        subsetEvidence.clear();
-    }
-
-    public void addSubsetEvidence(DatasetTableAttributeSubsetEvidence evidence) {
-        if (evidence == null) {
-            return;
-        }
-        evidence.setAttribute(this);
-        subsetEvidence.add(evidence);
-    }
-
+    /**
+     * Replaces all per-subset-size evidence, linking each entry back to this
+     * attribute. Orphan removal deletes the previous rows.
+     */
     public void replaceSubsetEvidence(List<DatasetTableAttributeSubsetEvidence> evidence) {
-        clearSubsetEvidence();
+        subsetEvidence.clear();
         if (evidence == null) {
             return;
         }
-        evidence.forEach(this::addSubsetEvidence);
+        evidence.stream()
+                .filter(Objects::nonNull)
+                .forEach(entry -> {
+                    entry.setAttribute(this);
+                    subsetEvidence.add(entry);
+                });
     }
 }

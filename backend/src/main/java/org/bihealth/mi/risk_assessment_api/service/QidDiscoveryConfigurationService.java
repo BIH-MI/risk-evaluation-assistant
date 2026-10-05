@@ -231,15 +231,6 @@ public class QidDiscoveryConfigurationService {
         return version;
     }
 
-    @Transactional(readOnly = true)
-    public QidDiscoveryConfigurationVersion getDefaultActiveVersion() {
-        return getCurrentVersion(getDefaultActiveConfiguration());
-    }
-
-    public QidDiscoveryConfigurationResponseDTO toSnapshotResponse(QidDiscoveryConfigurationVersion version) {
-        return new QidDiscoveryConfigurationResponseDTO(version);
-    }
-
     private QidDiscoveryConfigurationResponseDTO toResponse(
             QidDiscoveryConfiguration configuration,
             long datasetCount
@@ -292,23 +283,14 @@ public class QidDiscoveryConfigurationService {
     }
 
     private Integer validateRequiredInteger(Integer value, String label, int minValue) {
-        Integer normalized = validateOptionalInteger(value, label, minValue);
-        if (normalized == null) {
-            throw new IllegalArgumentException(label + " is required.");
-        }
-        return normalized;
-    }
-
-    private Integer validateOptionalInteger(Integer value, String label, int minValue) {
         if (value == null) {
-            return null;
+            throw new IllegalArgumentException(label + " is required.");
         }
         if (value < minValue) {
             throw new IllegalArgumentException(label + " must be greater than or equal to " + minValue + ".");
         }
         return value;
     }
-
 
     private void validateUniqueName(String rawName, Long excludeId) {
         String name = requiredName(rawName);

@@ -59,13 +59,15 @@ function uniqueKeys(keys) {
   return Array.from(new Set(keys.filter(Boolean)));
 }
 
-function normalizedKeysForAlias(alias) {
-  const normalized = normalizeFieldName(alias);
+// Every lookup spelling of a normalized name: expanded and raw tokens, each
+// joined with and without underscores. Aliases and field names use the same
+// keys so that matching is symmetric.
+function getFieldNameKeys(normalizedFieldName) {
   return uniqueKeys([
-    normalized.key,
-    normalized.compactKey,
-    normalized.rawKey,
-    normalized.rawCompactKey,
+    normalizedFieldName.key,
+    normalizedFieldName.compactKey,
+    normalizedFieldName.rawKey,
+    normalizedFieldName.rawCompactKey,
   ]);
 }
 
@@ -77,7 +79,7 @@ function buildFieldNameAliasIndex() {
 
   Object.entries(DIRECT_IDENTIFIER_CONCEPTS).forEach(([concept, config]) => {
     config.aliases.forEach((alias) => {
-      normalizedKeysForAlias(alias).forEach((key) => {
+      getFieldNameKeys(normalizeFieldName(alias)).forEach((key) => {
         index.set(key, {
           concept,
           alias,
@@ -104,15 +106,6 @@ const FIELD_NAME_ALIAS_INDEX = buildFieldNameAliasIndex();
  * Aggregate value-pattern counts by concept (never raw values).
  * @property {Object} fieldName Normalized current field-name tokens and keys.
  */
-
-function getFieldNameKeys(normalizedFieldName) {
-  return uniqueKeys([
-    normalizedFieldName.key,
-    normalizedFieldName.compactKey,
-    normalizedFieldName.rawKey,
-    normalizedFieldName.rawCompactKey,
-  ]);
-}
 
 // HIGH-confidence field-name evidence: the whole normalized name matches a
 // known concept alias (e.g. "email_address", "ssn").
@@ -234,34 +227,36 @@ function classifyValuePatternEvidence(normalizedValuePatternEvidence) {
   const supportedPatterns = [];
   const reviewPatterns = [];
 
-  Object.entries(normalizedValuePatternEvidence).forEach(([concept, evidence]) => {
-    const threshold = VALUE_PATTERN_THRESHOLDS[concept] || {};
-    const hasMinimumSupport =
-      evidence.analysedNonMissingCount >=
-        threshold.minAnalysedNonMissingCount &&
-      evidence.matchedValueCount >= threshold.minMatchedValueCount;
+  Object.entries(normalizedValuePatternEvidence).forEach(
+    ([concept, evidence]) => {
+      const threshold = VALUE_PATTERN_THRESHOLDS[concept] || {};
+      const hasMinimumSupport =
+        evidence.analysedNonMissingCount >=
+          threshold.minAnalysedNonMissingCount &&
+        evidence.matchedValueCount >= threshold.minMatchedValueCount;
 
-    if (
-      hasMinimumSupport &&
-      evidence.matchedFraction >= threshold.minMatchedFraction
-    ) {
-      supportedPatterns.push({
-        concept,
-        evidence,
-      });
-      return;
-    }
+      if (
+        hasMinimumSupport &&
+        evidence.matchedFraction >= threshold.minMatchedFraction
+      ) {
+        supportedPatterns.push({
+          concept,
+          evidence,
+        });
+        return;
+      }
 
-    if (
-      hasMinimumSupport &&
-      evidence.matchedFraction >= threshold.reviewFraction
-    ) {
-      reviewPatterns.push({
-        concept,
-        evidence,
-      });
+      if (
+        hasMinimumSupport &&
+        evidence.matchedFraction >= threshold.reviewFraction
+      ) {
+        reviewPatterns.push({
+          concept,
+          evidence,
+        });
+      }
     }
-  });
+  );
 
   return {
     supportedPatterns: sortValuePatternClassifications(supportedPatterns),

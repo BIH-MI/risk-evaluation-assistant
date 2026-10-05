@@ -206,20 +206,21 @@ public class DemoDatasetEvidenceSeeder implements CommandLineRunner {
             DatasetTableAttribute attribute,
             List<SubsetEvidence> evidence
     ) {
-        attribute.getSubsetEvidence().clear();
-        if (evidence == null) return;
+        attribute.replaceSubsetEvidence(evidence == null
+                ? List.of()
+                : evidence.stream()
+                        .map(DemoDatasetEvidenceSeeder::toSubsetEvidenceEntity)
+                        .toList());
+    }
 
-        evidence.forEach(item -> {
-            DatasetTableAttributeSubsetEvidence subsetEvidence =
-                    new DatasetTableAttributeSubsetEvidence();
-            subsetEvidence.setAttribute(attribute);
-            subsetEvidence.setSubsetSize(item.subsetSize());
-            subsetEvidence.setEvaluatedSubsetCount(item.evaluatedSubsetCount());
-            subsetEvidence.setMeanDistinction(item.meanDistinction());
-            subsetEvidence.setMeanSeparation(item.meanSeparation());
-            subsetEvidence.setMeanSingletonFraction(item.meanSingletonFraction());
-            attribute.getSubsetEvidence().add(subsetEvidence);
-        });
+    private static DatasetTableAttributeSubsetEvidence toSubsetEvidenceEntity(SubsetEvidence item) {
+        DatasetTableAttributeSubsetEvidence subsetEvidence = new DatasetTableAttributeSubsetEvidence();
+        subsetEvidence.setSubsetSize(item.subsetSize());
+        subsetEvidence.setEvaluatedSubsetCount(item.evaluatedSubsetCount());
+        subsetEvidence.setMeanDistinction(item.meanDistinction());
+        subsetEvidence.setMeanSeparation(item.meanSeparation());
+        subsetEvidence.setMeanSingletonFraction(item.meanSingletonFraction());
+        return subsetEvidence;
     }
 
     private static Map<String, DataType> leossAttributes() {

@@ -33,7 +33,7 @@ const getAssessmentScoringSystemId = (assessment) =>
   assessment?.attributeScoringSystem?.id ||
   null;
 
-export function getAssessmentScoringSystemLabel(assessment) {
+function getAssessmentScoringSystemLabel(assessment) {
   const name =
     assessment?.attributeScoringSystemName ||
     assessment?.attributeScoringSystem?.name ||
@@ -46,7 +46,7 @@ export function getAssessmentScoringSystemLabel(assessment) {
   return version ? `${name} v${version}` : name;
 }
 
-export function getAssessmentConfigurationLabel(assessment) {
+function getAssessmentConfigurationLabel(assessment) {
   const name =
     assessment?.configurationName ||
     assessment?.configuration?.name ||

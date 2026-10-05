@@ -1,20 +1,13 @@
 import React from "react";
 import { getOptionsForAttributeField } from "utils/AttributeScale";
-import {
-  EvidenceMetricRow,
-  EvidenceSection,
-} from "./EvidencePrimitives";
+import { EvidenceMetricRow, EvidenceSection } from "./EvidencePrimitives";
 import {
   formatMetricNumber,
   formatScaleLabel,
   hasEvidenceValue,
 } from "./evidenceUtils";
 
-export function buildHistoricalEvidenceSummary(
-  historical,
-  field,
-  scoringSystem
-) {
+function buildHistoricalEvidenceSummary(historical, field, scoringSystem) {
   const observations = historical?.observations || [];
   const countsByLabel = new Map();
   const optionOrderByValue = new Map(

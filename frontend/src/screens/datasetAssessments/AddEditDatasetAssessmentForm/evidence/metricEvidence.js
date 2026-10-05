@@ -20,24 +20,11 @@ function pickExistingFields(source, fields) {
   }, {});
 }
 
+// Contextual evidence ("in combination with other attributes") is the
+// equally weighted mean over the persisted per-subset-size evidence.
 function buildSubsetContext(attribute) {
-  const bySubsetSize = (attribute?.subsetEvidence || [])
-    .filter((evidence) => hasValue(evidence.subsetSize))
-    .map((evidence) => ({
-      subsetSize: evidence.subsetSize,
-      evaluatedSubsetCount: evidence.evaluatedSubsetCount,
-      meanDistinction: evidence.meanDistinction,
-      meanSeparation: evidence.meanSeparation,
-      meanSingletonFraction: evidence.meanSingletonFraction,
-    }))
-    .sort((left, right) => left.subsetSize - right.subsetSize);
-
-  if (!bySubsetSize.length) return null;
-
-  return {
-    bySubsetSize,
-    overall: summarizeSubsetEvidence(bySubsetSize),
-  };
+  const overall = summarizeSubsetEvidence(attribute?.subsetEvidence || []);
+  return overall ? { overall } : null;
 }
 
 export function buildDistinguishabilityQuantitativeEvidence(attribute) {

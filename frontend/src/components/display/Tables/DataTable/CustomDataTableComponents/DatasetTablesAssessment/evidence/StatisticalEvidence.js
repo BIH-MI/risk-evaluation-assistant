@@ -56,7 +56,10 @@ function IndividualAttributeEvidence({ individual, t }) {
         display="block"
         sx={{ fontSize: "0.72rem", lineHeight: 1.3, opacity: 0.9 }}
       >
-        {t("datasetAssessments.evidence.individualAttribute", "Individual attribute")}
+        {t(
+          "datasetAssessments.evidence.individualAttribute",
+          "Individual attribute"
+        )}
       </RATypography>
       <EvidenceRows rows={rows} />
     </RABox>
@@ -121,12 +124,22 @@ function ContextualEvidenceHeading({ t }) {
 function ContextualAttributeEvidence({ overall, t }) {
   const rows = metricRowsFromValues([
     [
-      t("datasetAssessments.evidence.averageDistinction", "Average Distinction"),
+      t(
+        "datasetAssessments.evidence.averageDistinction",
+        "Average Distinction"
+      ),
       overall?.meanDistinction,
     ],
     [
       t("datasetAssessments.evidence.averageSeparation", "Average Separation"),
       overall?.meanSeparation,
+    ],
+    [
+      t(
+        "datasetAssessments.evidence.averageSingletonFraction",
+        "Average Singleton fraction"
+      ),
+      overall?.meanSingletonFraction,
     ],
   ]);
 
@@ -140,10 +153,13 @@ function ContextualAttributeEvidence({ overall, t }) {
   );
 }
 
-function QuantitativeDistinguishabilityEvidence({ quantitative, t }) {
-  if (!hasQuantitativeEvidenceDetails(quantitative)) return null;
+// Only Distinguishability has quantitative evidence; it comes from aggregate
+// profiling statistics persisted with the dataset.
+function StatisticalEvidence({ evidence, field, t }) {
+  if (field !== "distinguishability") return null;
 
-  const subsetContext = quantitative.subsetContext;
+  const quantitative = evidence.quantitative;
+  if (!hasQuantitativeEvidenceDetails(quantitative)) return null;
 
   return (
     <EvidenceSection
@@ -152,23 +168,12 @@ function QuantitativeDistinguishabilityEvidence({ quantitative, t }) {
         "Quantitative Distinguishability Evidence"
       )}
     >
-      <IndividualAttributeEvidence
-        individual={quantitative.individual}
+      <IndividualAttributeEvidence individual={quantitative.individual} t={t} />
+      <ContextualAttributeEvidence
+        overall={quantitative.subsetContext?.overall}
         t={t}
       />
-      <ContextualAttributeEvidence overall={subsetContext?.overall} t={t} />
     </EvidenceSection>
-  );
-}
-
-function StatisticalEvidence({ evidence, field, t }) {
-  if (field !== "distinguishability") return null;
-
-  return (
-    <QuantitativeDistinguishabilityEvidence
-      quantitative={evidence.quantitative}
-      t={t}
-    />
   );
 }
 

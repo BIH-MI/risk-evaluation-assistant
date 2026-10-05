@@ -6,26 +6,11 @@ import { MemoNameCell } from "../../RowComponents";
 import {
   NameEvidenceTooltip,
   evidenceTooltipComponentsProps,
+  hasDirectIdentifierNameEvidence,
 } from "../evidence";
 
-function hasAutomaticDirectIdentifierSummary(attribute) {
-  return Boolean(
-    attribute?.directIdentifierEvidenceSource ||
-      attribute?.directIdentifierConcept ||
-      attribute?.directIdentifierConfidence
-  );
-}
-
-function hasNameCellEvidence(attribute) {
-  return Boolean(
-    hasAutomaticDirectIdentifierSummary(attribute) ||
-      attribute?.isDirectIdentifier ||
-      attribute?.isExcluded
-  );
-}
-
 function NameEvidenceInfoIcon({ attribute, t }) {
-  if (!hasNameCellEvidence(attribute)) return null;
+  if (!hasDirectIdentifierNameEvidence(attribute)) return null;
 
   return (
     <Tooltip

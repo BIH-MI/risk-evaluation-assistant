@@ -70,11 +70,9 @@ function postQidWorkerMessage(type, payload) {
   });
 }
 
-async function profileTableSynchronously(
-  file,
-  previewRowLimit,
-  qidDiscoveryConfiguration
-) {
+// Same response shape as the worker's PROFILE_TABLE handler; only the
+// profiling session differs (the source stays on the main thread).
+async function profileTableSynchronously(file, qidDiscoveryConfiguration) {
   const { rows, fields } = await parseCsvFile(file);
   const profile = profileParsedTable(
     { rows, fields },
@@ -83,9 +81,7 @@ async function profileTableSynchronously(
 
   return {
     name: file.name,
-    rows: rows.length,
-    headers: fields,
-    data: rows.slice(0, previewRowLimit),
+    data: rows.slice(0, CSV_PREVIEW_ROW_LIMIT),
     columnMeta: profile.columnMeta,
     subsetProfilingSummary: profile.subsetProfilingSummary,
     profilingSession: {
@@ -93,8 +89,6 @@ async function profileTableSynchronously(
       source: profile.profilingSource,
       qidDiscoveryConfiguration,
     },
-    qidDiscoveryConfiguration,
-    qidProcessingMode: "sync",
   };
 }
 
@@ -114,58 +108,35 @@ function requireProfilingConfiguration(qidDiscoveryConfiguration) {
  * functions run synchronously, so results and the privacy boundary (raw rows
  * never leave the browser) are identical.
  */
-export async function profileUploadedTable(file, options = {}) {
-  const {
-    previewRowLimit = CSV_PREVIEW_ROW_LIMIT,
-    qidDiscoveryConfiguration,
-  } = options;
-
+export async function profileUploadedTable(
+  file,
+  { qidDiscoveryConfiguration }
+) {
   requireProfilingConfiguration(qidDiscoveryConfiguration);
 
-  const worker = getQidWorker();
-
-  if (worker) {
-    const profile = await postQidWorkerMessage("PROFILE_TABLE", {
+  if (getQidWorker()) {
+    return postQidWorkerMessage("PROFILE_TABLE", {
       file,
-      previewRowLimit,
       qidDiscoveryConfiguration,
     });
-
-    return {
-      ...profile,
-      qidProcessingMode: "worker",
-    };
   }
 
-  return profileTableSynchronously(
-    file,
-    previewRowLimit,
-    qidDiscoveryConfiguration
-  );
+  return profileTableSynchronously(file, qidDiscoveryConfiguration);
 }
 
 /**
  * Refreshes Distinguishability evidence from the existing profiling session
- * after schema or exclusion changes. Encoded source columns and cached subset
- * metrics are reused, avoiding another CSV scan.
+ * after schema or exclusion changes, using the configuration the session was
+ * profiled with. Encoded source columns and cached subset metrics are reused,
+ * avoiding another CSV scan.
  */
 export async function refreshUploadedTableProfile(
   profilingSession,
-  columnMeta,
-  options = {}
+  columnMeta
 ) {
-  const {
-    qidDiscoveryConfiguration = profilingSession?.qidDiscoveryConfiguration,
-  } = options;
+  const qidDiscoveryConfiguration = profilingSession?.qidDiscoveryConfiguration;
 
   requireProfilingConfiguration(qidDiscoveryConfiguration);
-
-  if (!profilingSession) {
-    return {
-      columnMeta,
-      subsetProfilingSummary: null,
-    };
-  }
 
   if (profilingSession.type === "worker") {
     return postQidWorkerMessage("REFRESH_TABLE_PROFILE", {

@@ -2,7 +2,8 @@ import { buildSubsetStatistics } from "../metrics/profile";
 
 // Sorting gives every attribute subset one canonical ordering, so the same
 // subset always maps to the same cache key and the same parent prefix.
-const canonicalizeSourceFields = (sourceFields = []) => [...sourceFields].sort();
+const canonicalizeSourceFields = (sourceFields = []) =>
+  [...sourceFields].sort();
 
 /**
  * Builds a cache key from source fields rather than display names or
@@ -97,7 +98,6 @@ export class SubsetPartitionCache {
 
     const partition = this.getPartition(canonicalSourceFields, key);
     const metrics = buildSubsetStatistics(
-      canonicalSourceFields,
       partition.classSizes,
       this.analysedRecordCount
     );

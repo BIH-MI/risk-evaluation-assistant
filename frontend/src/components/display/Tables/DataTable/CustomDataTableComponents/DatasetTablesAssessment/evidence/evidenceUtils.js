@@ -25,11 +25,7 @@ export const formatScaleLabel = (value, field, scoringSystem) => {
 export function hasQuantitativeEvidenceDetails(quantitative) {
   if (!quantitative) return false;
 
-  const individualFields = [
-    "distinction",
-    "separation",
-    "singletonFraction",
-  ];
+  const individualFields = ["distinction", "separation", "singletonFraction"];
   const overall = quantitative.subsetContext?.overall;
 
   return (
@@ -41,15 +37,11 @@ export function hasQuantitativeEvidenceDetails(quantitative) {
   );
 }
 
-function hasEvidenceDetails(evidence) {
+export function shouldShowEvidenceIcon(evidence) {
   if (!evidence) return false;
 
   return Boolean(
     hasQuantitativeEvidenceDetails(evidence.quantitative) ||
       evidence.historical?.observations?.length
   );
-}
-
-export function shouldShowEvidenceIcon(evidence) {
-  return hasEvidenceDetails(evidence);
 }

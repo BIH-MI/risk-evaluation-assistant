@@ -102,7 +102,6 @@ export const PreviewTable = React.memo(function PreviewTable({
   if (file.isParsing) {
     return (
       <RABox
-        key={file._localTableId}
         mt={2}
         sx={{
           p: 2,
@@ -239,7 +238,7 @@ export const PreviewTable = React.memo(function PreviewTable({
   }));
 
   return (
-    <RABox key={file._localTableId} mt={2} p={2}>
+    <RABox mt={2} p={2}>
       <RABox
         display="flex"
         alignItems="center"

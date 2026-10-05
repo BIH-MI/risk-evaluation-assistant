@@ -4,6 +4,7 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
 import {
+  EvidenceLine,
   EvidenceMetricRow,
   EvidenceSection,
   evidenceTooltipComponentsProps,
@@ -121,6 +122,9 @@ function ContextualEvidenceHeading({ t }) {
   );
 }
 
+// Contextual evidence comes only from subset profiling of the uploaded CSV. It
+// is never derived from individual statistics, so when no subset evidence was
+// persisted the section says so explicitly instead of disappearing.
 function ContextualAttributeEvidence({ overall, t }) {
   const rows = metricRowsFromValues([
     [
@@ -143,12 +147,19 @@ function ContextualAttributeEvidence({ overall, t }) {
     ],
   ]);
 
-  if (!rows.length) return null;
-
   return (
     <RABox sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
       <ContextualEvidenceHeading t={t} />
-      <EvidenceRows rows={rows} />
+      {rows.length ? (
+        <EvidenceRows rows={rows} />
+      ) : (
+        <EvidenceLine>
+          {t(
+            "datasetAssessments.evidence.contextualEvidenceUnavailable",
+            "Contextual Distinguishability evidence is unavailable for this attribute."
+          )}
+        </EvidenceLine>
+      )}
     </RABox>
   );
 }

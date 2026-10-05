@@ -33,7 +33,8 @@ export function hasQuantitativeEvidenceDetails(quantitative) {
       hasEvidenceValue(quantitative.individual?.[field])
     ) ||
     hasEvidenceValue(overall?.meanDistinction) ||
-    hasEvidenceValue(overall?.meanSeparation)
+    hasEvidenceValue(overall?.meanSeparation) ||
+    hasEvidenceValue(overall?.meanSingletonFraction)
   );
 }
 

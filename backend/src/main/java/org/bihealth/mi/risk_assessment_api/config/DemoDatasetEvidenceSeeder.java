@@ -209,8 +209,8 @@ public class DemoDatasetEvidenceSeeder implements CommandLineRunner {
         attribute.replaceSubsetEvidence(evidence == null
                 ? List.of()
                 : evidence.stream()
-                        .map(DemoDatasetEvidenceSeeder::toSubsetEvidenceEntity)
-                        .toList());
+                  .map(DemoDatasetEvidenceSeeder::toSubsetEvidenceEntity)
+                  .toList());
     }
 
     private static DatasetTableAttributeSubsetEvidence toSubsetEvidenceEntity(SubsetEvidence item) {
@@ -314,31 +314,88 @@ public class DemoDatasetEvidenceSeeder implements CommandLineRunner {
 
     private static Map<String, List<SubsetEvidence>> leossSubsetEvidence() {
         Map<String, List<SubsetEvidence>> evidence = new LinkedHashMap<>();
+
+        // Precomputed from LEOSS_dataset_v3 using the current frontend profiling
+        // semantics: insurance_number is excluded as a Direct Identifier, the
+        // remaining 15 attributes are exhaustively profiled for subset sizes 2-4,
+        // and missing values form one equivalence class. Each attribute therefore
+        // participates in 14 pairs, 91 triplets, and 364 four-attribute subsets.
         evidence.put("age_at_diagnosis", List.of(
-                subsetEvidence(2, 14L, 0.071, 0.997, 0.018),
-                subsetEvidence(3, 91L, 0.412, 0.9996, 0.291),
-                subsetEvidence(4, 364L, 0.956, 0.99999, 0.914)
+                subsetEvidence(2, 14L, 0.0833333333333333, 0.992114947382693, 0.0471556886227545),
+                subsetEvidence(3, 91L, 0.181565440547476, 0.995513620740540, 0.122313614529183),
+                subsetEvidence(4, 364L, 0.288962185519072, 0.997250823663155, 0.212998179465246)
+        ));
+        evidence.put("gender", List.of(
+                subsetEvidence(2, 14L, 0.00896777872825777, 0.759511765114204, 0.000655831194753350),
+                subsetEvidence(3, 91L, 0.0464828584589063, 0.870819317088412, 0.0182492158540063),
+                subsetEvidence(4, 364L, 0.115178434340111, 0.925448644460874, 0.0632367133864141)
         ));
         evidence.put("date_of_diagnosis", List.of(
-                subsetEvidence(2, 14L, 0.113, 0.9981, 0.034),
-                subsetEvidence(3, 91L, 0.547, 0.9998, 0.418),
-                subsetEvidence(4, 364L, 0.956, 0.99999, 0.914)
+                subsetEvidence(2, 14L, 0.171991730824066, 0.998201280412952, 0.0711576846307385),
+                subsetEvidence(3, 91L, 0.314211138163234, 0.998968687794828, 0.182845298414161),
+                subsetEvidence(4, 364L, 0.445419600359720, 0.999364580222059, 0.306456043956044)
+        ));
+        evidence.put("uncomplicated_phase", List.of(
+                subsetEvidence(2, 14L, 0.00857570573139435, 0.656115144840429, 0.00101226119190191),
+                subsetEvidence(3, 91L, 0.0427715996578272, 0.809619283187348, 0.0175747406286328),
+                subsetEvidence(4, 364L, 0.104596027724770, 0.889012888737693, 0.0581669079423572)
+        ));
+        evidence.put("complicated_phase", List.of(
+                subsetEvidence(2, 14L, 0.00888936412888509, 0.727073994255511, 0.000712859994297120),
+                subsetEvidence(3, 91L, 0.0433967230374416, 0.838916517041433, 0.0174343620451405),
+                subsetEvidence(4, 364L, 0.104508291110088, 0.900710770732773, 0.0573841328332348)
+        ));
+        evidence.put("critical_phase", List.of(
+                subsetEvidence(2, 14L, 0.00841174793270602, 0.624071623481965, 0.000962360992301112),
+                subsetEvidence(3, 91L, 0.0404378057072668, 0.790956233626597, 0.0162795288543791),
+                subsetEvidence(4, 364L, 0.0987456405869582, 0.880169668154950, 0.0542749665504158)
+        ));
+        evidence.put("recovery_phase", List.of(
+                subsetEvidence(2, 14L, 0.00896065012831480, 0.744481103240598, 0.000734245794126034),
+                subsetEvidence(3, 91L, 0.0443278278607620, 0.856408659786015, 0.0175835142901011),
+                subsetEvidence(4, 364L, 0.107720822092080, 0.914126670435820, 0.0589971156587925)
+        ));
+        evidence.put("vasopressors_in_complicated_phase", List.of(
+                subsetEvidence(2, 14L, 0.0130952380952381, 0.739960243202586, 0.00271599657827203),
+                subsetEvidence(3, 91L, 0.0517996973086793, 0.843939735314028, 0.0232216884911496),
+                subsetEvidence(4, 364L, 0.115110712640653, 0.902832995770890, 0.0663398477769736)
+        ));
+        evidence.put("vasopressors_in_critical_phase", List.of(
+                subsetEvidence(2, 14L, 0.0163031080695751, 0.632777897358577, 0.00539635015682920),
+                subsetEvidence(3, 91L, 0.0559057708758307, 0.794206011539186, 0.0281974512513435),
+                subsetEvidence(4, 364L, 0.117963523502446, 0.881459182172108, 0.0713975894365117)
+        ));
+        evidence.put("invasive_ventilation_in_critical_phase", List.of(
+                subsetEvidence(2, 14L, 0.0122112917023097, 0.629532986271052, 0.00301539777587682),
+                subsetEvidence(3, 91L, 0.0479414796780066, 0.792870717228151, 0.0220186001623127),
+                subsetEvidence(4, 364L, 0.108060801473975, 0.880886161000292, 0.0625082253076266)
         ));
         evidence.put("superinfection_uncomplicated_phase", List.of(
-                subsetEvidence(2, 14L, 0.058, 0.834, 0.009),
-                subsetEvidence(3, 91L, 0.352, 0.996, 0.224),
-                subsetEvidence(4, 364L, 0.955, 0.99999, 0.912)
+                subsetEvidence(2, 14L, 0.0162603364699173, 0.780074902168344, 0.00344311377245509),
+                subsetEvidence(3, 91L, 0.0619804347349257, 0.870910112750197, 0.0279978504529403),
+                subsetEvidence(4, 364L, 0.133295222741331, 0.920849302777532, 0.0776946107784433)
         ));
         evidence.put("superinfection_complicated_phase", List.of(
-                subsetEvidence(2, 14L, 0.061, 0.842, 0.010),
-                subsetEvidence(3, 91L, 0.361, 0.997, 0.238),
-                subsetEvidence(4, 364L, 0.956, 0.99999, 0.913)
+                subsetEvidence(2, 14L, 0.0160322212717422, 0.779474107550373, 0.00330767037353864),
+                subsetEvidence(3, 91L, 0.0601445460726898, 0.863459474814308, 0.0272959575354785),
+                subsetEvidence(4, 364L, 0.128267914720011, 0.912802742248218, 0.0748982803623523)
+        ));
+        evidence.put("superinfection_critical_phase", List.of(
+                subsetEvidence(2, 14L, 0.0148702594810379, 0.631821727198505, 0.00435557456515540),
+                subsetEvidence(3, 91L, 0.0533976004035884, 0.793787614985542, 0.0261992498519445),
+                subsetEvidence(4, 364L, 0.114944561426597, 0.881268640404665, 0.0687040753657521)
         ));
         evidence.put("symptoms_in_recovery_phase", List.of(
-                subsetEvidence(2, 14L, 0.064, 0.858, 0.012),
-                subsetEvidence(3, 91L, 0.372, 0.997, 0.251),
-                subsetEvidence(4, 364L, 0.957, 0.99999, 0.915)
+                subsetEvidence(2, 14L, 0.0152480752780154, 0.801277165629387, 0.00295836897633305),
+                subsetEvidence(3, 91L, 0.0586376697155140, 0.884965260965890, 0.0257068281020377),
+                subsetEvidence(4, 364L, 0.128000866399070, 0.929213706795150, 0.0731153078458469)
         ));
+        evidence.put("last_known_patient_status", List.of(
+                subsetEvidence(2, 14L, 0.0132877102936983, 0.698918867667258, 0.00287282577701739),
+                subsetEvidence(3, 91L, 0.0532111600973877, 0.833376123870054, 0.0238808098089535),
+                subsetEvidence(4, 364L, 0.119506591213178, 0.903095673789977, 0.0689919611326798)
+        ));
+
         return evidence;
     }
 

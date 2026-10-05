@@ -24,6 +24,10 @@ import { useUsersApi } from "../../../api/users";
 import { useDatasetFormTableConfig } from "./useDatasetFormTableConfig";
 import { buildEditDatasetPayload } from "./buildEditDatasetPayload";
 import {
+  buildMissingSubsetEvidenceMessage,
+  findIncludedAttributesWithoutSubsetEvidence,
+} from "./subsetEvidenceAvailability";
+import {
   fetchDatasets,
   updateDataset,
 } from "../../../store/datasets/datasetsThunks";
@@ -124,6 +128,14 @@ export default function EditDatasetForm() {
   const directIdentifierReviewMessage = useMemo(
     () => buildDirectIdentifierReviewMessage(t, directIdentifierValidation),
     [directIdentifierValidation, t]
+  );
+  const missingSubsetEvidenceMessage = useMemo(
+    () =>
+      buildMissingSubsetEvidenceMessage(
+        t,
+        findIncludedAttributesWithoutSubsetEvidence(tables)
+      ),
+    [tables, t]
   );
 
   const hasPersistedDirectIdentifierSummary = useCallback(
@@ -248,7 +260,7 @@ export default function EditDatasetForm() {
   }, []);
 
   /**
-   * Applies the user's QID-candidacy decision for an existing attribute.
+   * Applies the user's include/exclude decision for an existing attribute.
    * Unchecking a default-excluded identifier records an override so future
    * schema-only refreshes do not silently re-exclude it.
    */
@@ -446,6 +458,25 @@ export default function EditDatasetForm() {
             </RABox>
           )}
 
+          {missingSubsetEvidenceMessage && (
+            <RABox
+              sx={{
+                p: 1.5,
+                borderLeft: "4px solid",
+                borderColor: "info.main",
+                bgcolor: "rgba(3, 169, 244, 0.08)",
+                borderRadius: 1,
+              }}
+            >
+              <RATypography
+                variant="body2"
+                sx={{ whiteSpace: "pre-line", color: "text.primary" }}
+              >
+                {missingSubsetEvidenceMessage}
+              </RATypography>
+            </RABox>
+          )}
+
           <RABox mt={6}>
             {tables.length > 0 && (
               <RATypography variant="h6" mb={2} textAlign="center">
@@ -512,7 +543,6 @@ export default function EditDatasetForm() {
               : t("datasets.form.saveChanges")}{" "}
           </RAButton>
         </RABox>
-
       </RABox>
 
       <RAFloatingAlertStack

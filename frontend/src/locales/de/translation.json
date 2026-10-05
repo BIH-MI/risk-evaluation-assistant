@@ -114,6 +114,10 @@
       "addManualTable": "Leere Tabelle manuell hinzufügen",
       "examples": "Beispiele"
     },
+    "subsetEvidence": {
+      "missingTitle": "Für diese einbezogenen Attribute gibt es keine kontextuelle Unterscheidbarkeits-Evidenz:",
+      "missingAction": "Kontextuelle Evidenz entsteht nur beim Profiling der hochgeladenen CSV-Datei während der Erstellung eines Datensatzes. Die Datensatzbearbeitung hat keinen Zugriff auf die Rohdaten und kann diese Evidenz daher nicht berechnen, nachdem ein Attribut wieder einbezogen oder hinzugefügt wurde. Legen Sie den Datensatz erneut aus der CSV-Datei an, um sie zu erzeugen."
+    },
     "directIdentifiers": {
       "includedTitle": "Potenzielle direkte Identifikatoren sind noch eingeschlossen:",
       "includedAction": "Bitte prüfen und schließen Sie diese Attribute aus, bevor Sie fortfahren.",
@@ -169,6 +173,7 @@
       "averageDistinction": "Durchschnittliche Distinction",
       "averageSeparation": "Durchschnittliche Separation",
       "averageSingletonFraction": "Durchschnittlicher Singleton-Anteil",
+      "contextualEvidenceUnavailable": "Für dieses Attribut ist keine kontextuelle Unterscheidbarkeits-Evidenz verfügbar.",
       "distinction": "Distinction",
       "separation": "Separation",
       "singletonFraction": "Singleton-Anteil",

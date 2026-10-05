@@ -111,6 +111,10 @@
       "addManualTable": "Add Empty Table Manually",
       "examples": "Examples"
     },
+    "subsetEvidence": {
+      "missingTitle": "No contextual Distinguishability evidence exists for these included attributes:",
+      "missingAction": "Contextual evidence is generated only by profiling the uploaded CSV when a dataset is created. Edit Dataset has no access to the raw data, so it cannot calculate this evidence after an attribute is re-included or added. Create the dataset again from the CSV to generate it."
+    },
     "directIdentifiers": {
       "includedTitle": "Potential direct identifiers are still included:",
       "includedAction": "Please review and exclude these attributes before continuing.",
@@ -166,6 +170,7 @@
       "averageDistinction": "Average Distinction",
       "averageSeparation": "Average Separation",
       "averageSingletonFraction": "Average Singleton fraction",
+      "contextualEvidenceUnavailable": "Contextual Distinguishability evidence is unavailable for this attribute.",
       "distinction": "Distinction",
       "separation": "Separation",
       "singletonFraction": "Singleton fraction",

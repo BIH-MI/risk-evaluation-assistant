@@ -6,7 +6,6 @@ import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
 import MitigationCard from "./MitigationCard";
 import {
-  RISK_FACTOR_COLUMN_COUNT,
   actionIdKey,
   domId,
   hasSelectedAction,
@@ -24,13 +23,14 @@ export default function MitigationCardStack({
   onToggleDetails,
   onChooseParameter,
   expandedActionIds,
+  columnCount,
 }) {
   const { t } = useTranslation();
   if (actions.length === 0) return null;
 
   return (
     <TableRow>
-      <TableCell colSpan={RISK_FACTOR_COLUMN_COUNT} sx={{ p: 0, borderBottom: expanded ? undefined : 0 }}>
+      <TableCell colSpan={columnCount} sx={{ p: 0, borderBottom: expanded ? undefined : 0 }}>
         <Collapse in={expanded} unmountOnExit>
           <RABox
             id={`risk-factor-mitigations-${domId(riskFactorKey)}`}
@@ -83,6 +83,7 @@ MitigationCardStack.propTypes = {
   onToggleDetails: PropTypes.func.isRequired,
   onChooseParameter: PropTypes.func.isRequired,
   expandedActionIds: PropTypes.instanceOf(Set).isRequired,
+  columnCount: PropTypes.number.isRequired,
 };
 
 MitigationCardStack.defaultProps = { onToggleAction: null };

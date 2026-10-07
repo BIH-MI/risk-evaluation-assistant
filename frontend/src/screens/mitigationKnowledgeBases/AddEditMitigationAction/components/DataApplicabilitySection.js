@@ -12,6 +12,7 @@ import RAInput from "components/input/RAInput";
 import {
   ATTRIBUTE_ROLES,
   DATA_TYPES,
+  READ_ONLY_ATTRIBUTE_ROLE_LABELS,
 } from "../mitigationActionFormUtils";
 import AdminField, { compactInputSx } from "./AdminField";
 import { FIELD_HELP } from "./fieldHelp";
@@ -64,11 +65,9 @@ function DataApplicabilityRule({
   onUpdate,
   onRemove,
 }) {
-  const isCombination = mapping.attributeRole === "CANDIDATE_QID_COMBINATION";
-
   return (
     <Grid container spacing={2} alignItems="flex-start">
-      <Grid item xs={12} md={isCombination ? 11 : 5}>
+      <Grid item xs={12} md={5}>
         <AdminField
           label="Attribute Classification"
           info={FIELD_HELP.attributeClassification}
@@ -82,7 +81,6 @@ function DataApplicabilityRule({
               onUpdate(mapping.clientId, {
                 attributeRole,
                 dataType:
-                  attributeRole === "CANDIDATE_QID_COMBINATION" ||
                   attributeRole === "DIRECT_IDENTIFIER"
                     ? ""
                     : mapping.dataType || "",
@@ -99,32 +97,36 @@ function DataApplicabilityRule({
                 {option.label}
               </MenuItem>
             ))}
+            {mapping.attributeRole &&
+              READ_ONLY_ATTRIBUTE_ROLE_LABELS[mapping.attributeRole] && (
+                <MenuItem value={mapping.attributeRole} disabled>
+                  {READ_ONLY_ATTRIBUTE_ROLE_LABELS[mapping.attributeRole]}
+                </MenuItem>
+              )}
           </RAInput>
         </AdminField>
       </Grid>
-      {!isCombination && (
-        <Grid item xs={12} md={6}>
-          <AdminField label="Data Type" info={FIELD_HELP.dataType}>
-            <RAInput
-              select
-              value={mapping.dataType || ""}
-              onChange={(event) =>
-                onUpdate(mapping.clientId, { dataType: event.target.value })
-              }
-              inputProps={{ "aria-label": "Data Type" }}
-              fullWidth
-              size="small"
-              sx={compactInputSx}
-            >
-              {DATA_TYPES.map((option) => (
-                <MenuItem key={option.value || "ANY"} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </RAInput>
-          </AdminField>
-        </Grid>
-      )}
+      <Grid item xs={12} md={6}>
+        <AdminField label="Data Type" info={FIELD_HELP.dataType}>
+          <RAInput
+            select
+            value={mapping.dataType || ""}
+            onChange={(event) =>
+              onUpdate(mapping.clientId, { dataType: event.target.value })
+            }
+            inputProps={{ "aria-label": "Data Type" }}
+            fullWidth
+            size="small"
+            sx={compactInputSx}
+          >
+            {DATA_TYPES.map((option) => (
+              <MenuItem key={option.value || "ANY"} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </RAInput>
+        </AdminField>
+      </Grid>
       <Grid item xs={12} md={1}>
         <RABox
           display="flex"

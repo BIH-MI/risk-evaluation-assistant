@@ -6,11 +6,10 @@ import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
 import {
   addressedDriverGroups,
-  planActionParameterLines,
+  resolvedPlanActionParameterLines,
   transformationTooltipDetails,
 } from "../utils/mitigationPlanRows";
 import { RiskPriorityChip } from "./riskFactorTableHelpers";
-import { formatAttributeList } from "../utils/mitigationPlannerFormatters";
 
 function appliesToAction(change, action) {
   if ((change.actionIds || []).map(Number).includes(Number(action.actionId))) return true;
@@ -85,11 +84,11 @@ SafeguardTooltipContent.propTypes = {
 };
 
 function TransformationTooltipContent({ details }) {
+  const attributeLabel = details.attributeNames.length === 1 ? "Attribute" : "Attributes";
+
   return (
     <RABox color="inherit" display="flex" flexDirection="column" gap={1}>
-      <RATypography variant="body2" color="inherit" sx={{ fontWeight: 600 }}>
-        {formatAttributeList(details.attributeNames)}
-      </RATypography>
+      <LabelledValue label={attributeLabel} value={details.attributeNames.join(", ")} />
       {details.parameters.map(({ label, value }) => (
         <LabelledValue key={label} label={label} value={value} />
       ))}
@@ -141,11 +140,6 @@ export default function SelectedSafeguardItem({ action, appliedChanges, driversB
       <RATypography variant="body2">{action.actionName}</RATypography>
       {(groups.length > 0 || actionChanges.length > 0 || transformationDetails) && (
         <RABox display="flex" alignItems="center" flexWrap="wrap" columnGap={1} rowGap={0.5} mt={0.25}>
-          {groups.length > 0 && (
-            <RATypography variant="body2" sx={{ color: "text.secondary" }}>
-              Addresses:
-            </RATypography>
-          )}
           {groups.map(({ category, priorities }) => (
             <RABox key={category} display="flex" alignItems="center" flexWrap="wrap" gap={0.75}>
               <RATypography variant="body2" sx={{ color: "text.secondary" }}>
@@ -162,7 +156,7 @@ export default function SelectedSafeguardItem({ action, appliedChanges, driversB
           )}
         </RABox>
       )}
-      {planActionParameterLines(action).map((line) => (
+      {resolvedPlanActionParameterLines(action).map((line) => (
         <RATypography key={line} variant="body2" sx={{ color: "text.secondary" }}>
           {line}
         </RATypography>

@@ -13,7 +13,7 @@ import { visibleRiskFactors } from "../utils/mitigationPlanRows";
 const PANEL_ID = "possible-data-transformations";
 
 /**
- * Dataset Assessment evidence (direct identifiers, Candidate QIDs and combinations) and the
+ * Dataset Assessment evidence (direct identifiers, Potential QIDs, sensitive attributes) and the
  * data transformations that address it. Closed by default. Transformations remain selectable
  * for candidate plans but are proposals: no residual-risk reduction is claimed.
  */
@@ -49,6 +49,7 @@ export default function DataTransformationAccordion({ evidenceDrivers, dataRows,
               actionRows={dataRows}
               builder={builder}
               currentHeader={t("mitigationPlanner.data.classification", "Current classification")}
+              showDataType
             />
           ) : (
             <RATypography variant="body2" sx={{ color: "text.secondary" }}>

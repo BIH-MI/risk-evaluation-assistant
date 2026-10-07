@@ -35,8 +35,10 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * Seeds version 1 of the default mitigation Knowledge Base. After bootstrap, administrators
- * maintain knowledge through the Knowledge Base API; the seeder is not a runtime configuration source.
+ * Seeds the default mitigation Knowledge Base and appends a new built-in version when an
+ * existing default still contains legacy combination rules. After bootstrap, administrators
+ * maintain knowledge through the Knowledge Base API; the seeder is not a runtime configuration
+ * source for arbitrary edits.
  *
  * <p>These records describe actions and applicability. They intentionally do
  * not assign risk-reduction percentages. Context controls bind or verify an identified
@@ -44,8 +46,9 @@ import java.util.Set;
  * options are data transformations. Operational estimates are illustrative placeholders
  * and are labelled as such through their estimate source.
  */
-// Runs after ConfigLoader (1) and before ProjectTemplateDemoSeeder (4), whose Projects pin the default KB.
-@Order(3)
+// Distinct order keeps startup deterministic: after the core and QID seeders (1-4) and before
+// ProjectTemplateDemoSeeder (6), whose Projects pin the default KB.
+@Order(5)
 @Component
 public class MitigationKnowledgeBaseSeeder implements CommandLineRunner {
 
@@ -81,7 +84,9 @@ public class MitigationKnowledgeBaseSeeder implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        if (knowledgeBaseRepository.findFirstByDefaultKnowledgeBaseTrueAndActiveTrueOrderByIdAsc().isPresent()) {
+        var existingDefault = knowledgeBaseRepository.findFirstByDefaultKnowledgeBaseTrueAndActiveTrueOrderByIdAsc();
+        if (existingDefault.isPresent()) {
+            upgradeDefaultKnowledgeBaseIfNeeded(existingDefault.get());
             return;
         }
         String normalizedDefaultName = EntityNameNormalizer.normalizeForComparison(DEFAULT_KB_NAME);
@@ -105,8 +110,51 @@ public class MitigationKnowledgeBaseSeeder implements CommandLineRunner {
 
         seedDataActions();
         seedContextActions();
-        versionService.rebuildVersionIndexes(seedVersion);
-        KnowledgeBaseValidationResult result = validator.validate(seedVersion);
+        appendValidatedSeedVersion(knowledgeBase, seedVersion);
+        seedVersion = null;
+    }
+
+    private void upgradeDefaultKnowledgeBaseIfNeeded(MitigationKnowledgeBase knowledgeBase) {
+        MitigationKnowledgeBaseVersion current = versionService.getCurrentVersion(knowledgeBase);
+        if (!requiresBuiltInUpgrade(current)) {
+            return;
+        }
+
+        seedVersion = versionService.copyVersion(current, SEED_CREATOR, knowledgeBase.getCurrentVersion() + 1);
+        removeLegacyDataActions(seedVersion);
+        removeDeprecatedAttributeMappings(seedVersion);
+        removeContextAttributeMappings(seedVersion);
+        seedDataActions();
+        seedContextActions();
+        appendValidatedSeedVersion(knowledgeBase, seedVersion);
+        seedVersion = null;
+    }
+
+    private boolean requiresBuiltInUpgrade(MitigationKnowledgeBaseVersion version) {
+        boolean hasCombinationSuppressionAction = version.getActions().stream()
+                .anyMatch(action -> sameCode("SUPPRESS_RARE_QI_COMBINATIONS", action.getCode()));
+        boolean qidDataActionsHaveQuestionTriggers = version.getActions().stream()
+                .filter(action -> Set.of(
+                        "REMOVE_DIRECT_IDENTIFIER",
+                        "COARSEN_DATE",
+                        "GENERALIZE_NUMERIC_QI",
+                        "GENERALIZE_CATEGORICAL_QI",
+                        "GENERALIZE_GEOSPATIAL_QI",
+                        "SUPPRESS_QID_ATTRIBUTE").contains(normalizeCodeOrEmpty(action.getCode())))
+                .anyMatch(action -> !action.getQuestionMappings().isEmpty());
+        boolean hasDeprecatedCombinationMapping = version.getAttributeMappings().stream()
+                // Compatibility enum values can exist in historical rows; current built-in
+                // versions replace them with attribute-level Potential-QID mappings.
+                .anyMatch(mapping -> mapping.getAttributeRole() != null && mapping.getAttributeRole().isCompatibilityOnly());
+        return hasCombinationSuppressionAction || qidDataActionsHaveQuestionTriggers || hasDeprecatedCombinationMapping;
+    }
+
+    private void appendValidatedSeedVersion(
+            MitigationKnowledgeBase knowledgeBase,
+            MitigationKnowledgeBaseVersion version
+    ) {
+        versionService.rebuildVersionIndexes(version);
+        KnowledgeBaseValidationResult result = validator.validate(version);
         if (!result.isValid()) {
             KnowledgeBaseValidationIssue first = result.getIssues().stream()
                     .filter(issue -> issue.getSeverity() == KnowledgeBaseValidationIssue.Severity.ERROR)
@@ -116,10 +164,40 @@ public class MitigationKnowledgeBaseSeeder implements CommandLineRunner {
                     ? "Seeded mitigation Knowledge Base is invalid."
                     : first.getMessage());
         }
+        versionService.appendVersion(knowledgeBase, version);
+    }
 
-        knowledgeBase.addVersion(seedVersion);
-        knowledgeBaseRepository.saveAndFlush(knowledgeBase);
-        seedVersion = null;
+    private void removeLegacyDataActions(MitigationKnowledgeBaseVersion version) {
+        Set<String> removedCodes = Set.of(
+                "REMOVE_DIRECT_IDENTIFIER",
+                "COARSEN_DATE",
+                "GENERALIZE_NUMERIC_QI",
+                "GENERALIZE_CATEGORICAL_QI",
+                "GENERALIZE_GEOSPATIAL_QI",
+                "SUPPRESS_QID_ATTRIBUTE",
+                "SUPPRESS_RARE_QI_COMBINATIONS");
+        version.getActions().removeIf(action -> removedCodes.contains(normalizeCodeOrEmpty(action.getCode())));
+        version.getDependencies().removeIf(dependency ->
+                dependency.getAction() == null
+                        || dependency.getRequiredAction() == null
+                        || removedCodes.contains(normalizeCodeOrEmpty(dependency.getAction().getCode()))
+                        || removedCodes.contains(normalizeCodeOrEmpty(dependency.getRequiredAction().getCode())));
+        version.getConflicts().removeIf(conflict ->
+                conflict.getActionA() == null
+                        || conflict.getActionB() == null
+                        || removedCodes.contains(normalizeCodeOrEmpty(conflict.getActionA().getCode()))
+                        || removedCodes.contains(normalizeCodeOrEmpty(conflict.getActionB().getCode())));
+    }
+
+    private void removeDeprecatedAttributeMappings(MitigationKnowledgeBaseVersion version) {
+        version.getActions().forEach(action -> action.getAttributeMappings().removeIf(mapping ->
+                mapping.getAttributeRole() != null && mapping.getAttributeRole().isCompatibilityOnly()));
+    }
+
+    private void removeContextAttributeMappings(MitigationKnowledgeBaseVersion version) {
+        version.getActions().stream()
+                .filter(action -> action.getActionType() == MitigationActionType.CONTEXT_CONTROL)
+                .forEach(action -> action.getAttributeMappings().clear());
     }
 
     private void seedDataActions() {
@@ -136,18 +214,15 @@ public class MitigationKnowledgeBaseSeeder implements CommandLineRunner {
                 MitigationResultingDataForm.PRESERVES_INDIVIDUAL_LEVEL,
                 MitigationRecordRetentionEffect.PRESERVES_RECORDS);
         ensureAttributeMapping(removeDirectIdentifier, MitigationAttributeRole.DIRECT_IDENTIFIER, null);
-        ensureQuestionMapping(removeDirectIdentifier, SPHN_NAME, MitigationAssessmentScope.DATASET, "IMPACT",
-                "DIRECT_IDENTIFIERS_E_G_NAME_PHONE_NUMBER_SOCIAL_SECURITY_NUMBER_EMAIL_ADDRESS_MEDICAL_RECORD_NUMBER_LICENSE_NUMBER",
-                "ORIGINAL_VALUES_OF_ONE_OR_MORE_DIRECT_IDENTIFIERS_ARE_KEPT", null);
 
         MitigationAction coarsenDate = ensureAction(
                 "COARSEN_DATE",
                 "Coarsen temporal information",
-                "Reduce the precision of candidate quasi-identifier date or datetime fields.",
+                "Reduce the precision of potential quasi-identifier date or datetime fields.",
                 MitigationActionType.DATA_TRANSFORMATION,
-                "Transform targeted temporal fields to a configured output resolution such as month, quarter, or year.",
+                "Transform targeted temporal Potential-QID fields to a configured output resolution such as month, quarter, or year.",
                 "Verify that targeted date fields contain no temporal detail finer than the configured output resolution.",
-                "Temporal quasi-identifiers can support linkage when represented with excessive precision."
+                "Temporal Potential QIDs can support linkage when represented with excessive precision."
         );
         ensureDataEffect(coarsenDate,
                 MitigationResultingDataForm.PRESERVES_INDIVIDUAL_LEVEL,
@@ -156,39 +231,15 @@ public class MitigationKnowledgeBaseSeeder implements CommandLineRunner {
         ensureAttributeMapping(coarsenDate, MitigationAttributeRole.CANDIDATE_QID, DataType.DATETIME);
         ensureParameter(coarsenDate, MitigationParameterCode.TARGET_RESOLUTION,
                 "Output resolution to select later for a concrete plan.", List.of("MONTH", "QUARTER", "YEAR"));
-        ensureQuestionMapping(coarsenDate, SPHN_NAME, MitigationAssessmentScope.DATASET, "IMPACT",
-                "DATES_IN_THE_PATIENT_RECORD_DATES_OF_BIRTH_AND_DEATH_EXCLUDED",
-                "DATES_ARE_SHIFTED_BY_A_RANDOM_NUMBER_OF_DAYS_WITHIN_90_DAYS", null);
-        ensureQuestionMapping(coarsenDate, SPHN_NAME, MitigationAssessmentScope.DATASET, "IMPACT",
-                "DATES_IN_THE_PATIENT_RECORD_DATES_OF_BIRTH_AND_DEATH_EXCLUDED",
-                "DATES_ARE_SHIFTED_BY_A_RANDOM_NUMBER_OF_DAYS_WITHIN_30_DAYS", null);
-        ensureQuestionMapping(coarsenDate, SPHN_NAME, MitigationAssessmentScope.DATASET, "IMPACT",
-                "DATES_IN_THE_PATIENT_RECORD_DATES_OF_BIRTH_AND_DEATH_EXCLUDED",
-                "DATES_ARE_SHIFTED_BY_A_RANDOM_NUMBER_OF_DAYS_WITHIN_7_DAYS", null);
-        ensureQuestionMapping(coarsenDate, SPHN_NAME, MitigationAssessmentScope.DATASET, "IMPACT",
-                "DATES_IN_THE_PATIENT_RECORD_DATES_OF_BIRTH_AND_DEATH_EXCLUDED",
-                "ORIGINAL_DATES_ARE_KEPT", null);
-        ensureQuestionMapping(coarsenDate, SPHN_NAME, MitigationAssessmentScope.DATASET, "IMPACT",
-                "DATE_OF_BIRTH",
-                "ONLY_THE_YEAR_AND_MONTH_OF_THE_ORIGINAL_DATE_OF_BIRTH_ARE_KEPT", null);
-        ensureQuestionMapping(coarsenDate, SPHN_NAME, MitigationAssessmentScope.DATASET, "IMPACT",
-                "DATE_OF_BIRTH",
-                "FULL_ORIGINAL_DATE_OF_BIRTH_IS_KEPT_DD_MM_YYYY", null);
-        ensureQuestionMapping(coarsenDate, SPHN_NAME, MitigationAssessmentScope.DATASET, "IMPACT",
-                "DATE_OF_DEATH",
-                "ONLY_THE_YEAR_AND_MONTH_OF_THE_ORIGINAL_DATE_OF_DEATH_ARE_KEPT", null);
-        ensureQuestionMapping(coarsenDate, SPHN_NAME, MitigationAssessmentScope.DATASET, "IMPACT",
-                "DATE_OF_DEATH",
-                "FULL_ORIGINAL_DATE_OF_DEATH_IS_KEPT_DD_MM_YYYY", null);
 
         MitigationAction generalizeNumeric = ensureAction(
                 "GENERALIZE_NUMERIC_QI",
                 "Generalize numeric quasi-identifier",
-                "Generalize candidate quasi-identifier numeric fields using an approved hierarchy or binning rule.",
+                "Generalize potential quasi-identifier numeric fields using an approved hierarchy or binning rule.",
                 MitigationActionType.DATA_TRANSFORMATION,
-                "Define numeric generalization bins or a hierarchy for selected candidate QID attributes.",
+                "Define numeric generalization bins or a hierarchy for selected Potential-QID attributes.",
                 "Verify that targeted numeric QID fields follow the selected generalization hierarchy in the released dataset.",
-                "Numeric quasi-identifiers can support linkage when released at full precision."
+                "Numeric Potential QIDs can support linkage when released at full precision."
         );
         ensureDataEffect(generalizeNumeric,
                 MitigationResultingDataForm.PRESERVES_INDIVIDUAL_LEVEL,
@@ -197,21 +248,15 @@ public class MitigationKnowledgeBaseSeeder implements CommandLineRunner {
         ensureAttributeMapping(generalizeNumeric, MitigationAttributeRole.CANDIDATE_QID, DataType.DECIMAL);
         ensureParameter(generalizeNumeric, MitigationParameterCode.GENERALIZATION_HIERARCHY,
                 "Concrete hierarchy or binning rule to specify later for a plan.", List.of());
-        ensureQuestionMapping(generalizeNumeric, SPHN_NAME, MitigationAssessmentScope.DATASET, "IMPACT",
-                "AGE",
-                "ORIGINAL_AGE_IS_KEPT_EXCEPT_FOR_PEOPLE_WITH_MORE_THAN_89Y_OLD_WHO_ARE_PUT_IN_THE_AGE_CLASS_90Y", null);
-        ensureQuestionMapping(generalizeNumeric, SPHN_NAME, MitigationAssessmentScope.DATASET, "IMPACT",
-                "AGE",
-                "ORIGINAL_AGE_IS_KEPT", null);
 
         MitigationAction generalizeCategorical = ensureAction(
                 "GENERALIZE_CATEGORICAL_QI",
                 "Generalize categorical quasi-identifier",
-                "Generalize candidate quasi-identifier categorical or string-like fields using an approved hierarchy.",
+                "Generalize potential quasi-identifier categorical or string-like fields using an approved hierarchy.",
                 MitigationActionType.DATA_TRANSFORMATION,
-                "Define categorical roll-ups for selected candidate QID attributes.",
+                "Define categorical roll-ups for selected Potential-QID attributes.",
                 "Verify that targeted categorical QID fields contain only values allowed by the selected hierarchy.",
-                "Categorical quasi-identifiers can support linkage when represented too specifically."
+                "Categorical Potential QIDs can support linkage when represented too specifically."
         );
         ensureDataEffect(generalizeCategorical,
                 MitigationResultingDataForm.PRESERVES_INDIVIDUAL_LEVEL,
@@ -220,21 +265,35 @@ public class MitigationKnowledgeBaseSeeder implements CommandLineRunner {
         ensureParameter(generalizeCategorical, MitigationParameterCode.GENERALIZATION_HIERARCHY,
                 "Concrete hierarchy to specify later for a plan.", List.of());
 
-        MitigationAction suppressRare = ensureAction(
-                "SUPPRESS_RARE_QI_COMBINATIONS",
-                "Suppress rare QID combinations",
-                "Suppress records or values contributing to rare candidate quasi-identifier combinations.",
+        MitigationAction generalizeGeospatial = ensureAction(
+                "GENERALIZE_GEOSPATIAL_QI",
+                "Generalize geospatial quasi-identifier",
+                "Reduce geographical precision for potential quasi-identifier location fields while retaining useful geographical information.",
                 MitigationActionType.DATA_TRANSFORMATION,
-                "Identify rare candidate QID combinations and apply an approved suppression rule.",
-                "Verify that the transformed release no longer contains targeted rare candidate QID combinations under the selected suppression limit.",
-                "Rare combinations can make individuals more distinguishable within the released data representation."
+                "Define a geographical generalization hierarchy, such as coordinate grids, broader regions, or coarser location codes.",
+                "Verify that targeted geospatial QID fields follow the selected generalization hierarchy in the released dataset.",
+                "Fine-grained geographical Potential QIDs can support linkage when released at excessive precision."
         );
-        ensureDataEffect(suppressRare,
+        ensureDataEffect(generalizeGeospatial,
                 MitigationResultingDataForm.PRESERVES_INDIVIDUAL_LEVEL,
-                MitigationRecordRetentionEffect.MAY_REMOVE_RECORDS);
-        ensureAttributeMapping(suppressRare, MitigationAttributeRole.CANDIDATE_QID_COMBINATION, null);
-        ensureParameter(suppressRare, MitigationParameterCode.SUPPRESSION_LIMIT,
-                "Suppression limit to specify later for a concrete plan.", List.of());
+                MitigationRecordRetentionEffect.PRESERVES_RECORDS);
+        ensureAttributeMapping(generalizeGeospatial, MitigationAttributeRole.CANDIDATE_QID, DataType.GEOSPATIAL);
+        ensureParameter(generalizeGeospatial, MitigationParameterCode.GENERALIZATION_HIERARCHY,
+                "Concrete geographical hierarchy to specify later for a plan.", List.of());
+
+        MitigationAction suppressQidAttribute = ensureAction(
+                "SUPPRESS_QID_ATTRIBUTE",
+                "Suppress potential-QID attribute",
+                "Suppress or remove a Potential-QID attribute when no more suitable datatype-specific transformation is configured or when suppression is selected.",
+                MitigationActionType.DATA_TRANSFORMATION,
+                "Apply attribute-level suppression or removal to selected Potential-QID attributes.",
+                "Verify that targeted Potential-QID attributes are absent from the released dataset or have their values suppressed according to the approved procedure.",
+                "Attribute-level suppression is a generic fallback when a datatype-specific Potential-QID transformation is not applicable."
+        );
+        ensureDataEffect(suppressQidAttribute,
+                MitigationResultingDataForm.PRESERVES_INDIVIDUAL_LEVEL,
+                MitigationRecordRetentionEffect.PRESERVES_RECORDS);
+        ensureAttributeMapping(suppressQidAttribute, MitigationAttributeRole.CANDIDATE_QID, null);
     }
 
     private void seedContextActions() {
@@ -614,6 +673,19 @@ public class MitigationKnowledgeBaseSeeder implements CommandLineRunner {
                         && sameCode(questionCode, mapping.getQuestionCode())
                         && sameCode(triggerOptionCode, mapping.getTriggerOptionCode())
                         && sameCode(projectedOptionCode, mapping.getProjectedOptionCode()));
+    }
+
+    private String normalizeCode(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim().toUpperCase(Locale.ROOT);
+        return normalized.isEmpty() ? null : normalized;
+    }
+
+    private String normalizeCodeOrEmpty(String value) {
+        String normalized = normalizeCode(value);
+        return normalized == null ? "" : normalized;
     }
 
     private boolean sameCode(String left, String right) {

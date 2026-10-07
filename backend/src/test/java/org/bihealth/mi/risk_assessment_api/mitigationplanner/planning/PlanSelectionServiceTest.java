@@ -29,7 +29,9 @@ class PlanSelectionServiceTest {
 
         assertThat(recommendation.recommendedPlan()).isSameAs(moreHigh);
         assertThat(recommendation.alternativePlans()).containsExactly(fewerHigh);
-        assertThat(recommendation.selectionReason()).contains("PREFER_HIGH_DRIVER_COVERAGE");
+        // The reason names the deciding criterion (PREFER_HIGH_DRIVER_COVERAGE) in plain language.
+        assertThat(recommendation.selectionReason())
+                .contains("addresses more actionable High Risk Drivers (2 vs 1)");
     }
 
     @Test

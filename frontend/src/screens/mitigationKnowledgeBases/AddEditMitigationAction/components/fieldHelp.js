@@ -16,7 +16,7 @@ export const FIELD_HELP = {
   estimateScope:
     "Defines what the estimate covers, for example initial setup, this sharing activity, the complete Project, or annual operation. Scope is needed so the future planner can compare estimates with Project constraints correctly.",
   attributeClassification:
-    "The assessed attribute classification that makes this data transformation applicable.",
+    "The assessed attribute classification that makes this data transformation applicable. Use Potential QID for attributes whose Dataset Assessment R+A+D score exceeds the configured identifiability threshold.",
   dataType:
     "Optional datatype restriction. 'Any data type' means the action applies to the selected attribute classification regardless of datatype.",
   parameterType:

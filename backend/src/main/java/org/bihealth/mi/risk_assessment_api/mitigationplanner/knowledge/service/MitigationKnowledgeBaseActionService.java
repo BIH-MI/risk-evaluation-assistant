@@ -10,7 +10,6 @@ import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.api.reque
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.api.response.MitigationActionDTO;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationActionType;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationAssessmentScope;
-import org.bihealth.mi.risk_assessment_api.enums.MitigationAttributeRole;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationSharingArrangement;
 import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Question;
@@ -516,12 +515,14 @@ public class MitigationKnowledgeBaseActionService {
         if (dto.getAttributeRole() == null) {
             throw new IllegalArgumentException("Attribute mapping requires attributeRole.");
         }
+        if (dto.getAttributeRole().isCompatibilityOnly()) {
+            throw new IllegalArgumentException(
+                    "Legacy combination mappings cannot be used in current Knowledge Base versions; use Potential-QID attribute mappings instead.");
+        }
 
         MitigationAttributeMapping mapping = new MitigationAttributeMapping();
         mapping.setAttributeRole(dto.getAttributeRole());
-        mapping.setDataType(dto.getAttributeRole() == MitigationAttributeRole.CANDIDATE_QID_COMBINATION
-                ? null
-                : dto.getDataType());
+        mapping.setDataType(dto.getDataType());
         mapping.setNotes(trimToNull(dto.getNotes()));
         return mapping;
     }

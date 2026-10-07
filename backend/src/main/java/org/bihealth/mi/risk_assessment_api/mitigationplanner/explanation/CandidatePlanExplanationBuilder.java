@@ -6,6 +6,8 @@ import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.Mitiga
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.RiskDriverDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlanDraftEvaluationDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlanDraftEvaluationDTO.EstimateAvailability;
+import org.bihealth.mi.risk_assessment_api.enums.DataType;
+import org.bihealth.mi.risk_assessment_api.enums.MitigationAttributeRole;
 import org.bihealth.mi.risk_assessment_api.enums.ProjectConstraintResult;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.model.CandidatePlan;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.model.EvaluatedCandidatePlan;
@@ -126,8 +128,8 @@ public class CandidatePlanExplanationBuilder {
             return "Question rule: " + driver.getQuestionCode() + " = " + driver.getSelectedOptionCode();
         }
         if (driver.getAttributeRole() != null) {
-            return "Attribute rule: " + driver.getAttributeRole()
-                    + (driver.getDataType() == null ? "" : " + " + driver.getDataType());
+            return "Attribute rule: " + roleLabel(driver.getAttributeRole())
+                    + (driver.getDataType() == null ? "" : " + " + dataTypeLabel(driver.getDataType()));
         }
         return null;
     }
@@ -140,8 +142,30 @@ public class CandidatePlanExplanationBuilder {
         }
         if (!driver.getAttributeNames().isEmpty()) {
             String attributes = String.join(", ", driver.getAttributeNames());
-            return driver.getTableName() == null ? attributes : driver.getTableName() + ": " + attributes;
+            String prefix = driver.getTableName() == null ? attributes : driver.getTableName() + ": " + attributes;
+            return driver.getExplanation() == null ? prefix : prefix + ". " + driver.getExplanation();
         }
         return driver.getExplanation();
+    }
+
+    private String roleLabel(MitigationAttributeRole role) {
+        return switch (role) {
+            case DIRECT_IDENTIFIER -> "Direct Identifier";
+            case CANDIDATE_QID -> "Potential QID";
+            case SENSITIVE_ATTRIBUTE -> "Sensitive Attribute";
+            default -> "Unsupported Attribute Role";
+        };
+    }
+
+    private String dataTypeLabel(DataType dataType) {
+        return switch (dataType) {
+            case BOOLEAN -> "Boolean";
+            case DATE -> "Date";
+            case DATETIME -> "Date/Time";
+            case DECIMAL -> "Decimal";
+            case GEOSPATIAL -> "Geospatial";
+            case INTEGER -> "Integer";
+            case STRING -> "String";
+        };
     }
 }

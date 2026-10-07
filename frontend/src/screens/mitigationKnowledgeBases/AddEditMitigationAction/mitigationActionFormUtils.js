@@ -8,10 +8,14 @@ export const ACTION_TYPES = [
 
 export const ATTRIBUTE_ROLES = [
   { value: "DIRECT_IDENTIFIER", label: "Direct Identifier" },
-  { value: "CANDIDATE_QID", label: "Candidate QID" },
+  { value: "CANDIDATE_QID", label: "Potential QID" },
   { value: "SENSITIVE_ATTRIBUTE", label: "Sensitive Attribute" },
-  { value: "CANDIDATE_QID_COMBINATION", label: "Candidate QID Combination" },
 ];
+
+// Read-only compatibility labels for persisted mappings that current rules reject.
+export const READ_ONLY_ATTRIBUTE_ROLE_LABELS = {
+  CANDIDATE_QID_COMBINATION: "Unsupported legacy combination mapping",
+};
 
 export const DATA_TYPES = [
   { value: "", label: "Any data type" },
@@ -167,10 +171,7 @@ export function normalizeActionToForm(action) {
       withClientId({
         id: mapping.id,
         attributeRole: mapping.attributeRole || "CANDIDATE_QID",
-        dataType:
-          mapping.attributeRole === "CANDIDATE_QID_COMBINATION"
-            ? ""
-            : valueOrEmpty(mapping.dataType),
+        dataType: valueOrEmpty(mapping.dataType),
       })
     ),
     parameterDefinitions: (action.parameterDefinitions || []).map((parameter) =>
@@ -239,10 +240,7 @@ export function buildActionPayload(form) {
         ? (form.attributeMappings || []).map(({ clientId, notes, ...mapping }) => ({
             id: mapping.id,
             attributeRole: mapping.attributeRole,
-            dataType:
-              mapping.attributeRole === "CANDIDATE_QID_COMBINATION"
-                ? null
-                : emptyToNull(mapping.dataType),
+            dataType: emptyToNull(mapping.dataType),
           }))
         : [],
     parameterDefinitions:
@@ -379,6 +377,9 @@ function validateAttributeMappings(mappings, errors) {
     const rowErrors = {};
     if (!mapping.attributeRole) {
       rowErrors.attributeRole = "Attribute classification is required.";
+    } else if (READ_ONLY_ATTRIBUTE_ROLE_LABELS[mapping.attributeRole]) {
+      rowErrors.attributeRole =
+        "Legacy combination mappings cannot be used in current rules. Use Potential QID instead.";
     }
     return rowErrors;
   });

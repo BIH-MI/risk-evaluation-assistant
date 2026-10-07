@@ -10,9 +10,8 @@ const DATA_TYPE_LABELS = {
 
 const ATTRIBUTE_ROLE_LABELS = {
   DIRECT_IDENTIFIER: "Direct Identifier",
-  CANDIDATE_QID: "Candidate QID",
+  CANDIDATE_QID: "Potential QID",
   SENSITIVE_ATTRIBUTE: "Sensitive Attribute",
-  CANDIDATE_QID_COMBINATION: "Candidate QID combination",
 };
 
 const ACTION_TYPE_LABELS = {
@@ -93,6 +92,14 @@ export const formatCompatibility = (compatibility) =>
 
 export const formatRiskDriverPriority = (priority) =>
   RISK_DRIVER_PRIORITY_LABELS[priority] || humanizeCode(priority);
+
+export function formatNumericEvidence(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "";
+  return Number.isInteger(number)
+    ? String(number)
+    : number.toLocaleString(undefined, { maximumFractionDigits: 4 });
+}
 
 /** "Attribute: a" / "Attributes: a, b"; empty when there are no names. */
 export function formatAttributeList(attributeNames = []) {

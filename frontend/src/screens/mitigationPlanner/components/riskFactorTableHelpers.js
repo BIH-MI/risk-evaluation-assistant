@@ -6,6 +6,10 @@ import { driverTitle } from "../utils/mitigationPlanRows";
 
 export const RISK_FACTOR_COLUMN_COUNT = 4;
 
+export function riskFactorColumnCount(showDataType) {
+  return showDataType ? RISK_FACTOR_COLUMN_COUNT + 1 : RISK_FACTOR_COLUMN_COUNT;
+}
+
 export const BODY_CELL_SX = {
   verticalAlign: "middle",
   py: 1,

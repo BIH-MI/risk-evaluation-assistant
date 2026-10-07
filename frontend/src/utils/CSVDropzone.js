@@ -4,10 +4,6 @@ import { Box, Typography } from "@mui/material";
 import { useDropzone } from "react-dropzone";
 import { useTranslation } from "react-i18next";
 import RAButton from "components/input/RAButton";
-import {
-  isProfilingDiagnosticsEnabled,
-  logProfiling,
-} from "qidDiscovery/profilingDiagnostics";
 
 // CSV validation/parsing errors are reported upward via `setError` and shown
 // exclusively in the bottom-right floating alert stack (see AddDatasetForm) -
@@ -23,10 +19,6 @@ export function CSVDropzone({
 
   const onDrop = useCallback(
     (acceptedFiles) => {
-      const logDiagnostics = isProfilingDiagnosticsEnabled();
-      acceptedFiles.forEach((file) =>
-        logProfiling(logDiagnostics, file.name, "Drop received", { sizeBytes: file.size })
-      );
       setError("");
       const invalid = acceptedFiles.some(
         (f) => !f.name.toLowerCase().endsWith(".csv")

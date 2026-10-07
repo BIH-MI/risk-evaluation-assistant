@@ -117,20 +117,7 @@
       "dropzoneDrag": "CSV-Dateien hierher ziehen & ablegen, oder zum Auswählen klicken",
       "dropzoneOr": "— ODER —",
       "addManualTable": "Leere Tabelle manuell hinzufügen",
-      "examples": "Beispiele",
-      "processingQueued": "Warte auf Verarbeitung von {{name}}…",
-      "processingReading": "Lese {{name}}…",
-      "processingProfilingRows": "Profiliere {{rows}} Zeilen von {{name}}…",
-      "processingProfiling": "Profiliere {{name}}…",
-      "processingQid": "QID-Suche für {{name}} läuft…",
-      "processingPreparing": "Bereite Vorschau von {{name}} vor…",
-      "processing": "Verarbeite {{name}}…",
-      "processingHint": "Einlesen und Profilierung laufen im Hintergrund. Große Dateien können etwas dauern.",
-      "subjectKeyUpdating": "Subjektschlüssel für Replizierbarkeit: wird aktualisiert…",
-      "subjectKeyAutoDetected": "Subjektschlüssel für Replizierbarkeit: {{field}} (automatisch erkannt).",
-      "subjectKeySelected": "Subjektschlüssel für Replizierbarkeit: {{field}}.",
-      "subjectKeyRepeated": "{{repeated}} von {{subjects}} Subjekten haben wiederholte Beobachtungen.",
-      "subjectKeyNoRepeats": "Kein Subjekt hat wiederholte Beobachtungen."
+      "examples": "Beispiele"
     },
     "subsetEvidence": {
       "missingTitle": "Für diese einbezogenen Attribute gibt es keine kontextuelle Unterscheidbarkeits-Evidenz:",
@@ -160,10 +147,7 @@
       "evidenceSources": {
         "fieldName": "Feldname",
         "valuePattern": "Wertemuster"
-      },
-      "autoExcludedConfirmed": "Automatisch von der QID-Suche ausgeschlossen, weil dieses Feld ein bestätigter direkter Identifikator ist ({{concept}}).",
-      "autoExcludedPotential": "Automatisch von der QID-Suche ausgeschlossen, weil dieses Feld ein möglicher Identifikator zu sein scheint.",
-      "autoExcludedConfirmedNoConcept": "Automatisch von der QID-Suche ausgeschlossen, weil dieses Feld ein bestätigter direkter Identifikator ist."
+      }
     },
     "longitudinal": {}
   },
@@ -1000,6 +984,17 @@
       "configuredAboveMax": "{{field}} darf höchstens {{max}} betragen.",
       "coreSectionsRequired": "Erforderliche Projektvorlagen-Abschnitte fehlen: {{sections}}.",
       "coreRequirementsRequired": "Erforderliche Projektvorlagen-Anforderungen fehlen: {{requirements}}."
+    }
+  },
+  "mitigationPlanner": {
+    "factors": {
+      "dataType": "Datentyp"
+    },
+    "classificationEvidence": {
+      "potentialQidTitle": "Potential-QID-Evidenz",
+      "qidScore": "R + A + D",
+      "identifiabilityThreshold": "Identifizierbarkeitsschwelle",
+      "infoAriaLabel": "Potential-QID-Evidenz"
     }
   }
 }

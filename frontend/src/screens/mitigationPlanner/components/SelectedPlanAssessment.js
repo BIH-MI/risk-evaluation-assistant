@@ -12,7 +12,9 @@ function PlanActionList({ title, actions, appliedChanges, driversById }) {
   if (actions.length === 0) return null;
   return (
     <RABox>
-      <SectionLabel>{title}</SectionLabel>
+      <RABox sx={{ textAlign: "center" }}>
+        <SectionLabel>{title}</SectionLabel>
+      </RABox>
       <RABox component="ul" sx={{ my: 0, pl: 3, display: "flex", flexDirection: "column", gap: 1 }}>
         {actions.map((action) => (
           <SelectedSafeguardItem
@@ -39,17 +41,32 @@ function SelectedActions({ evaluation, driversById }) {
   const { t } = useTranslation();
   const actions = evaluation.actions || [];
   const appliedChanges = evaluation.counterfactualContextResult?.appliedQuestionChanges || [];
+  const transformations = actions.filter((action) => action.actionType === "DATA_TRANSFORMATION");
+  const safeguards = actions.filter((action) => action.actionType === "CONTEXT_CONTROL");
+  const hasBothActionGroups = transformations.length > 0 && safeguards.length > 0;
+
   return (
-    <RABox display="flex" flexDirection="column" gap={1.5}>
+    <RABox
+      sx={{
+        display: "grid",
+        gridTemplateColumns: {
+          xs: "1fr",
+          md: hasBothActionGroups ? "minmax(0, 1fr) minmax(0, 1fr)" : "minmax(0, 1fr)",
+        },
+        columnGap: { md: 6 },
+        rowGap: 2,
+        alignItems: "start",
+      }}
+    >
       <PlanActionList
         title={t("mitigationPlanner.plan.transformations", "Selected transformations")}
-        actions={actions.filter((action) => action.actionType === "DATA_TRANSFORMATION")}
+        actions={transformations}
         appliedChanges={[]}
         driversById={driversById}
       />
       <PlanActionList
         title={t("mitigationPlanner.plan.safeguards", "Selected safeguards")}
-        actions={actions.filter((action) => action.actionType === "CONTEXT_CONTROL")}
+        actions={safeguards}
         appliedChanges={appliedChanges}
         driversById={driversById}
       />

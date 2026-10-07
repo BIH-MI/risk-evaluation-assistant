@@ -12,9 +12,8 @@ const PRIORITY_RANK = {
   NO_ACTION_REQUIRED: 3,
 };
 
-const EVIDENCE_SOURCES = new Set(["DATASET_ATTRIBUTE", "QID_COMBINATION"]);
-
-export const isDatasetEvidenceDriver = (driver) => EVIDENCE_SOURCES.has(driver?.source);
+export const isDatasetEvidenceDriver = (driver) =>
+  driver?.source === "DATASET_ATTRIBUTE";
 
 /**
  * One parameter per parameterCode. The backend already returns unique definitions; this is a
@@ -161,6 +160,19 @@ export function planActionParameterLines(action) {
   return planActionParameters(action).map(({ label, value }) => `${label}: ${value}`);
 }
 
+export function resolvedPlanActionParameters(action) {
+  return (action.parameters || [])
+    .filter((parameter) => parameter.resolved)
+    .map((parameter) => ({
+      label: formatParameterLabel(parameter.parameterCode),
+      value: formatOptionValue(parameter.value),
+    }));
+}
+
+export function resolvedPlanActionParameterLines(action) {
+  return resolvedPlanActionParameters(action).map(({ label, value }) => `${label}: ${value}`);
+}
+
 const CATEGORY_LABELS = {
   IMPACT: "Impact",
   CONTROLS: "Controls",
@@ -190,8 +202,8 @@ function addressedDrivers(action, driversById) {
   return (action.addressedRiskDriverIds || []).map((id) => driversById.get(id)).filter(Boolean);
 }
 
-// Attribute names of Dataset evidence drivers (all attributes of a QID combination), deduplicated in
-// driver order; questionnaire drivers have none.
+// Attribute names of Dataset evidence drivers, deduplicated in driver order; questionnaire
+// drivers have none.
 function datasetEvidenceAttributeNames(drivers) {
   const names = new Set();
   drivers.filter(isDatasetEvidenceDriver).forEach((driver) =>

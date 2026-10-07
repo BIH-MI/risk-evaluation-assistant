@@ -11,8 +11,11 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Represents a single attribute (column) within a DatasetTable.
@@ -127,18 +130,57 @@ public class DatasetTableAttribute {
 
     /**
      * Replaces all per-subset-size evidence, linking each entry back to this
-     * attribute. Orphan removal deletes the previous rows.
+     * attribute.
+     *
+     * <p>Existing rows are updated by subset size instead of being blindly
+     * cleared and reinserted. That keeps seeding idempotent under the
+     * database-level uniqueness rule on {@code (attribute_id, subset_size)}.</p>
      */
     public void replaceSubsetEvidence(List<DatasetTableAttributeSubsetEvidence> evidence) {
-        subsetEvidence.clear();
         if (evidence == null) {
+            subsetEvidence.clear();
             return;
         }
-        evidence.stream()
+
+        Map<Integer, DatasetTableAttributeSubsetEvidence> requestedBySize = evidence.stream()
                 .filter(Objects::nonNull)
-                .forEach(entry -> {
-                    entry.setAttribute(this);
-                    subsetEvidence.add(entry);
-                });
+                .filter(entry -> entry.getSubsetSize() != null)
+                .collect(Collectors.toMap(
+                        DatasetTableAttributeSubsetEvidence::getSubsetSize,
+                        entry -> entry,
+                        (first, second) -> second,
+                        LinkedHashMap::new));
+        Map<Integer, DatasetTableAttributeSubsetEvidence> existingBySize = subsetEvidence.stream()
+                .filter(entry -> entry.getSubsetSize() != null)
+                .collect(Collectors.toMap(
+                        DatasetTableAttributeSubsetEvidence::getSubsetSize,
+                        entry -> entry,
+                        (first, second) -> first,
+                        LinkedHashMap::new));
+
+        subsetEvidence.removeIf(existing ->
+                existing.getSubsetSize() == null || !requestedBySize.containsKey(existing.getSubsetSize()));
+
+        requestedBySize.forEach((subsetSize, requested) -> {
+            DatasetTableAttributeSubsetEvidence target = existingBySize.get(subsetSize);
+            if (target == null) {
+                target = new DatasetTableAttributeSubsetEvidence();
+                target.setAttribute(this);
+                subsetEvidence.add(target);
+            }
+            copySubsetEvidence(requested, target);
+        });
+    }
+
+    private void copySubsetEvidence(
+            DatasetTableAttributeSubsetEvidence source,
+            DatasetTableAttributeSubsetEvidence target
+    ) {
+        target.setAttribute(this);
+        target.setSubsetSize(source.getSubsetSize());
+        target.setEvaluatedSubsetCount(source.getEvaluatedSubsetCount());
+        target.setMeanDistinction(source.getMeanDistinction());
+        target.setMeanSeparation(source.getMeanSeparation());
+        target.setMeanSingletonFraction(source.getMeanSingletonFraction());
     }
 }

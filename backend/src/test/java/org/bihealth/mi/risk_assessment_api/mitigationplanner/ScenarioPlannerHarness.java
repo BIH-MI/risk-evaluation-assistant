@@ -29,6 +29,7 @@ import org.bihealth.mi.risk_assessment_api.mitigationplanner.evaluation.ProjectC
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.explanation.CandidatePlanExplanationBuilder;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.inference.InferenceResult;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.inference.MitigationInferenceEngine;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.inference.classification.DatasetAttributeRiskClassifier;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.inference.compatibility.ProjectConstraintCompatibilityService;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.inference.driver.RiskDriverExtractorService;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.inference.matcher.ContextMitigationOpportunityMatcher;
@@ -100,7 +101,8 @@ final class ScenarioPlannerHarness {
         inference = new MitigationInferenceEngine(
                 snapshots,
                 new DataMitigationOpportunityMatcher(attributes,
-                        mock(DataSharingActivityTableAssessmentAttributeRepository.class), seed.tableRepository),
+                        mock(DataSharingActivityTableAssessmentAttributeRepository.class),
+                        new DatasetAttributeRiskClassifier()),
                 contextMatcher,
                 new RiskDriverExtractorService(answers, mappingMatcher),
                 new ProjectConstraintCompatibilityService());

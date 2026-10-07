@@ -1,14 +1,13 @@
 package org.bihealth.mi.risk_assessment_api.mitigationplanner.inference.driver;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.DataTarget;
@@ -179,9 +178,6 @@ public class RiskDriverExtractorService {
                 drivers.add(attributeDriver(attribute, MitigationAttributeRole.SENSITIVE_ATTRIBUTE, actionTargets));
             }
         }
-        for (DataMitigationOpportunityMatcher.AssessedCombination combination : evidence.combinations()) {
-            drivers.add(combinationDriver(combination, actionTargets));
-        }
         return drivers;
     }
 
@@ -193,34 +189,23 @@ public class RiskDriverExtractorService {
         RiskDriverDTO driver = datasetEvidenceDriver(
                 "DATASET_ATTRIBUTE:" + attribute.tableName() + ":" + attribute.name() + ":" + role,
                 RiskDriverSource.DATASET_ATTRIBUTE,
-                roleLabel(role) + " evidence from the Dataset Assessment.");
+                attributeExplanation(attribute, role));
         driver.setTableName(attribute.tableName());
         driver.setAttributeNames(List.of(attribute.name()));
         driver.setAttributeRole(role);
         driver.setDataType(attribute.dataType());
+        driver.setReplicability(attribute.replicability());
+        driver.setAvailability(attribute.availability());
+        driver.setDistinguishability(attribute.distinguishability());
+        driver.setQidScore(attribute.qidScore());
+        driver.setQidThreshold(attribute.qidThreshold());
+        driver.setSensitivity(attribute.sensitivity());
+        driver.setSensitive(attribute.sensitive());
         attachActions(driver, matchedDataActions(actionTargets, target ->
                 target.getAttributeRole() == role
                         && same(target.getTableName(), attribute.tableName())
                         && target.getAttributeNames().size() == 1
                         && same(target.getAttributeNames().get(0), attribute.name())));
-        return driver;
-    }
-
-    private RiskDriverDTO combinationDriver(
-            DataMitigationOpportunityMatcher.AssessedCombination combination,
-            Map<MitigationAction, List<DataTarget>> actionTargets
-    ) {
-        RiskDriverDTO driver = datasetEvidenceDriver(
-                "QID_COMBINATION:" + combination.tableName() + ":" + String.join("+", combination.attributeNames()),
-                RiskDriverSource.QID_COMBINATION,
-                "Candidate QID combination retained as Dataset Assessment evidence.");
-        driver.setTableName(combination.tableName());
-        driver.setAttributeNames(combination.attributeNames());
-        driver.setAttributeRole(MitigationAttributeRole.CANDIDATE_QID_COMBINATION);
-        attachActions(driver, matchedDataActions(actionTargets, target ->
-                target.getAttributeRole() == MitigationAttributeRole.CANDIDATE_QID_COMBINATION
-                        && same(target.getTableName(), combination.tableName())
-                        && normalizedSet(target.getAttributeNames()).equals(normalizedSet(combination.attributeNames()))));
         return driver;
     }
 
@@ -313,10 +298,32 @@ public class RiskDriverExtractorService {
     private String roleLabel(MitigationAttributeRole role) {
         return switch (role) {
             case DIRECT_IDENTIFIER -> "Direct Identifier";
-            case CANDIDATE_QID -> "Candidate QID";
+            case CANDIDATE_QID -> "Potential QID";
             case SENSITIVE_ATTRIBUTE -> "Sensitive Attribute";
-            case CANDIDATE_QID_COMBINATION -> "Candidate QID combination";
+            default -> "Unsupported Attribute Role";
         };
+    }
+
+    private String attributeExplanation(
+            DataMitigationOpportunityMatcher.AssessedAttribute attribute,
+            MitigationAttributeRole role
+    ) {
+        if (role == MitigationAttributeRole.CANDIDATE_QID) {
+            return "Potential QID because Replicability " + formatNumber(attribute.replicability())
+                    + " + Availability " + formatNumber(attribute.availability())
+                    + " + Distinguishability " + formatNumber(attribute.distinguishability())
+                    + " = " + formatNumber(attribute.qidScore())
+                    + ", which exceeds the configured identifiability threshold "
+                    + formatNumber(attribute.qidThreshold()) + ".";
+        }
+        return roleLabel(role) + " evidence from the Dataset Assessment.";
+    }
+
+    private String formatNumber(Double value) {
+        if (value == null) {
+            return "unavailable";
+        }
+        return BigDecimal.valueOf(value).stripTrailingZeros().toPlainString();
     }
 
     private String stable(String value) {
@@ -329,11 +336,5 @@ public class RiskDriverExtractorService {
 
     private boolean same(String left, String right) {
         return left != null && right != null && left.trim().equalsIgnoreCase(right.trim());
-    }
-
-    private Set<String> normalizedSet(List<String> values) {
-        return values.stream()
-                .map(value -> value.trim().toUpperCase(Locale.ROOT))
-                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 }

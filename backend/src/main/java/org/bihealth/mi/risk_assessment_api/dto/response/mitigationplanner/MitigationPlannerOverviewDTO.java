@@ -204,10 +204,18 @@ public class MitigationPlannerOverviewDTO {
     @NoArgsConstructor
     public static class DataTarget {
         private String tableName;
-        // One name for a single attribute; several for a retained QID combination.
+        // Current data-transformation targets are attribute-based; historical clients may still
+        // receive a list shape, but current inference normally contains one name.
         private List<String> attributeNames = new ArrayList<>();
         private MitigationAttributeRole attributeRole;
         private DataType dataType;
+        private Double replicability;
+        private Double availability;
+        private Double distinguishability;
+        private Double qidScore;
+        private Double qidThreshold;
+        private Double sensitivity;
+        private boolean sensitive;
         private String reason;
     }
 
@@ -264,6 +272,13 @@ public class MitigationPlannerOverviewDTO {
         private List<String> attributeNames = new ArrayList<>();
         private MitigationAttributeRole attributeRole;
         private DataType dataType;
+        private Double replicability;
+        private Double availability;
+        private Double distinguishability;
+        private Double qidScore;
+        private Double qidThreshold;
+        private Double sensitivity;
+        private boolean sensitive;
     }
 
     @Data

@@ -86,9 +86,6 @@ public class InMemoryDemoSeed {
         ReflectionTestUtils.setField(dataLoader, "loadSampleData", true);
         evidenceSeeder = new DemoDatasetEvidenceSeeder(datasetRepository, mock(QidDiscoveryConfigurationRepository.class));
         ReflectionTestUtils.setField(evidenceSeeder, "loadSampleData", true);
-        when(tableRepository.findRetainedQidCombinations(any())).thenAnswer(invocation -> tables.stream()
-                .flatMap(table -> table.getQidCombinations().stream())
-                .toList());
     }
 
     public void run() throws Exception {

@@ -241,7 +241,6 @@ public class DataLoader implements CommandLineRunner {
      */
     private Dataset getOrCreateLeossDataset() {
         return findDatasetByNormalizedName(LEOSS_DATASET_NAME)
-                .or(() -> findDatasetByNormalizedName(DemoDatasetEvidenceSeeder.LEGACY_LEOSS_DATASET_NAME))
                 .orElseGet(this::createLeossDataset);
     }
 
@@ -249,8 +248,7 @@ public class DataLoader implements CommandLineRunner {
         Dataset leoss = new Dataset();
         leoss.setCreatorUsername(DEMO_CREATOR);
         leoss.setName(LEOSS_DATASET_NAME);
-        leoss.setDescription("Illustrative dataset inspired by the Lean European Open Survey on SARS-CoV-2-Infected Patients (LEOSS). "
-                + "Schema, assessments and statistics are synthetic demo values, not measurements of the real LEOSS Public Use File.");
+        leoss.setDescription("Lean European Open Survey on SARS-CoV-2-Infected Patients (anonymized PUF)");
         leoss.setSharedUsernames(new HashSet<>(Set.of("anna.mueller", "max.mustermann", "sophie.becker")));
         leoss = datasetRepo.save(leoss);
 
@@ -259,9 +257,25 @@ public class DataLoader implements CommandLineRunner {
         patients.setCreatorUsername(DEMO_CREATOR);
         patients.setDataset(leoss);
 
-        // One schema definition shared with DemoDatasetEvidenceSeeder so both seeders agree on
-        // attribute names, order and data types.
-        Map<String, DataType> attributes = DemoDatasetEvidenceSeeder.leossAttributes();
+        // LinkedHashMap preserves the display/order of attributes in the sample
+        // table, which makes seeded assessments and UI inspection predictable.
+        Map<String, DataType> attributes = new LinkedHashMap<>();
+        attributes.put("insurance_number", DataType.STRING);
+        attributes.put("age_at_diagnosis", DataType.INTEGER);
+        attributes.put("gender", DataType.STRING);
+        attributes.put("date_of_diagnosis", DataType.DATETIME);
+        attributes.put("uncomplicated_phase", DataType.BOOLEAN);
+        attributes.put("complicated_phase", DataType.BOOLEAN);
+        attributes.put("critical_phase", DataType.BOOLEAN);
+        attributes.put("recovery_phase", DataType.BOOLEAN);
+        attributes.put("vasopressors_in_complicated_phase", DataType.BOOLEAN);
+        attributes.put("vasopressors_in_critical_phase", DataType.BOOLEAN);
+        attributes.put("invasive_ventilation_in_critical_phase", DataType.BOOLEAN);
+        attributes.put("superinfection_uncomplicated_phase", DataType.BOOLEAN);
+        attributes.put("superinfection_complicated_phase", DataType.BOOLEAN);
+        attributes.put("superinfection_critical_phase", DataType.BOOLEAN);
+        attributes.put("symptoms_in_recovery_phase", DataType.STRING);
+        attributes.put("last_known_patient_status", DataType.STRING);
 
         for (Map.Entry<String, DataType> entry : attributes.entrySet()) {
             patients.getAttributes().add(new DatasetTableAttribute(patients, entry.getKey(), entry.getValue()));

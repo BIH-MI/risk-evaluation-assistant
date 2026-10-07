@@ -106,10 +106,18 @@ public class DatasetService {
         return new DatasetResponseDTO(saved);
     }
 
+    /**
+     * Dataset edits are allowed for admins, owners, and explicitly shared users.
+     * Edit locks use the same rule.
+     */
+    public boolean canEditDataset(Dataset dataset, String username, boolean isAdmin) {
+        return isAdmin
+                || dataset.getCreatorUsername().equals(username)
+                || dataset.getSharedUsernames().contains(username);
+    }
+
     private void assertCanEditDataset(Dataset dataset, String username, boolean isAdmin) {
-        // Dataset edits are allowed for admins, owners, and explicitly shared users.
-        if (!isAdmin && !dataset.getCreatorUsername().equals(username)
-                && !dataset.getSharedUsernames().contains(username)) {
+        if (!canEditDataset(dataset, username, isAdmin)) {
             throw new SecurityException("Not owner of dataset");
         }
     }
@@ -257,10 +265,7 @@ public class DatasetService {
                 .orElseThrow(() -> new EntityNotFoundException("Dataset not found: " + id));
 
         // Dataset deletion follows the same access rule as updates.
-        if (!isAdmin && !ds.getCreatorUsername().equals(username)
-                && !ds.getSharedUsernames().contains(username)) {
-            throw new SecurityException("Not owner of dataset");
-        }
+        assertCanEditDataset(ds, username, isAdmin);
 
         // Remove any active edit lock first so deleting the dataset does not
         // leave a lock row pointing at an entity that no longer exists.

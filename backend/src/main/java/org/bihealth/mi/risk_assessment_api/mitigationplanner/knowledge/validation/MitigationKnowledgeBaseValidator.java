@@ -6,6 +6,7 @@ import org.bihealth.mi.risk_assessment_api.enums.PlanSelectionCriterion;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationAction;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationActionConflict;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationActionDependency;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationAttributeMapping;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationKnowledgeBase;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationKnowledgeBaseVersion;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationParameterDefinition;
@@ -57,6 +58,7 @@ public class MitigationKnowledgeBaseValidator {
         validateDependencies(version, actionsByCode, result);
         validateConflicts(version, actionsByCode, result);
         validateDependencyCycles(version, actionsByCode, result);
+        validateAttributeMappings(version, result);
         validateQuestionMappings(version, result);
         validateRuleTypes(version, result);
         validateSelectionPolicy(version, result);
@@ -200,6 +202,42 @@ public class MitigationKnowledgeBaseValidator {
                     error(result, "DUPLICATE_PARAMETER_VALUE", "Parameter allowed values must not contain duplicates.",
                             "MitigationParameterDefinition", parameter.getId());
                 }
+            }
+        }
+    }
+
+    private void validateAttributeMappings(MitigationKnowledgeBaseVersion version, KnowledgeBaseValidationResult result) {
+        for (MitigationAction action : version.getActions()) {
+            Set<String> seenMappings = new HashSet<>();
+            int usableMappings = 0;
+            for (MitigationAttributeMapping mapping : action.getAttributeMappings()) {
+                if (mapping.getAttributeRole() == null) {
+                    error(result, "MISSING_ATTRIBUTE_ROLE",
+                            action.getCode() + " attribute mappings require an attribute role.",
+                            "MitigationAttributeMapping", mapping.getId());
+                    continue;
+                }
+                if (mapping.getAttributeRole().isCompatibilityOnly()) {
+                    error(result, "DEPRECATED_ATTRIBUTE_ROLE",
+                            "Legacy combination mappings cannot be used in current Knowledge Base versions; use Potential-QID attribute mappings instead.",
+                            "MitigationAttributeMapping", mapping.getId());
+                    continue;
+                }
+                String key = mapping.getAttributeRole().name()
+                        + ":"
+                        + (mapping.getDataType() == null ? "*" : mapping.getDataType().name());
+                if (!seenMappings.add(key)) {
+                    error(result, "DUPLICATE_ATTRIBUTE_MAPPING",
+                            action.getCode() + " duplicates attribute mapping " + key + ".",
+                            "MitigationAttributeMapping", mapping.getId());
+                }
+                usableMappings++;
+            }
+
+            if (action.getActionType() == MitigationActionType.DATA_TRANSFORMATION && usableMappings == 0) {
+                warning(result, "DATA_TRANSFORMATION_WITHOUT_ATTRIBUTE_MAPPING",
+                        action.getCode() + " has no usable attribute applicability mapping; it will not match Dataset Assessment attributes.",
+                        "MitigationAction", action.getId());
             }
         }
     }

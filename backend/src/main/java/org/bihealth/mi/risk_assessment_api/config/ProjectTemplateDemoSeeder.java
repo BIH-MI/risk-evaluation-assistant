@@ -68,20 +68,21 @@ import static org.bihealth.mi.risk_assessment_api.enums.ProjectTemplateRequireme
  * R/A/D/S): they describe what the project needs, never how risky the
  * current dataset/recipient is.</p>
  *
- * <p>Runs after {@link DataLoader}, so the LEOSS dataset, recipients, and
- * framework assessments already exist. Every demo object is resolved
+ * <p>Runs last (after {@link DataLoader} and {@link
+ * org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.seed.MitigationKnowledgeBaseSeeder}),
+ * so the LEOSS dataset, recipients, framework assessments, and default
+ * Mitigation Knowledge Base already exist. Every demo object is resolved
  * independently by normalized name and created only if absent: an
  * administrator's edits to a template, or a user's edits to a demo Project,
  * are never overwritten by a later restart.</p>
  */
-@Order(4)
+@Order(6)
 @Component
 public class ProjectTemplateDemoSeeder implements CommandLineRunner {
 
     private static final String DEMO_ADMIN = "admin";
     private static final String DEMO_CREATOR = "user";
     private static final String LEOSS_DATASET_NAME = DemoDatasetEvidenceSeeder.LEOSS_DATASET_NAME;
-    private static final String LEGACY_LEOSS_DATASET_NAME = DemoDatasetEvidenceSeeder.LEGACY_LEOSS_DATASET_NAME;
     private static final String LEGACY_LEOSS_PROJECT_NAME = "LEOSS Mitigation Planning Demo";
     private static final String ACADEMIC_RECIPIENT_NAME = "Academic Research Institute";
     private static final String COMMERCIAL_RECIPIENT_NAME = "Commercial Partner";
@@ -160,9 +161,7 @@ public class ProjectTemplateDemoSeeder implements CommandLineRunner {
             return;
         }
 
-        Dataset leossDataset = findDatasetByNormalizedName(LEOSS_DATASET_NAME)
-                .or(() -> findDatasetByNormalizedName(LEGACY_LEOSS_DATASET_NAME))
-                .orElse(null);
+        Dataset leossDataset = findDatasetByNormalizedName(LEOSS_DATASET_NAME).orElse(null);
         Recipient academic = findRecipientByNormalizedName(ACADEMIC_RECIPIENT_NAME).orElse(null);
         Recipient commercial = findRecipientByNormalizedName(COMMERCIAL_RECIPIENT_NAME).orElse(null);
         Recipient publicPortal = findRecipientByNormalizedName(PUBLIC_RECIPIENT_NAME).orElse(null);

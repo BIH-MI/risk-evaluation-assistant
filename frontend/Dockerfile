@@ -12,6 +12,20 @@ RUN npm install
 # Copy source code
 COPY . .
 
+# Self-host the AI column classifier assets (model, tokenizer, ONNX Runtime
+# WASM) under public/ai-assets/ so they are served by Nginx and the browser
+# never loads models from external services at inference time.
+# - "fetch" (default): verify pre-placed files against pinned SHA-256 hashes and
+#   download any missing ones from the pinned Hugging Face revision.
+# - "skip": build without AI assets; the app works and reports AI suggestions
+#   as unavailable.
+ARG REA_AI_ASSETS=fetch
+RUN if [ "$REA_AI_ASSETS" = "skip" ]; then \
+      echo "Skipping AI model assets (REA_AI_ASSETS=skip)"; \
+    else \
+      npm run fetch:ai-assets; \
+    fi
+
 # Receive Build Arguments from docker-compose
 # React requires these at BUILD time to bake them into the static JS
 ARG REACT_APP_OIDC_AUTHORITY

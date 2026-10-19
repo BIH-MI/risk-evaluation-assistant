@@ -141,7 +141,50 @@
         "valuePattern": "value pattern"
       }
     },
-    "longitudinal": {}
+    "longitudinal": {},
+    "aiSuggestions": {
+      "tooltip": {
+        "title": "AI Identifier Assessment",
+        "classificationLabel": "AI classification",
+        "exclusionLabel": "Status",
+        "status": {
+          "autoExcluded": "Automatically excluded",
+          "excluded": "Excluded",
+          "includedManually": "Included by your decision",
+          "included": "Included for QID assessment",
+          "manualReview": "Manual review needed",
+          "unavailable": "AI assessment unavailable",
+          "pending": "AI assessment in progress",
+          "notAssessed": "Not yet assessed"
+        },
+        "message": {
+          "autoExcluded": "The AI identified this attribute as a potential direct identifier and excluded it from QID profiling.",
+          "identifierExcluded": "The AI identified this attribute as a potential direct identifier. It is excluded from QID profiling.",
+          "identifierIncluded": "The AI identified this attribute as a potential direct identifier, but you chose to include it. Please verify.",
+          "included": "No automatic exclusion was suggested. This attribute may still contribute to re-identification.",
+          "nonIdentifierExcluded": "No automatic exclusion was suggested. The attribute is excluded by your decision or by detected value patterns.",
+          "uncertain": "The AI could not reliably determine whether this attribute is an identifier. Please review it.",
+          "unavailable": "Review the attribute manually.",
+          "pending": "The column name is being classified. You can keep editing.",
+          "notAssessed": "Review the attribute manually."
+        },
+        "guidance": "Please verify. You can change the checkbox manually."
+      },
+      "categories": {
+        "PERSON_NAME": "Person name",
+        "EMAIL": "Email address",
+        "PHONE": "Telephone number",
+        "POSTAL_ADDRESS": "Postal address",
+        "NATIONAL_IDENTIFIER": "National ID number",
+        "MEDICAL_RECORD_NUMBER": "Medical record number",
+        "HEALTH_INSURANCE_IDENTIFIER": "Health insurance number",
+        "IP_ADDRESS": "IP address",
+        "DEMOGRAPHIC": "Demographic",
+        "CLINICAL": "Clinical",
+        "ADMINISTRATIVE": "Administrative",
+        "OTHER": "Other / uncertain"
+      }
+    }
   },
   "datasetAssessments": {
     "attributesTable": {

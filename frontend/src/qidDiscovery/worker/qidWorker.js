@@ -3,7 +3,7 @@
 import { parseCsvFile } from "../parsing/parseCsvFile";
 import {
   CSV_PREVIEW_ROW_LIMIT,
-  profileParsedTable,
+  prepareParsedTable,
   profileTableFromSource,
 } from "../qidProfiler";
 
@@ -28,30 +28,48 @@ function serializeError(error) {
 }
 
 /**
- * Parses the uploaded File inside the QID worker, builds the reusable
- * profiling source, calculates aggregate Distinguishability evidence, stores
- * transient profiling and cache state in this worker, and returns aggregate
- * results plus the limited preview rows required by PreviewTable.
+ * Parses the uploaded File inside the QID worker and prepares it for
+ * profiling: encoded source columns, individual statistics and value-pattern
+ * Direct Identifier evidence. Subset profiling is not run here; it runs once
+ * through REFRESH_TABLE_PROFILE after the initial exclusions are resolved.
+ * Header fields are posted as soon as Papa has parsed the first chunk so
+ * column-name classification can start while the rest of the file is still
+ * parsed and encoded. Only the header names leave this function early.
  */
-async function profileTable({ file, qidDiscoveryConfiguration }) {
-  const { rows, fields } = await parseCsvFile(file);
+async function prepareTable(requestId, { file, qidDiscoveryConfiguration }) {
+  const startedAt = performance.now();
+  let fieldsAt = null;
+  const { rows, fields } = await parseCsvFile(file, {
+    onFields: (headerFields) => {
+      fieldsAt = performance.now();
+      globalThis.postMessage({
+        requestId,
+        type: "PROGRESS",
+        progress: { phase: "fields", fields: headerFields },
+      });
+    },
+  });
+  const parsedAt = performance.now();
   const sessionId = createSessionId(file?.name);
-  const { profilingSource, ...profile } = profileParsedTable(
-    { rows, fields },
-    qidDiscoveryConfiguration.profiling
-  );
+  const { profilingSource, columnMeta } = prepareParsedTable({ rows, fields });
+  const preparedAt = performance.now();
 
   sessions.set(sessionId, profilingSource);
 
   return {
     name: file.name,
     data: rows.slice(0, CSV_PREVIEW_ROW_LIMIT),
-    columnMeta: profile.columnMeta,
-    subsetProfilingSummary: profile.subsetProfilingSummary,
+    columnMeta,
+    subsetProfilingSummary: null,
     profilingSession: {
       type: "worker",
       sessionId,
       qidDiscoveryConfiguration,
+    },
+    timings: {
+      fieldsMs: fieldsAt === null ? null : fieldsAt - startedAt,
+      parseMs: parsedAt - startedAt,
+      prepareMs: preparedAt - parsedAt,
     },
   };
 }
@@ -71,11 +89,17 @@ function refreshTableProfile({
     throw new Error("QID profiling session was not found.");
   }
 
-  return profileTableFromSource(
+  const startedAt = performance.now();
+  const profile = profileTableFromSource(
     profilingSource,
     columnMeta,
     profilingConfiguration
   );
+
+  return {
+    ...profile,
+    timings: { subsetProfilingMs: performance.now() - startedAt },
+  };
 }
 
 /**
@@ -95,8 +119,8 @@ globalThis.onmessage = async ({ data }) => {
   try {
     let response;
 
-    if (type === "PROFILE_TABLE") {
-      response = await profileTable(payload);
+    if (type === "PREPARE_TABLE") {
+      response = await prepareTable(requestId, payload);
     } else if (type === "REFRESH_TABLE_PROFILE") {
       response = refreshTableProfile(payload);
     } else if (type === "DISPOSE_PROFILING_SESSION") {

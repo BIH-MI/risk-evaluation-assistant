@@ -13,6 +13,9 @@ import {
 } from "components/display/Tables/DataTable/CustomDataTableComponents/RowComponents";
 import RATypography from "../../../components/display/RATypography";
 import RAInput from "../../../components/input/RAInput";
+import { isSuggestionCurrent } from "qidDiscovery/aiSuggestions";
+import { AiColumnAssessmentInfo } from "./aiSuggestions/AiColumnAssessmentInfo";
+import { AI_TABLE_STATUS } from "./aiSuggestions/aiSuggestionTableState";
 
 const getColumnIdentity = (column = {}) => column.sourceField || column.field;
 
@@ -81,6 +84,7 @@ export const PreviewTable = React.memo(function PreviewTable({
   onExcludedChange,
   onAddColumn,
   onDeleteColumn,
+  aiState,
 }) {
   const { t, i18n } = useTranslation();
   const [bufferName, setBufferName] = useState(file.name);
@@ -123,6 +127,19 @@ export const PreviewTable = React.memo(function PreviewTable({
     );
   }
 
+  const isAiRunning =
+    aiState.status === AI_TABLE_STATUS.LOADING_MODEL ||
+    aiState.status === AI_TABLE_STATUS.CLASSIFYING;
+  const getCurrentSuggestion = (columnKey, field) => {
+    const storedSuggestion = aiState.suggestions[columnKey];
+    return isSuggestionCurrent(storedSuggestion, {
+      columnName: field,
+      description: aiState.descriptions[columnKey] || "",
+    })
+      ? storedSuggestion
+      : null;
+  };
+
   const columns = [
     {
       Header: t("datasets.attributesTable.index"),
@@ -139,16 +156,20 @@ export const PreviewTable = React.memo(function PreviewTable({
       align: "center",
       width: 300,
       Cell: ({ row }) => (
-        <MemoNameCell
-          initialValue={row.original.field}
-          onCommit={(newValue) =>
-            onColumnNameChange(
-              file._localTableId,
-              row.original.columnKey,
-              newValue
-            )
-          }
-        />
+        // Keeps the input readable: auto table layout otherwise lets the
+        // name column shrink when other cells are wide.
+        <RABox sx={{ minWidth: 200 }}>
+          <MemoNameCell
+            initialValue={row.original.field}
+            onCommit={(newValue) =>
+              onColumnNameChange(
+                file._localTableId,
+                row.original.columnKey,
+                newValue
+              )
+            }
+          />
+        </RABox>
       ),
     },
     {
@@ -199,16 +220,27 @@ export const PreviewTable = React.memo(function PreviewTable({
       accessor: "excluded",
       align: "center",
       Cell: ({ row }) => (
-        <MemoCheckboxCell
-          initialValue={row.original.excluded}
-          onCommit={(checked) =>
-            onExcludedChange(
-              file._localTableId,
+        <RABox display="flex" alignItems="center" justifyContent="center">
+          <MemoCheckboxCell
+            initialValue={row.original.excluded}
+            onCommit={(checked) =>
+              onExcludedChange(
+                file._localTableId,
+                row.original.columnKey,
+                checked
+              )
+            }
+          />
+          <AiColumnAssessmentInfo
+            suggestion={getCurrentSuggestion(
               row.original.columnKey,
-              checked
-            )
-          }
-        />
+              row.original.field
+            )}
+            isPending={isAiRunning}
+            excluded={row.original.excluded}
+            aiAutoExcluded={row.original.aiAutoExcluded}
+          />
+        </RABox>
       ),
     },
     {
@@ -235,6 +267,7 @@ export const PreviewTable = React.memo(function PreviewTable({
     field: column.field,
     dataType: column.level,
     excluded: Boolean(column.excluded),
+    aiAutoExcluded: column.aiAutoExcluded === true && column.excluded === true,
   }));
 
   return (

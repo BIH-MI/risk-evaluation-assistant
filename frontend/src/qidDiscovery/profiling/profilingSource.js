@@ -1,5 +1,5 @@
 import { profileAndEncodeColumn } from "./profileAndEncodeColumn";
-import { buildDirectIdentifierEvidenceForCurrentFieldName } from "./directIdentifierEvidence";
+import { buildDirectIdentifierEvidenceFromCachedPatterns } from "./directIdentifierEvidence";
 import {
   applyDirectIdentifierEvidenceDefaults,
   shouldAutoExcludeDirectIdentifier,
@@ -39,8 +39,8 @@ function getSourceField(column, rows) {
  * Browser-local encoded values used for subset profiling.
  * @property {string} dataType Detected data type.
  * @property {import("./directIdentifierEvidence").DirectIdentifierEvidence} directIdentifierEvidence
- * Evidence observed under the original source field name; re-evaluated for the
- * current display name on every refresh.
+ * Value-pattern evidence observed during the scan; re-classified from the
+ * cached counts on every refresh.
  */
 
 /**
@@ -107,13 +107,12 @@ export function applyStatistics(columnMeta = [], profilingSource) {
     const source = profiledSource?.source;
     const directIdentifierEvidence =
       source || column.directIdentifierEvidence
-        ? buildDirectIdentifierEvidenceForCurrentFieldName(
-            column.field,
+        ? buildDirectIdentifierEvidenceFromCachedPatterns(
             source?.directIdentifierEvidence || column.directIdentifierEvidence
           )
         : null;
-    // A rename that changes the detected concept or default exclusion
-    // re-evaluates earlier automatic decisions, as for schema-only attributes.
+    // If the evidence's concept or default exclusion changes (e.g. a manual
+    // column without values), earlier automatic decisions are re-evaluated.
     const columnWithDirectIdentifierDefaults =
       applyDirectIdentifierEvidenceDefaults(column, directIdentifierEvidence, {
         resetDecisionOnConceptChange: true,

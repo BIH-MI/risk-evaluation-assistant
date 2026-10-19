@@ -144,7 +144,50 @@
         "valuePattern": "Wertemuster"
       }
     },
-    "longitudinal": {}
+    "longitudinal": {},
+    "aiSuggestions": {
+      "tooltip": {
+        "title": "KI-Identifikatorbewertung",
+        "classificationLabel": "KI-Klassifikation",
+        "exclusionLabel": "Status",
+        "status": {
+          "autoExcluded": "Automatisch ausgeschlossen",
+          "excluded": "Ausgeschlossen",
+          "includedManually": "Durch Ihre Entscheidung eingeschlossen",
+          "included": "Für die QID-Bewertung eingeschlossen",
+          "manualReview": "Manuelle Prüfung erforderlich",
+          "unavailable": "KI-Bewertung nicht verfügbar",
+          "pending": "KI-Bewertung läuft",
+          "notAssessed": "Noch nicht bewertet"
+        },
+        "message": {
+          "autoExcluded": "Die KI hat dieses Attribut als möglichen direkten Identifikator erkannt und aus dem QID-Profiling ausgeschlossen.",
+          "identifierExcluded": "Die KI hat dieses Attribut als möglichen direkten Identifikator erkannt. Es ist vom QID-Profiling ausgeschlossen.",
+          "identifierIncluded": "Die KI hat dieses Attribut als möglichen direkten Identifikator erkannt, Sie haben es jedoch eingeschlossen. Bitte prüfen Sie dies.",
+          "included": "Es wurde kein automatischer Ausschluss vorgeschlagen. Dieses Attribut kann dennoch zur Re-Identifikation beitragen.",
+          "nonIdentifierExcluded": "Es wurde kein automatischer Ausschluss vorgeschlagen. Das Attribut ist durch Ihre Entscheidung oder erkannte Wertemuster ausgeschlossen.",
+          "uncertain": "Die KI konnte nicht zuverlässig bestimmen, ob dieses Attribut ein Identifikator ist. Bitte prüfen Sie es.",
+          "unavailable": "Prüfen Sie das Attribut manuell.",
+          "pending": "Der Spaltenname wird klassifiziert. Sie können weiter bearbeiten.",
+          "notAssessed": "Prüfen Sie das Attribut manuell."
+        },
+        "guidance": "Bitte prüfen. Sie können das Kontrollkästchen manuell ändern."
+      },
+      "categories": {
+        "PERSON_NAME": "Personenname",
+        "EMAIL": "E-Mail-Adresse",
+        "PHONE": "Telefonnummer",
+        "POSTAL_ADDRESS": "Postanschrift",
+        "NATIONAL_IDENTIFIER": "Nationale ID-Nummer",
+        "MEDICAL_RECORD_NUMBER": "Patientenaktennummer",
+        "HEALTH_INSURANCE_IDENTIFIER": "Krankenversicherungsnummer",
+        "IP_ADDRESS": "IP-Adresse",
+        "DEMOGRAPHIC": "Demografisch",
+        "CLINICAL": "Klinisch",
+        "ADMINISTRATIVE": "Administrativ",
+        "OTHER": "Sonstiges / unsicher"
+      }
+    }
   },
   "datasetAssessments": {
     "attributesTable": {

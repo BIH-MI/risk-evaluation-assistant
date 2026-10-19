@@ -228,9 +228,10 @@ export default function EditDatasetForm() {
   }, []);
 
   /**
-   * Renames an attribute and refreshes schema-only Direct Identifier evidence.
-   * Edit Dataset has no raw CSV session, so persisted value-pattern evidence is
-   * preserved and only name-derived evidence is recalculated when applicable.
+   * Renames an attribute. Direct Identifier evidence is value-pattern based and
+   * Edit Dataset has no raw CSV session, so a rename leaves the persisted
+   * identifier summary and exclusion decision untouched. AI suggestions are
+   * not available here; Edit Dataset never loads the model.
    */
   const handleAttributeNameChange = useCallback((table, attribute, name) => {
     setTables((prev) =>
@@ -238,21 +239,11 @@ export default function EditDatasetForm() {
         currentTable.id === table.id
           ? {
               ...currentTable,
-              attributes: currentTable.attributes.map((currentAttribute) => {
-                if (currentAttribute.id !== attribute.id) {
-                  return currentAttribute;
-                }
-
-                const renamedAttribute = {
-                  ...currentAttribute,
-                  name,
-                };
-
-                return !currentAttribute.directIdentifierEvidence ||
-                  currentAttribute.directIdentifierEvidence.schemaOnly
-                  ? applySchemaDirectIdentifierEvidence(renamedAttribute, name)
-                  : renamedAttribute;
-              }),
+              attributes: currentTable.attributes.map((currentAttribute) =>
+                currentAttribute.id === attribute.id
+                  ? { ...currentAttribute, name }
+                  : currentAttribute
+              ),
             }
           : currentTable
       )

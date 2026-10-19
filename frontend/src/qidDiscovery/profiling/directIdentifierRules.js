@@ -1,6 +1,9 @@
-// Pure Direct Identifier definitions: known concepts and their field-name
-// aliases, generic identifier tokens, value-pattern thresholds, and value
+// Pure Direct Identifier definitions: value-pattern thresholds and value
 // matchers. No detection or policy logic lives here.
+//
+// Field names are not matched against alias dictionaries. Interpreting a
+// column name is left to the optional, browser-local AI suggestions
+// (qidDiscovery/aiSuggestions/), which are review aids and never evidence.
 //
 // Dependency direction: rules -> directIdentifierEvidence -> directIdentifierPolicy.
 
@@ -8,110 +11,6 @@ export const DIRECT_IDENTIFIER_CONFIDENCE = {
   HIGH: "HIGH",
   LOW: "LOW",
 };
-
-export const DIRECT_IDENTIFIER_CONCEPTS = {
-  PERSON_NAME: {
-    aliases: [
-      "first_name",
-      "last_name",
-      "surname",
-      "family_name",
-      "full_name",
-      "given_name",
-      "middle_name",
-      "forename",
-      "personal_name",
-      "person_name",
-      "patient_name",
-      "legal_name",
-    ],
-  },
-  EMAIL: {
-    aliases: ["email", "email_address", "e_mail", "email_addr"],
-  },
-  PHONE: {
-    aliases: [
-      "phone",
-      "phone_number",
-      "telephone",
-      "telephone_number",
-      "mobile",
-      "mobile_number",
-      "cell_phone",
-      "cell_number",
-      "contact_phone",
-    ],
-  },
-  POSTAL_ADDRESS: {
-    aliases: [
-      "street_address",
-      "home_address",
-      "residential_address",
-      "postal_address",
-      "mailing_address",
-    ],
-  },
-  NATIONAL_IDENTIFIER: {
-    aliases: [
-      "social_security_number",
-      "ssn",
-      "national_id",
-      "national_identifier",
-      "national_identification_number",
-    ],
-  },
-  PASSPORT: {
-    aliases: ["passport", "passport_number"],
-  },
-  MEDICAL_RECORD_NUMBER: {
-    aliases: [
-      "mrn",
-      "medical_record_number",
-      "medical_record_no",
-      "medical_record_num",
-    ],
-  },
-  HEALTH_INSURANCE_IDENTIFIER: {
-    aliases: [
-      "insurance_number",
-      "insurance_no",
-      "insurance_num",
-      "health_insurance_number",
-      "health_insurance_no",
-      "health_insurance_identifier",
-    ],
-  },
-  IP_ADDRESS: {
-    aliases: ["ip", "ip_address", "ip_addr", "internet_protocol_address"],
-  },
-};
-
-export const TOKEN_ABBREVIATIONS = {
-  addr: ["address"],
-  no: ["number"],
-  num: ["number"],
-  tel: ["telephone"],
-  mob: ["mobile"],
-  fname: ["first", "name"],
-  lname: ["last", "name"],
-  mrn: ["medical", "record", "number"],
-  ssn: ["social", "security", "number"],
-};
-
-// Tokens that mark a field name as ID-like on their own, wherever they appear
-// in the name (e.g. "id_number", "record_id", "IdCode", "uuid"). A match here
-// is weaker than a DIRECT_IDENTIFIER_CONCEPTS alias: it flags the field for
-// review as a potential identifier. Policy excludes these fields from subset
-// profiling by default, but the evidence itself remains LOW confidence because
-// "id" alone does not say what kind of identifier it is.
-export const GENERIC_IDENTIFIER_TOKENS = new Set([
-  "id",
-  "identifier",
-  "uuid",
-  "guid",
-]);
-
-export const GENERIC_IDENTIFIER_FIELD_SOURCE = "field-name:generic_identifier";
 
 // Value-pattern support thresholds per concept. A pattern needs minimum
 // support (enough analysed and matched values) and then either

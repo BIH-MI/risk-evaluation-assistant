@@ -54,20 +54,22 @@ export function profileTableFromSource(
 }
 
 /**
- * Profiles freshly parsed CSV rows. The returned profilingSource is transient
- * browser-local state (encoded columns and subset cache) that later refreshes
- * reuse instead of rescanning rows.
+ * Prepares freshly parsed CSV rows without subset profiling: creates column
+ * metadata with stable sourceField identities, encodes and profiles every
+ * source column once (individual statistics and Direct Identifier
+ * value-pattern evidence), and applies the value-pattern exclusion defaults.
+ * Attribute subsets are profiled later by profileTableFromSource(), once the
+ * initial exclusions are known, so combinations are only computed for the
+ * eligible attributes. The returned profilingSource is transient
+ * browser-local state (encoded columns and, later, the subset cache) that
+ * every profiling run of the table reuses instead of rescanning rows.
  */
-export function profileParsedTable({ rows, fields }, profilingConfiguration) {
+export function prepareParsedTable({ rows, fields }) {
   const columnMeta = createColumnMetaFromFields(fields);
   const profilingSource = buildProfilingSource(rows, columnMeta);
 
   return {
-    ...profileTableFromSource(
-      profilingSource,
-      columnMeta,
-      profilingConfiguration
-    ),
+    columnMeta: applyStatistics(columnMeta, profilingSource),
     profilingSource,
   };
 }

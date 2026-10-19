@@ -17,3 +17,6 @@ pgdata/
 # --- SECURITY ---
 # Ignore SSL certificates and private keys
 nginx/certs/
+
+# Self-hosted AI model/runtime assets (npm run fetch:ai-assets)
+frontend/public/ai-assets/

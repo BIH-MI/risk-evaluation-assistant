@@ -1,8 +1,5 @@
-import { buildDirectIdentifierEvidenceFromFieldName } from "./profiling/directIdentifierEvidence";
-import {
-  DIRECT_IDENTIFIER_CONFIDENCE,
-  GENERIC_IDENTIFIER_FIELD_SOURCE,
-} from "./profiling/directIdentifierRules";
+import { buildSchemaOnlyDirectIdentifierEvidence } from "./profiling/directIdentifierEvidence";
+import { DIRECT_IDENTIFIER_CONFIDENCE } from "./profiling/directIdentifierRules";
 
 /*
  * Answers "what should REA do with Direct Identifier evidence?": default
@@ -13,6 +10,12 @@ import {
  * Direct Identifier detection happens before subset profiling. Excluded
  * identifiers remain available to transient profiling for field evidence, but
  * are omitted from quantitative Distinguishability subset evidence.
+ *
+ * Only value-pattern evidence and explicit researcher decisions reach this
+ * policy. AI column-name suggestions (aiSuggestions/) are deliberately kept
+ * out: Add Dataset may exclude a confidently classified column (tracked by its
+ * own `aiAutoExcluded` flag), but AI never blocks submission or counts as
+ * confirmed identifier evidence.
  */
 
 const formatFallbackLabel = (value) =>
@@ -36,8 +39,7 @@ const hasDirectIdentifierExclusionDecision = (column = {}) =>
 const getDirectIdentifierConcept = (evidence) => evidence?.concept || null;
 
 /**
- * True only for HIGH-confidence evidence (a strong field-name alias or a
- * supported value pattern). LOW-confidence/`requiresReview` evidence is kept
+ * True only for HIGH-confidence evidence (a supported value pattern). LOW-confidence/`requiresReview` evidence is kept
  * semantically separate from confirmed Direct Identifiers.
  */
 export function shouldAutoExcludeDirectIdentifier(evidence) {
@@ -48,24 +50,12 @@ export function shouldAutoExcludeDirectIdentifier(evidence) {
 }
 
 /**
- * Detects generic ID-like field-name evidence without changing its LOW
- * confidence classification. REA policy uses this to default-exclude generic
- * IDs from subset profiling while still surfacing them for review.
- */
-function hasGenericIdentifierFieldEvidence(evidence) {
-  return Boolean(evidence?.sources?.includes(GENERIC_IDENTIFIER_FIELD_SOURCE));
-}
-
-/**
  * Returns true when an identifier should be excluded from subset profiling by
- * default. Confirmed Direct Identifiers qualify through HIGH evidence; generic
- * IDs qualify through their LOW generic field-name source.
+ * default. Only confirmed (HIGH, value-pattern) Direct Identifiers qualify;
+ * LOW/review evidence is surfaced for review but stays included.
  */
 function shouldExcludeIdentifierByDefault(evidence) {
-  return (
-    shouldAutoExcludeDirectIdentifier(evidence) ||
-    hasGenericIdentifierFieldEvidence(evidence)
-  );
+  return shouldAutoExcludeDirectIdentifier(evidence);
 }
 
 const shouldResetAutomaticDirectIdentifierDecision = (
@@ -104,12 +94,6 @@ const getDirectIdentifierEvidenceSourceSummary = (t, evidence) => {
 
   (evidence?.sources || []).forEach((source) => {
     if (
-      source.startsWith("field-name:") &&
-      !sourceKinds.includes("fieldName")
-    ) {
-      sourceKinds.push("fieldName");
-    }
-    if (
       source.startsWith("value-pattern:") &&
       !sourceKinds.includes("valuePattern")
     ) {
@@ -132,7 +116,7 @@ const formatDirectIdentifierItem = (t, item) => {
   const evidence = item.column?.directIdentifierEvidence;
   const conceptLabel = evidence?.concept
     ? getDirectIdentifierConceptLabel(t, evidence.concept)
-    : hasGenericIdentifierFieldEvidence(evidence)
+    : evidence?.requiresReview
     ? t(
         "datasets.directIdentifiers.potentialIdentifier",
         "Potential identifier"
@@ -202,8 +186,7 @@ export const buildDirectIdentifierOverrideWarning = (t, column, excluded) => {
 
 /**
  * Applies initial exclusion defaults from Direct Identifier evidence while
- * preserving explicit user overrides. This is where generic IDs become excluded
- * by default without being promoted to HIGH-confidence Direct Identifiers.
+ * preserving explicit user overrides.
  */
 export function applyDirectIdentifierEvidenceDefaults(
   column = {},
@@ -243,21 +226,15 @@ export function applyDirectIdentifierEvidenceDefaults(
 }
 
 /**
- * Builds schema-only Direct Identifier evidence for an attribute whose raw
+ * Attaches schema-only Direct Identifier evidence to an attribute whose raw
  * values are not being scanned, then applies the same default-exclusion policy
- * used by full CSV profiling.
+ * used by full CSV profiling. Without values the evidence is empty, so this
+ * clears earlier automatic exclusions but keeps explicit researcher decisions.
  */
-export function applySchemaDirectIdentifierEvidence(column = {}, fieldName) {
-  const directIdentifierEvidence = {
-    ...buildDirectIdentifierEvidenceFromFieldName(
-      fieldName || getAttributeName(column)
-    ),
-    schemaOnly: true,
-  };
-
+export function applySchemaDirectIdentifierEvidence(column = {}) {
   return applyDirectIdentifierEvidenceDefaults(
     column,
-    directIdentifierEvidence,
+    buildSchemaOnlyDirectIdentifierEvidence(),
     {
       resetDecisionOnConceptChange: true,
     }
@@ -312,9 +289,8 @@ function isHighConfidenceDirectIdentifierColumn(column) {
 }
 
 /**
- * True for identifiers that the UI should exclude by default. Generic ID-like
- * fields satisfy this through LOW/review evidence, not by pretending they are
- * confirmed Direct Identifiers.
+ * True for identifiers that the UI should exclude by default (confirmed
+ * value-pattern Direct Identifiers).
  */
 export function isDefaultExcludedIdentifierColumn(column) {
   return shouldExcludeIdentifierByDefault(column?.directIdentifierEvidence);

@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 
 import {
   buildDirectIdentifierOverrideWarning,
@@ -27,6 +27,52 @@ const getUniqueName = (existingNames, baseName, getFallbackName) => {
 
 const getColumnIdentity = (column = {}) => column.sourceField || column.field;
 
+/**
+ * Applies AI exclusion decisions to column metadata in one pass. AI
+ * exclusions are tracked with their own `aiAutoExcluded` flag, separate from
+ * value-pattern (`autoExcludedDirectIdentifier`) and researcher decisions:
+ * - "exclude": excludes an included column and marks it aiAutoExcluded.
+ * - "release": re-includes a column only if AI itself excluded it (e.g. a
+ *   rename whose new name is confidently not an identifier).
+ * Columns with an explicit researcher decision are never touched, and
+ * decisions computed for a previous column name are ignored. Returns the
+ * input array unchanged when no column changes.
+ */
+export function applyAiExclusionDecisionsToColumns(columnMeta = [], decisions = []) {
+  if (!decisions.length) return columnMeta;
+
+  const decisionByKey = new Map(
+    decisions.map((decision) => [decision.columnKey, decision])
+  );
+  let changed = false;
+  const nextColumnMeta = columnMeta.map((column) => {
+    const decision = decisionByKey.get(getColumnIdentity(column));
+    if (
+      !decision ||
+      column.manualExclusionDecision === true ||
+      decision.columnName !== column.field
+    ) {
+      return column;
+    }
+
+    if (decision.action === "exclude" && column.excluded !== true) {
+      changed = true;
+      return { ...column, excluded: true, aiAutoExcluded: true };
+    }
+    if (
+      decision.action === "release" &&
+      column.aiAutoExcluded === true &&
+      column.excluded === true
+    ) {
+      changed = true;
+      return { ...column, excluded: false, aiAutoExcluded: false };
+    }
+    return column;
+  });
+
+  return changed ? nextColumnMeta : columnMeta;
+}
+
 export function useDatasetSchemaEditor({
   tables,
   setTables,
@@ -34,8 +80,16 @@ export function useDatasetSchemaEditor({
   setWarnings,
   refreshTable,
   disposeTableProfile,
+  onColumnRenamed,
+  onColumnDeleted,
+  onTableRemoved,
   t,
 }) {
+  // Assigned during render (not in an effect) so AI reconciliation effects,
+  // which run before this hook's effects, always see the committed tables.
+  const tablesRef = useRef(tables);
+  tablesRef.current = tables;
+
   const addUploadedTablePlaceholder = useCallback(
     (file) => {
       if (tables.some((table) => table.name === file.name)) {
@@ -126,6 +180,7 @@ export function useDatasetSchemaEditor({
       );
       if (!table) return;
 
+      onColumnDeleted?.(tableId, columnKey);
       refreshTable(
         tableId,
         table.columnMeta.filter(
@@ -133,18 +188,19 @@ export function useDatasetSchemaEditor({
         )
       );
     },
-    [refreshTable, tables]
+    [onColumnDeleted, refreshTable, tables]
   );
 
   const removeTable = useCallback(
     (tableId) => {
       disposeTableProfile(tableId);
+      onTableRemoved?.(tableId);
       setTables((currentTables) =>
         currentTables.filter((table) => table._localTableId !== tableId)
       );
       setErrors((current) => ({ ...current, tableName: "" }));
     },
-    [disposeTableProfile, setErrors, setTables]
+    [disposeTableProfile, onTableRemoved, setErrors, setTables]
   );
 
   const renameTable = useCallback(
@@ -180,6 +236,19 @@ export function useDatasetSchemaEditor({
       );
       if (!table) return;
 
+      const renamedColumn = table.columnMeta.find(
+        (column) => getColumnIdentity(column) === columnKey
+      );
+      // The name cell commits on every blur; only a real rename invalidates
+      // name-based AI suggestions. sourceField stays the stable identity.
+      if (renamedColumn && renamedColumn.field !== newField) {
+        onColumnRenamed?.(
+          tableId,
+          columnKey,
+          getColumnIdentity({ ...renamedColumn, field: newField })
+        );
+      }
+
       refreshTable(
         tableId,
         table.columnMeta.map((column) =>
@@ -192,7 +261,7 @@ export function useDatasetSchemaEditor({
         )
       );
     },
-    [refreshTable, tables]
+    [onColumnRenamed, refreshTable, tables]
   );
 
   const changeAttributeDataType = useCallback(
@@ -252,12 +321,49 @@ export function useDatasetSchemaEditor({
                 excluded,
                 directIdentifierExclusionOverridden:
                   !excluded && isDefaultExcludedIdentifierColumn(column),
+                // An explicit researcher decision always wins over AI-based
+                // automatic exclusion, including after renames/refreshes.
+                manualExclusionDecision: true,
+                aiAutoExcluded: false,
               }
             : column
         )
       );
     },
     [refreshTable, setWarnings, tables, t]
+  );
+
+  /**
+   * Applies confident AI decisions to an already profiled table (see
+   * applyAiExclusionDecisionsToColumns). Profiling is refreshed only when the
+   * set of eligible attributes actually changes.
+   */
+  const applyAiExclusionDecisions = useCallback(
+    (tableId, decisions = []) => {
+      const table = tablesRef.current.find(
+        (currentTable) => currentTable._localTableId === tableId
+      );
+      if (!table || !Array.isArray(table.columnMeta) || !decisions.length) {
+        return;
+      }
+
+      const nextColumnMeta = applyAiExclusionDecisionsToColumns(
+        table.columnMeta,
+        decisions
+      );
+
+      if (nextColumnMeta !== table.columnMeta) {
+        // Results for several tables/columns can arrive before React
+        // re-renders; keep the ref current so they build on each other.
+        tablesRef.current = tablesRef.current.map((currentTable) =>
+          currentTable._localTableId === tableId
+            ? { ...currentTable, columnMeta: nextColumnMeta }
+            : currentTable
+        );
+        refreshTable(tableId, nextColumnMeta);
+      }
+    },
+    [refreshTable]
   );
 
   return {
@@ -270,5 +376,6 @@ export function useDatasetSchemaEditor({
     renameAttribute,
     changeAttributeDataType,
     changeAttributeExclusion,
+    applyAiExclusionDecisions,
   };
 }

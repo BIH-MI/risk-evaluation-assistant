@@ -32,53 +32,54 @@ const SUBSET_EVIDENCE_FIELDS = [
   "meanSingletonFraction",
 ];
 
-function hasPersistedValuePatternEvidence(source) {
-  return (
-    source === "VALUE_PATTERN" || source === "FIELD_NAME_AND_VALUE_PATTERN"
+function hasPersistedDirectIdentifierSummary(attribute = {}) {
+  return DIRECT_IDENTIFIER_SUMMARY_FIELDS.some(
+    (field) => attribute[field] !== undefined && attribute[field] !== null
   );
 }
 
-function buildDirectIdentifierSummary(evidence, existingSummary = {}) {
+function copyPersistedDirectIdentifierSummary(attribute = {}) {
+  return DIRECT_IDENTIFIER_SUMMARY_FIELDS.reduce((summary, field) => {
+    summary[field] = attribute[field] ?? null;
+    return summary;
+  }, {});
+}
+
+/**
+ * Maps live Direct Identifier evidence onto the persisted summary columns.
+ *
+ * New evidence only ever comes from value patterns, so freshly profiled
+ * attributes produce "VALUE_PATTERN" or no source. Summaries stored by
+ * earlier REA versions ("FIELD_NAME", "FIELD_NAME_AND_VALUE_PATTERN") are
+ * historical records: schema-only evidence (no CSV available, e.g. Edit
+ * Dataset) carries no new information, so a persisted summary is passed
+ * through unchanged rather than recomputed and lost.
+ *
+ * AI column-name suggestions are never part of this summary.
+ */
+function buildDirectIdentifierSummary(evidence, existingAttribute = {}) {
   if (!evidence) return undefined;
 
-  const sources = evidence.sources || [];
-  const hasFieldNameEvidence = sources.some((source) =>
-    source.startsWith("field-name:")
-  );
-  const hasLiveValuePatternEvidence = sources.some((source) =>
+  if (
+    evidence.schemaOnly &&
+    hasPersistedDirectIdentifierSummary(existingAttribute)
+  ) {
+    return copyPersistedDirectIdentifierSummary(existingAttribute);
+  }
+
+  const hasValuePatternEvidence = (evidence.sources || []).some((source) =>
     source.startsWith("value-pattern:")
   );
-  const hasPersistedValuePatternSummary =
-    evidence.schemaOnly &&
-    hasPersistedValuePatternEvidence(
-      existingSummary.directIdentifierEvidenceSource
-    );
-  const hasValuePatternEvidence =
-    hasLiveValuePatternEvidence || hasPersistedValuePatternSummary;
-  const directIdentifierEvidenceSource =
-    hasFieldNameEvidence && hasValuePatternEvidence
-      ? "FIELD_NAME_AND_VALUE_PATTERN"
-      : hasFieldNameEvidence
-      ? "FIELD_NAME"
-      : hasValuePatternEvidence
-      ? "VALUE_PATTERN"
-      : null;
   const hasAutomaticEvidence =
-    Boolean(directIdentifierEvidenceSource) || Boolean(evidence.concept);
+    hasValuePatternEvidence || Boolean(evidence.concept);
 
   return {
-    directIdentifierEvidenceSource,
-    directIdentifierConcept:
-      evidence.concept ??
-      (hasValuePatternEvidence
-        ? existingSummary.directIdentifierConcept ?? null
-        : null),
+    directIdentifierEvidenceSource: hasValuePatternEvidence
+      ? "VALUE_PATTERN"
+      : null,
+    directIdentifierConcept: evidence.concept ?? null,
     directIdentifierConfidence: hasAutomaticEvidence
-      ? hasPersistedValuePatternSummary && !hasFieldNameEvidence
-        ? existingSummary.directIdentifierConfidence ?? evidence.confidence ?? null
-        : evidence.confidence ??
-          existingSummary.directIdentifierConfidence ??
-          null
+      ? evidence.confidence ?? null
       : null,
   };
 }

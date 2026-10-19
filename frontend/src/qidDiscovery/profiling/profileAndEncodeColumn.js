@@ -17,7 +17,7 @@ export function profileAndEncodeColumn(rows = [], sourceField) {
   const observedDistinctValues = [];
   const encodedCodes = new Uint32Array(rows.length);
   const directIdentifierAccumulator =
-    createDirectIdentifierEvidenceAccumulator(sourceField);
+    createDirectIdentifierEvidenceAccumulator();
   let missingCount = 0;
   let missingCode = null;
   let nextCode = 0;

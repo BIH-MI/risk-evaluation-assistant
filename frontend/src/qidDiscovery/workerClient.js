@@ -1,6 +1,6 @@
 import {
   CSV_PREVIEW_ROW_LIMIT,
-  profileParsedTable,
+  prepareParsedTable,
   profileTableFromSource,
 } from "./qidProfiler";
 import { parseCsvFile } from "./parsing/parseCsvFile";
@@ -22,9 +22,14 @@ function getQidWorker() {
   }
 
   qidWorker.onmessage = ({ data }) => {
-    const { requestId, ok, payload, error } = data || {};
+    const { requestId, type, ok, payload, error, progress } = data || {};
     const pending = pendingRequests.get(requestId);
     if (!pending) return;
+
+    if (type === "PROGRESS") {
+      pending.onProgress?.(progress);
+      return;
+    }
 
     pendingRequests.delete(requestId);
 
@@ -48,7 +53,7 @@ function getQidWorker() {
   return qidWorker;
 }
 
-function postQidWorkerMessage(type, payload) {
+function postQidWorkerMessage(type, payload, { onProgress } = {}) {
   const worker = getQidWorker();
   if (!worker) {
     return Promise.reject(new Error("QID worker is not available."));
@@ -61,6 +66,7 @@ function postQidWorkerMessage(type, payload) {
     pendingRequests.set(requestId, {
       resolve,
       reject,
+      onProgress,
     });
     worker.postMessage({
       requestId,
@@ -70,23 +76,24 @@ function postQidWorkerMessage(type, payload) {
   });
 }
 
-// Same response shape as the worker's PROFILE_TABLE handler; only the
+// Same response shape as the worker's PREPARE_TABLE handler; only the
 // profiling session differs (the source stays on the main thread).
-async function profileTableSynchronously(file, qidDiscoveryConfiguration) {
-  const { rows, fields } = await parseCsvFile(file);
-  const profile = profileParsedTable(
-    { rows, fields },
-    qidDiscoveryConfiguration.profiling
-  );
+async function prepareTableSynchronously(
+  file,
+  qidDiscoveryConfiguration,
+  onFields
+) {
+  const { rows, fields } = await parseCsvFile(file, { onFields });
+  const { profilingSource, columnMeta } = prepareParsedTable({ rows, fields });
 
   return {
     name: file.name,
     data: rows.slice(0, CSV_PREVIEW_ROW_LIMIT),
-    columnMeta: profile.columnMeta,
-    subsetProfilingSummary: profile.subsetProfilingSummary,
+    columnMeta,
+    subsetProfilingSummary: null,
     profilingSession: {
       type: "sync",
-      source: profile.profilingSource,
+      source: profilingSource,
       qidDiscoveryConfiguration,
     },
   };
@@ -99,35 +106,47 @@ function requireProfilingConfiguration(qidDiscoveryConfiguration) {
 }
 
 /**
- * Profiles an uploaded CSV file, encodes each observed source column, evaluates
- * Direct Identifier evidence, and calculates initial Distinguishability
- * evidence. The worker path keeps large CSV parsing and subset profiling work
- * off the React UI thread.
+ * Prepares an uploaded CSV file for QID profiling: parses it, encodes each
+ * observed source column, calculates individual attribute statistics and
+ * evaluates Direct Identifier value-pattern evidence. Attribute subsets are
+ * not profiled yet; the caller runs refreshUploadedTableProfile() once the
+ * initial exclusions are resolved. `onFields` receives the CSV header names
+ * as soon as they are parsed (header names only, never values). The worker
+ * path keeps parsing and encoding off the React UI thread.
  *
  * If Worker support is unavailable, the same parser and pure profiling
  * functions run synchronously, so results and the privacy boundary (raw rows
  * never leave the browser) are identical.
  */
-export async function profileUploadedTable(
+export async function prepareUploadedTable(
   file,
-  { qidDiscoveryConfiguration }
+  { qidDiscoveryConfiguration, onFields }
 ) {
   requireProfilingConfiguration(qidDiscoveryConfiguration);
 
   if (getQidWorker()) {
-    return postQidWorkerMessage("PROFILE_TABLE", {
-      file,
-      qidDiscoveryConfiguration,
-    });
+    return postQidWorkerMessage(
+      "PREPARE_TABLE",
+      {
+        file,
+        qidDiscoveryConfiguration,
+      },
+      {
+        onProgress: (progress) => {
+          if (progress?.phase === "fields") onFields?.(progress.fields);
+        },
+      }
+    );
   }
 
-  return profileTableSynchronously(file, qidDiscoveryConfiguration);
+  return prepareTableSynchronously(file, qidDiscoveryConfiguration, onFields);
 }
 
 /**
- * Refreshes Distinguishability evidence from the existing profiling session
+ * Profiles Distinguishability evidence from the existing profiling session:
+ * once after preparation, with the initial exclusions applied, and again
  * after schema or exclusion changes, using the configuration the session was
- * profiled with. Encoded source columns and cached subset metrics are reused,
+ * prepared with. Encoded source columns and cached subset metrics are reused,
  * avoiding another CSV scan.
  */
 export async function refreshUploadedTableProfile(

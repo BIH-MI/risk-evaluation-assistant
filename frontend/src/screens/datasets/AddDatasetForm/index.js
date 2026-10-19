@@ -1,5 +1,11 @@
 // src/screens/datasets/AddDatasetForm/index.js
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { useAuth } from "react-oidc-context";
@@ -25,6 +31,12 @@ import { buildAddDatasetPayload } from "./buildAddDatasetPayload";
 import { useDatasetSchemaEditor } from "./useDatasetSchemaEditor";
 import { useDatasetTableProfiling } from "./useDatasetTableProfiling";
 import { useQidDiscoveryConfigurationSelection } from "./useQidDiscoveryConfigurationSelection";
+import { useAiIdentifierSuggestions } from "./useAiIdentifierSuggestions";
+import { useInitialQidProfiling } from "./useInitialQidProfiling";
+import { getTableAiState } from "./aiSuggestions/aiSuggestionTableState";
+import { markQidStage, startQidPipelineTiming } from "./qidPipelineTimings";
+
+const getColumnIdentity = (column = {}) => column.sourceField || column.field;
 
 const DATASET_NAME_ALREADY_EXISTS = "DATASET_NAME_ALREADY_EXISTS";
 
@@ -66,13 +78,34 @@ export default function AddDatasetForm() {
     [directIdentifierValidation, t]
   );
 
-  const { profileTable, refreshTable, disposeTableProfile } =
+  const { prepareTable, runInitialProfile, refreshTable, disposeTableProfile } =
     useDatasetTableProfiling({
       tables,
       setTables,
       setErrors,
       t,
     });
+
+  // The schema editor (created below) applies AI exclusions; the AI hook is
+  // created first because the schema editor needs its rename/delete handlers.
+  const applyAiExclusionDecisionsRef = useRef(null);
+  const handleAiExclusionDecisions = useCallback((tableId, decisions) => {
+    applyAiExclusionDecisionsRef.current?.(tableId, decisions);
+  }, []);
+
+  const {
+    aiStateByTable,
+    classifyFields,
+    preloadModel,
+    suppressLateAutoExclusions,
+    handleColumnRenamed,
+    handleColumnDeleted,
+    handleTableRemoved,
+    handleManualExclusionChange,
+  } = useAiIdentifierSuggestions({
+    tables,
+    onAiExclusionDecisions: handleAiExclusionDecisions,
+  });
 
   const {
     addUploadedTablePlaceholder,
@@ -84,6 +117,7 @@ export default function AddDatasetForm() {
     renameAttribute,
     changeAttributeDataType,
     changeAttributeExclusion,
+    applyAiExclusionDecisions,
   } = useDatasetSchemaEditor({
     tables,
     setTables,
@@ -91,8 +125,44 @@ export default function AddDatasetForm() {
     setWarnings,
     refreshTable,
     disposeTableProfile,
+    onColumnRenamed: handleColumnRenamed,
+    onColumnDeleted: handleColumnDeleted,
+    onTableRemoved: handleTableRemoved,
     t,
   });
+
+  applyAiExclusionDecisionsRef.current = applyAiExclusionDecisions;
+
+  // Runs each uploaded table's first subset profiling once, after CSV
+  // preparation and AI screening have both finished (or AI timed out).
+  useInitialQidProfiling({
+    tables,
+    aiStateByTable,
+    runInitialProfile,
+    suppressLateAutoExclusions,
+  });
+
+  const findColumn = useCallback(
+    (tableId, columnKey) =>
+      tables
+        .find((table) => table._localTableId === tableId)
+        ?.columnMeta?.find((column) => getColumnIdentity(column) === columnKey),
+    [tables]
+  );
+
+  /**
+   * Manual checkbox changes go through the existing exclusion workflow
+   * (override warnings + refreshUploadedTableProfile) and also count as the
+   * researcher's decision on any AI suggestion for that column.
+   */
+  const handleExcludedChange = useCallback(
+    (tableId, columnKey, excluded) => {
+      const column = findColumn(tableId, columnKey);
+      handleManualExclusionChange(tableId, columnKey, Boolean(column?.excluded));
+      changeAttributeExclusion(tableId, columnKey, excluded);
+    },
+    [changeAttributeExclusion, findColumn, handleManualExclusionChange]
+  );
 
   useEffect(() => {
     if (!qidConfigurationsLoadFailed) return;
@@ -148,11 +218,24 @@ export default function AddDatasetForm() {
     ]
   );
 
+  /**
+   * Starts the two independent preparation tasks for an uploaded CSV: the QID
+   * worker parses and encodes the file, while the AI worker loads the model
+   * and classifies the header names as soon as they are parsed. Only header
+   * names are passed to the AI worker.
+   */
   const handleTableParse = useCallback(
     (file, tableId) => {
-      profileTable(file, tableId, selectedQidDiscoveryConfiguration);
+      startQidPipelineTiming(tableId);
+      preloadModel(tableId);
+      prepareTable(file, tableId, selectedQidDiscoveryConfiguration, {
+        onFields: (fields) => {
+          markQidStage(tableId, "csvFieldsAvailableAtMs");
+          classifyFields(tableId, fields);
+        },
+      });
     },
-    [profileTable, selectedQidDiscoveryConfiguration]
+    [classifyFields, preloadModel, prepareTable, selectedQidDiscoveryConfiguration]
   );
 
   /**
@@ -389,9 +472,10 @@ export default function AddDatasetForm() {
             onTableNameChange={renameTable}
             onColumnNameChange={renameAttribute}
             onDataTypeChange={changeAttributeDataType}
-            onExcludedChange={changeAttributeExclusion}
+            onExcludedChange={handleExcludedChange}
             onAddColumn={addAttribute}
             onDeleteColumn={deleteAttribute}
+            aiState={getTableAiState(aiStateByTable, table._localTableId)}
           />
         ))}
 

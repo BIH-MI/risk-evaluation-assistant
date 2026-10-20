@@ -6,10 +6,12 @@ import { MemoScaleCell } from "../../RowComponents";
 import {
   EvidenceTooltip,
   evidenceTooltipComponentsProps,
+  evidenceTooltipLightComponentsProps,
   hasEvidenceValue,
   shouldShowEvidenceIcon,
 } from "../evidence";
 import OriginalValueIndicator from "./OriginalValueIndicator";
+import { usePaperScreenshotMode } from "../usePaperScreenshotMode";
 import {
   getAttributeFieldEvidence,
   getOriginalAssessmentValue,
@@ -17,14 +19,29 @@ import {
   scaleValuesAreEqual,
 } from "../utils/assessmentTableUtils";
 
+// Screenshot mode: open beside the rating so the tooltip covers neither the
+// attribute names nor the compact rows above; flips if there is no room.
+const sidePopperProps = {
+  modifiers: [
+    { name: "flip", options: { fallbackPlacements: ["left", "bottom", "top"] } },
+    { name: "preventOverflow", options: { padding: 8 } },
+  ],
+};
+
 function EvidenceInfoIcon({ evidence, field, scoringSystem, t }) {
+  const paperScreenshot = usePaperScreenshotMode();
   if (!shouldShowEvidenceIcon(evidence)) return null;
 
   return (
     <Tooltip
       arrow
-      placement="top"
-      componentsProps={evidenceTooltipComponentsProps}
+      placement={paperScreenshot ? "right" : "top"}
+      PopperProps={paperScreenshot ? sidePopperProps : undefined}
+      componentsProps={
+        paperScreenshot
+          ? evidenceTooltipLightComponentsProps
+          : evidenceTooltipComponentsProps
+      }
       title={
         <EvidenceTooltip
           evidence={evidence}
@@ -39,7 +56,7 @@ function EvidenceInfoIcon({ evidence, field, scoringSystem, t }) {
         aria-label={t("datasetAssessments.evidence.info", "Evidence")}
         sx={{
           position: "absolute",
-          top: -8,
+          top: paperScreenshot ? -6 : -8,
           right: -8,
           zIndex: 2,
           width: 20,
@@ -72,6 +89,7 @@ function ScaleCellWithEvidence({
   isReadOnly,
   t,
 }) {
+  const paperScreenshot = usePaperScreenshotMode();
   const attribute = row.original;
   const evidence = getAttributeFieldEvidence(
     attribute,
@@ -103,7 +121,7 @@ function ScaleCellWithEvidence({
         sx={{
           position: "relative",
           width: "116px",
-          minHeight: showOriginalValue ? 58 : 42,
+          minHeight: showOriginalValue ? 58 : paperScreenshot ? 34 : 42,
           flexDirection: "column",
         }}
       >

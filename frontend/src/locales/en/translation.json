@@ -84,7 +84,18 @@
       "datasetNameLabel": "Dataset Name",
       "datasetDescriptionLabel": "Dataset Description (optional)",
       "searchUsersPlaceholder": "Search by first or last name",
-      "qidDiscoveryConfigurationLabel": "QID Discovery Configuration"
+      "qidDiscoveryConfigurationLabel": "QID Discovery Configuration",
+      "aiModelLabel": "AI Model",
+      "aiModelDefaultName": "{{name}} (Default)",
+      "aiModelHelper": "The model analyses column names locally in your browser. Column names and data values are never sent to external services.",
+      "aiModelLocked": "The AI model cannot be changed after tables have been added, so that all tables of this dataset are assessed by the same model. Remove all tables to change it.",
+      "aiModelNoneAvailable": "No AI model is available. Review the attributes manually.",
+      "aiModelUnavailable": "The AI model of the selected QID Discovery configuration ({{model}}) cannot be used here: {{reason}} No other model is used instead. Review the attributes manually and ask an administrator to install the model.",
+      "aiModelDefaultUnavailable": "The default AI model of the selected QID Discovery configuration ({{model}}) cannot be used here: {{reason}} Select one of the available models.",
+      "aiModelFromConfiguration": "Set by the selected QID Discovery configuration. The model analyses column names locally in your browser.",
+      "aiModelEvaluated": "Evaluated: identifier suggestions require your review. Identifier column names are still excluded automatically.",
+      "aiModelApproved": "Approved for automatic exclusion: confident identifier suggestions are excluded automatically.",
+      "aiModelNotEvaluated": "Not evaluated in this configuration: every suggestion requires your review."
     },
     "attributesTable": {
       "index": "#",
@@ -100,6 +111,7 @@
       "parsing": "Parsing {{name}}...",
       "subsetProfilingUpdating": "Profiling Distinguishability evidence...",
       "subsetProfilingSummary": "{{subsetCount}} attribute subsets evaluated across {{attributeCount}} eligible attributes.",
+      "subsetProfilingProvisional": "Provisional until identifier review is complete.",
       "noSubsetProfilingRequired": "No multi-attribute subset profiling was required.",
       "newTable": "New Table",
       "newTableCounter": "New Table ({{counter}})",
@@ -143,32 +155,63 @@
     },
     "longitudinal": {},
     "aiSuggestions": {
+      "status": {
+        "reviewNeeded": "Review needed",
+        "autoExcluded": "Auto-excluded",
+        "reviewed": "Reviewed",
+        "noExclusionSuggested": "No exclusion suggested",
+        "notScreened": "Not screened",
+        "pending": "Screening…"
+      },
+      "indicatorAriaLabel": "Direct-identifier screening for {{name}}: {{status}}. Show details",
+      "legend": {
+        "title": "Screening status"
+      },
+      "actions": {
+        "confirmExclusion": "Confirm exclusion",
+        "keepIncluded": "Keep included",
+        "confirmExclusionFor": "Confirm exclusion of {{name}}",
+        "keepIncludedFor": "Keep {{name}} included"
+      },
       "tooltip": {
-        "title": "AI Identifier Assessment",
-        "classificationLabel": "AI classification",
-        "exclusionLabel": "Status",
-        "status": {
-          "autoExcluded": "Automatically excluded",
-          "excluded": "Excluded",
-          "includedManually": "Included by your decision",
-          "included": "Included for QID assessment",
-          "manualReview": "Manual review needed",
-          "unavailable": "AI assessment unavailable",
-          "pending": "AI assessment in progress",
-          "notAssessed": "Not yet assessed"
+        "title": "Direct-identifier screening",
+        "categoryLabel": "Predicted category",
+        "evidenceLabel": "Evidence",
+        "categoryUncertain": "Uncertain",
+        "uncertainPrediction": "{{category}} (uncertain)",
+        "sources": {
+          "columnName": "column-name rule",
+          "model": "AI model",
+          "aiSuggestion": "AI suggestion",
+          "valuePattern": "value pattern"
         },
         "message": {
-          "autoExcluded": "The AI identified this attribute as a potential direct identifier and excluded it from QID profiling.",
-          "identifierExcluded": "The AI identified this attribute as a potential direct identifier. It is excluded from QID profiling.",
-          "identifierIncluded": "The AI identified this attribute as a potential direct identifier, but you chose to include it. Please verify.",
-          "included": "No automatic exclusion was suggested. This attribute may still contribute to re-identification.",
-          "nonIdentifierExcluded": "No automatic exclusion was suggested. The attribute is excluded by your decision or by detected value patterns.",
-          "uncertain": "The AI could not reliably determine whether this attribute is an identifier. Please review it.",
-          "unavailable": "Review the attribute manually.",
+          "autoExcluded": "The screening identified a potential direct identifier, so the attribute was automatically excluded from profiling.",
+          "autoExcludedByModel": "The AI model identified a potential direct identifier, so the attribute was automatically excluded from profiling.",
+          "autoExcludedByName": "The column name indicates a potential direct identifier, so the attribute was automatically excluded from profiling.",
+          "autoExcludedByNameAndModel": "The column name and the AI model both indicate a potential direct identifier, so the attribute was automatically excluded from profiling.",
+          "autoExcludedByValuePattern": "The values match a direct-identifier pattern, so the attribute was automatically excluded from profiling.",
+          "included": "No exclusion was suggested. The attribute may still identify individuals in combination with others, so it is profiled as a quasi-identifier candidate.",
+          "uncertain": "The screening could not reliably classify this attribute. Please review whether it contains a direct identifier.",
+          "identifierNotExcluded": "The screening suggests a potential direct identifier, but the attribute was not excluded automatically. Please review it.",
+          "valuePatternReview": "Some values look like a direct identifier. Please review the attribute.",
+          "reviewedExcluded": "You decided to exclude this attribute from QID profiling.",
+          "reviewedIncluded": "You decided to keep this attribute included in QID profiling.",
           "pending": "The column name is being classified. You can keep editing.",
-          "notAssessed": "Review the attribute manually."
-        },
-        "guidance": "Please verify. You can change the checkbox manually."
+          "provisionalIdentifier": "The AI suggests a potential direct identifier, but the selected model is not approved for automatic exclusion. Please review it.",
+          "modelNotEvaluated": "The selected model has not been evaluated in this configuration, so its result cannot rule out a direct identifier. Please review it.",
+          "nameReview": "The column name often holds a direct identifier, such as a name or a possibly pseudonymous record key. Please review it.",
+          "nameContext": "The AI suggests a direct identifier, but the column name suggests information about one, or a quasi-identifier. Please review it.",
+          "evidenceConflict": "The column name looks like a direct identifier, but the AI model confidently disagrees. Please review it.",
+          "notScreened": {
+            "disabled": "AI screening is disabled for the selected QID discovery configuration. Check this attribute for direct identifiers manually.",
+            "manualTable": "Manually added tables are not screened. Check this attribute for direct identifiers manually.",
+            "modelUnavailable": "No AI model is available in this deployment, so the result is unavailable. Check this attribute for direct identifiers manually.",
+            "loadFailed": "The AI model could not be loaded. Check this attribute for direct identifiers manually.",
+            "failed": "AI screening failed for this attribute. Check it for direct identifiers manually.",
+            "notRun": "AI screening did not run for this attribute (for example, it was cancelled). Check it for direct identifiers manually."
+          }
+        }
       },
       "categories": {
         "PERSON_NAME": "Person name",
@@ -183,6 +226,29 @@
         "CLINICAL": "Clinical",
         "ADMINISTRATIVE": "Administrative",
         "OTHER": "Other / uncertain"
+      },
+      "review": {
+        "notScreened_one": "{{count}} attribute was not screened ({{reason}}). Check it for direct identifiers manually.",
+        "notScreened_other": "{{count}} attributes were not screened ({{reason}}). Check them for direct identifiers manually.",
+        "notScreenedReasons": {
+          "disabled": "AI screening is disabled",
+          "manualTable": "manually added table",
+          "modelUnavailable": "no AI model available",
+          "loadFailed": "the AI model could not be loaded",
+          "failed": "AI screening failed",
+          "notRun": "AI screening did not run"
+        }
+      },
+      "progress": {
+        "ariaLabel": "AI screening progress",
+        "loadingModel": "Loading AI model…",
+        "loadingModelBytes": "Loading AI model: {{loaded}} of {{total}} MB ({{percent}}%)",
+        "classifying": "AI screening: {{completed}} of {{total}} attributes ({{percent}}%)",
+        "completed": "Classification complete: {{completed}}/{{total}} attributes.",
+        "reviewRequired_one": "{{count}} requires review.",
+        "reviewRequired_other": "{{count}} require review.",
+        "unavailable": "AI screening unavailable. Review the attributes manually.",
+        "failed": "AI screening failed after {{completed}} of {{total}} attributes. Review the attributes manually."
       }
     }
   },
@@ -206,18 +272,15 @@
     },
     "evidence": {
       "info": "Evidence",
-      "quantitativeDistinguishabilityEvidence": "Quantitative Distinguishability Evidence",
-      "individualAttribute": "Individual attribute",
-      "combinationWithOtherAttributes": "In combination with other attributes",
-      "combinationWithOtherAttributesInfo": "Averages across evaluated subsets containing this attribute, with each subset size weighted equally.",
-      "averageDistinction": "Average Distinction",
-      "averageSeparation": "Average Separation",
-      "averageSingletonFraction": "Average Singleton fraction",
+      "distinguishabilityEvidence": "Distinguishability Evidence",
+      "measure": "Measure",
+      "individual": "Individual",
+      "contextualMean": "Contextual mean",
       "contextualEvidenceUnavailable": "Contextual Distinguishability evidence is unavailable for this attribute.",
       "distinction": "Distinction",
       "separation": "Separation",
       "singletonFraction": "Singleton fraction",
-      "historicalEvidence": "Historical Evidence",
+      "otherAssessments": "Other Assessments",
       "directIdentifierEvidence": "Direct Identifier Evidence",
       "evidenceSource": "Source",
       "attributeName": "Attribute name",
@@ -694,7 +757,8 @@
       "editTitle": "Edit QID Discovery",
       "createTitle": "Create QID Discovery",
       "saving": "Saving...",
-      "save": "Save"
+      "save": "Save",
+      "loading": "Loading configuration…"
     },
     "configurationDetails": {
       "title": "Configuration Details"
@@ -721,6 +785,43 @@
       "fieldInvalidNumber": "{{field}} must be a valid number.",
       "fieldNotInteger": "{{field}} must be an integer.",
       "fieldBelowMin": "{{field}} must be at least {{min}}."
+    },
+    "aiScreening": {
+      "title": "AI-Assisted Direct-Identifier Detection",
+      "description": "Before profiling, column names can be screened for potential direct identifiers by an AI model that runs in the researcher's browser. Column names and data values are never sent to external services.",
+      "enabled": "Enable AI screening",
+      "disabledNotice": "AI-assisted screening is disabled. Model settings are retained but will not be used.",
+      "allowedModels": "Available models",
+      "allowedModelsHelper": "Models selected here are offered in Add Dataset; with more than one, researchers choose among them. Install a model first; installation applies to the whole deployment.",
+      "defaultModel": "Default AI model",
+      "defaultModelHelper": "Preselected for new datasets.",
+      "unsupportedModel": "{{model}} (not supported by this build)",
+      "errors": {
+        "modelsUnavailable": "Not installed in this deployment: {{models}}. Install these models or remove them.",
+        "modelsRequired": "Select at least one model.",
+        "defaultRequired": "Select a default AI model.",
+        "defaultNotAllowed": "The default AI model must be one of the available models.",
+        "modelsUnsupported": "Not supported by this REA build: {{models}}. Remove these models."
+      },
+      "installation": {
+        "installed": "Installed",
+        "install": "Install",
+        "retry": "Retry installation",
+        "installing": "Installing… {{percent}}%",
+        "failed": "Installation failed: {{error}}",
+        "unknown": "Installation status unknown",
+        "statusUnavailable": "The installation status could not be loaded ({{detail}}). Models not saved in this configuration cannot be added until it is available; other settings can still be saved.",
+        "unsupported": "This REA build cannot run this model.",
+        "notInstalled": "It is not installed in this deployment.",
+        "installFailed": "Its installation failed ({{detail}}).",
+        "statusUnknown": "Its installation status could not be loaded ({{detail}})."
+      },
+      "validation": {
+        "approved": "Approved for automatic exclusion",
+        "evaluated": "Evaluated: identifier suggestions require review",
+        "configurationChanged": "Evaluated for an earlier configuration: all suggestions require review",
+        "notEvaluated": "Not evaluated: all suggestions require review"
+      }
     }
   }
 }

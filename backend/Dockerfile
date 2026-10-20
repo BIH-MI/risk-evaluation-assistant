@@ -9,15 +9,18 @@ ARG MAVEN_OPTS
 
 WORKDIR /app
     
+# Build context is the repository root (see docker-compose.yml).
 # Copy only the POM first to cache dependencies
-COPY pom.xml .
+COPY backend/pom.xml .
 
 # Download dependencies (Go Offline)
 # We use ${MAVEN_OPTS} to inject proxy settings if they exist
 RUN mvn ${MAVEN_OPTS} dependency:go-offline
     
-# Copy the source code
-COPY src ./src
+# Copy the source code and the AI model registry shared with the frontend
+# (pom.xml reads it from ../frontend)
+COPY frontend/src/qidDiscovery/aiSuggestions/modelRegistry.json /frontend/src/qidDiscovery/aiSuggestions/modelRegistry.json
+COPY backend/src ./src
 
 # Build the JAR file (skipping tests to speed up deployment)
 RUN mvn ${MAVEN_OPTS} clean package -DskipTests

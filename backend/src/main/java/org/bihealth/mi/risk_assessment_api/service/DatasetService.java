@@ -77,6 +77,7 @@ public class DatasetService {
         Dataset ds = dto.toEntity(username);
         ds.setName(normalizedName);
         applyQidDiscoveryConfiguration(ds, dto, true);
+        applyAiScreeningProvenance(ds, dto.getAiScreening());
         Dataset saved = saveDatasetHandlingDuplicateName(ds, normalizedName);
         return new DatasetResponseDTO(saved);
     }
@@ -247,6 +248,40 @@ public class DatasetService {
         );
         dataset.setQidDiscoveryConfiguration(version.getConfiguration());
         dataset.setQidDiscoveryConfigurationVersion(version);
+    }
+
+    /**
+     * Records the AI model that screened the column names. The model must be
+     * allowed by the dataset's QID discovery configuration version. Recorded
+     * once, at creation: later edits do not change this provenance.
+     */
+    private void applyAiScreeningProvenance(Dataset dataset, DatasetAiScreeningRequestDTO aiScreening) {
+        if (aiScreening == null || aiScreening.getModelId() == null || aiScreening.getModelId().isBlank()) {
+            return;
+        }
+        String modelId = aiScreening.getModelId().trim();
+        QidDiscoveryConfigurationVersion version = dataset.getQidDiscoveryConfigurationVersion();
+        if (version != null
+                && !qidDiscoveryConfigurationService.getEffectiveAiAllowedModelIds(version).contains(modelId)) {
+            throw new IllegalArgumentException(
+                    "AI model " + modelId + " is not allowed by the selected QID discovery configuration.");
+        }
+        dataset.setAiScreeningModelId(limit(modelId, 64));
+        dataset.setAiScreeningModelRepository(limit(aiScreening.getRepository(), 200));
+        dataset.setAiScreeningModelRevision(limit(aiScreening.getRevision(), 64));
+        dataset.setAiScreeningModelDtype(limit(aiScreening.getDtype(), 32));
+        dataset.setAiScreeningPromptVersion(limit(aiScreening.getPromptVersion(), 64));
+        dataset.setAiScreeningThresholdsVersion(limit(aiScreening.getThresholdsVersion(), 64));
+        dataset.setAiScreeningValidationStatus(limit(aiScreening.getValidationStatus(), 32));
+    }
+
+    private static String limit(String value, int maxLength) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        if (trimmed.length() > maxLength) {
+            throw new IllegalArgumentException("AI screening provenance value is too long.");
+        }
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     /**

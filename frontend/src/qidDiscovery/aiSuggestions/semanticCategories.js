@@ -7,7 +7,9 @@
  * (profiling/directIdentifierEvidence.js) affects submission validation and
  * persisted identifier summaries. Confident SUGGEST_EXCLUSION_REVIEW
  * suggestions may automatically exclude a column in Add Dataset (tracked as
- * `aiAutoExcluded`), which the researcher can always override.
+ * `aiAutoExcluded`), which the researcher can always override. A model's
+ * identifier predictions are only confident if the model is approved for
+ * automatic exclusion (see modelConfig.js).
  *
  * Review suggestions:
  *
@@ -23,8 +25,9 @@
  * | MANUAL_REVIEW            | OTHER                                    | The model abstains; the researcher decides.         |
  *
  * Any classification may additionally be downgraded to "uncertain" by
- * interpretClassification.js (low score, small margin, or an identifier
- * category close behind a non-identifier one).
+ * columnSuggestions.js (low score, small margin, an identifier category close
+ * behind a non-identifier one, or a model not evaluated or approved for its
+ * exact configuration).
  */
 
 export const AI_REVIEW_SUGGESTIONS = Object.freeze({
@@ -34,24 +37,21 @@ export const AI_REVIEW_SUGGESTIONS = Object.freeze({
 });
 
 /**
- * Labels and templates were chosen by evaluating prompt variants with this
- * model on 88 column names (41 direct identifiers, 37 QIDs/clinical, 10
- * opaque names), half of them held out from tuning. Against the previous
- * prompt this raised confident identifier detections from 23 to 28, lowered
- * false automatic exclusions from 4 to 1, and lowered identifiers predicted
- * confidently as non-identifiers from 2 to 1. Results are very sensitive to
- * wording, so any change must be re-evaluated (and bump AI_PROMPT_VERSION).
+ * Default candidate labels, tuned with DeBERTaV3-XSmall (evaluation and
+ * prompt-selection evidence: its validation record in modelRegistry.json).
+ * Results are very sensitive to wording, so a change needs a new prompt
+ * profile and re-evaluation.
  *
  * - Short noun phrases work better than labels with examples
- *   ("such as age, sex ...") for this xsmall NLI model.
+ *   ("such as age, sex ...") for this small NLI model.
  * - "a person's insurance policy number" and "administrative process
  *   information" stop insurance-number columns from being absorbed by a
  *   generic "administrative information" label.
  * - "an unnamed or coded variable" lets opaque names (var_023) abstain
  *   instead of matching an identifier label.
  *
- * `label` is the natural-language candidate passed to the NLI model; it is
- * part of the prompt and therefore covered by AI_PROMPT_VERSION.
+ * Prompt profiles may use other wording per model (promptProfiles.js), but
+ * always these category ids.
  * `directIdentifierConcept` links identifier-like categories to the concept
  * names already used for value-pattern evidence and i18n labels.
  */
@@ -130,24 +130,13 @@ export const AI_SEMANTIC_CATEGORIES = Object.freeze([
   },
 ]);
 
-// Scores are averaged over these templates (prompt ensembling), which makes
-// predictions less dependent on the wording of a single hypothesis.
+// Scores are averaged over these templates, which makes predictions less
+// dependent on the wording of one hypothesis. Each template adds one model
+// pass per candidate label.
 export const AI_HYPOTHESIS_TEMPLATES = Object.freeze([
   "This column contains {}.",
   "This column records {}.",
 ]);
-
-export const AI_CANDIDATE_LABELS = AI_SEMANTIC_CATEGORIES.map(
-  (category) => category.label
-);
-
-const CATEGORY_BY_LABEL = new Map(
-  AI_SEMANTIC_CATEGORIES.map((category) => [category.label, category])
-);
-
-export function getSemanticCategoryByLabel(label) {
-  return CATEGORY_BY_LABEL.get(label) || null;
-}
 
 export function isIdentifierCategory(category) {
   return (

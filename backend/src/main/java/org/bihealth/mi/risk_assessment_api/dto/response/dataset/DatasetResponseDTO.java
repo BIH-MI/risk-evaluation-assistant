@@ -38,6 +38,15 @@ public class DatasetResponseDTO {
     private Integer qidDiscoveryConfigurationVersion;
     private String qidDiscoveryConfigurationName;
 
+    // AI model used for direct-identifier screening (null if not recorded).
+    private String aiScreeningModelId;
+    private String aiScreeningModelRepository;
+    private String aiScreeningModelRevision;
+    private String aiScreeningModelDtype;
+    private String aiScreeningPromptVersion;
+    private String aiScreeningThresholdsVersion;
+    private String aiScreeningValidationStatus;
+
     // Full table schema returned with the dataset.
     private List<DatasetTableResponseDTO> tables;
 
@@ -62,6 +71,13 @@ public class DatasetResponseDTO {
             this.qidDiscoveryConfigurationVersion = entity.getQidDiscoveryConfigurationVersion().getVersionNumber();
             this.qidDiscoveryConfigurationName = entity.getQidDiscoveryConfigurationVersion().getName();
         }
+        this.aiScreeningModelId = entity.getAiScreeningModelId();
+        this.aiScreeningModelRepository = entity.getAiScreeningModelRepository();
+        this.aiScreeningModelRevision = entity.getAiScreeningModelRevision();
+        this.aiScreeningModelDtype = entity.getAiScreeningModelDtype();
+        this.aiScreeningPromptVersion = entity.getAiScreeningPromptVersion();
+        this.aiScreeningThresholdsVersion = entity.getAiScreeningThresholdsVersion();
+        this.aiScreeningValidationStatus = entity.getAiScreeningValidationStatus();
         this.tables = entity.getTables().stream()
                 .map(DatasetTableResponseDTO::new)
                 .collect(Collectors.toList());

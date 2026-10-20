@@ -2,32 +2,44 @@
 /* global globalThis */
 import { env, pipeline } from "@huggingface/transformers";
 import {
-  AI_ASSET_MANIFEST,
+  AI_CLASSIFICATION_STRATEGIES,
   AI_ERROR_CODES,
-  AI_COLUMN_CLASSIFIER_MODEL,
-  AI_MODEL_PATH,
-  AI_ORT_WASM_PATH,
+  isColumnClassifierModelSupported,
+  getColumnClassifierModel,
 } from "../modelConfig";
-import {
-  AI_CANDIDATE_LABELS,
-  AI_HYPOTHESIS_TEMPLATES,
-} from "../semanticCategories";
+import { zeroShotNliAdapter } from "./zeroShotNliAdapter";
 
 /*
  * Browser-local zero-shot column classifier. Runs only in this dedicated
  * worker so ONNX inference never blocks the React UI thread.
  *
  * Input is limited to normalized column-name text (plus an optional
- * researcher-written description). No CSV values reach this worker, and all
- * model, tokenizer and WASM files are loaded from the deployment's own
- * /ai-assets/ directory; remote model loading is disabled.
+ * researcher-written description). No CSV values reach this worker. Model
+ * and tokenizer files are loaded from REA's backend (verified at
+ * installation) and the WASM runtime from the frontend's own origin; loading
+ * from Hugging Face or any other remote host is disabled.
+ *
+ * Every request names a model from the registry (modelConfig.js). Requests,
+ * including preloads, run one after another in a single queue, and only one
+ * model is kept in memory: a request for another model disposes the previous
+ * pipeline (no queued request can still be using it) before loading the new
+ * one, so two models are never resident at the same time.
  */
 
-let classifierPromise = null;
-let configuredAssetBaseUrl = null;
+const ADAPTERS = Object.freeze({
+  [AI_CLASSIFICATION_STRATEGIES.ZERO_SHOT_NLI]: zeroShotNliAdapter,
+});
+
+// The loaded pipeline: { key, promise }. `key` identifies model version + URL.
+// Only read and replaced by queued tasks.
+let loadedClassifier = null;
+// Requests received and not yet answered; CANCEL is recorded only for these,
+// so a late cancellation of a finished request is not kept forever.
+const activeRequests = new Set();
 const cancelledRequests = new Set();
 // Requests (e.g. several uploaded tables classified automatically) are run one
-// after another so a single ONNX session is never used concurrently.
+// after another so a single ONNX session is never used concurrently and
+// models are never loaded in parallel.
 let requestQueue = Promise.resolve();
 
 function enqueue(task) {
@@ -43,117 +55,106 @@ class ClassifierError extends Error {
   }
 }
 
-function configureLocalOnlyEnvironment(assetBaseUrl) {
+function configureLocalOnlyEnvironment(modelUrl, ortWasmUrl) {
   env.allowRemoteModels = false;
   env.allowLocalModels = true;
-  env.localModelPath = new URL(AI_MODEL_PATH, assetBaseUrl).href;
-  // Files are served by our own Nginx with normal HTTP caching; the Cache API
-  // copy would only duplicate ~100 MB per origin.
+  // Global, but safe: models are loaded one at a time by the request queue.
+  env.localModelPath = modelUrl;
+  // The backend serves model files with long-lived HTTP caching; the Cache
+  // API copy would only duplicate them per origin.
   env.useBrowserCache = false;
 
   const wasm = env.backends.onnx.wasm;
-  wasm.wasmPaths = new URL(AI_ORT_WASM_PATH, assetBaseUrl).href;
-  // Multi-threaded WASM needs cross-origin isolation (SharedArrayBuffer),
-  // which REA does not enable; a single thread inside this worker is enough
-  // for short column-name inputs.
-  wasm.numThreads = 1;
+  wasm.wasmPaths = ortWasmUrl;
+  // Multi-threaded WASM needs cross-origin isolation (SharedArrayBuffer,
+  // COOP/COEP headers). Without it, use a single thread inside this worker.
+  wasm.numThreads = globalThis.crossOriginIsolated
+    ? Math.min(4, globalThis.navigator?.hardwareConcurrency || 1)
+    : 1;
   wasm.proxy = false;
 }
 
 /**
- * Reads the manifest written by scripts/fetch-ai-assets.js. A missing
- * manifest (or an SPA fallback returning index.html) means the assets were
- * not installed; a different revision means they do not match this build.
+ * Model loading progress. Transformers.js reports each file separately and
+ * only learns a file's size when that file starts, so a sum over files would
+ * jump backwards. Byte counts are therefore reported only for the ONNX
+ * weights (nearly all of the download) once their size is known; the
+ * configuration and tokenizer files are reported without bytes, which the
+ * UI shows as indeterminate progress.
  */
-async function verifyAssetManifest(assetBaseUrl) {
-  let manifest;
-  try {
-    const response = await fetch(new URL(AI_ASSET_MANIFEST, assetBaseUrl), {
-      cache: "no-cache",
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    manifest = await response.json();
-  } catch (error) {
-    throw new ClassifierError(
-      AI_ERROR_CODES.ASSETS_UNAVAILABLE,
-      `AI model assets are not installed (${error.message}).`
-    );
-  }
-
-  if (
-    manifest?.modelId !== AI_COLUMN_CLASSIFIER_MODEL.modelId ||
-    manifest?.revision !== AI_COLUMN_CLASSIFIER_MODEL.revision ||
-    manifest?.dtype !== AI_COLUMN_CLASSIFIER_MODEL.dtype
-  ) {
-    throw new ClassifierError(
-      AI_ERROR_CODES.ASSETS_UNAVAILABLE,
-      "Installed AI model assets do not match the pinned model revision."
-    );
-  }
-}
-
 function createLoadProgressReporter(requestId) {
-  const files = new Map();
+  const post = (progress) =>
+    globalThis.postMessage({ requestId, type: "PROGRESS", progress });
 
   return (event) => {
     if (!event?.file) return;
-    if (event.status === "progress" || event.status === "done") {
-      const previous = files.get(event.file) || { loaded: 0, total: 0 };
-      const total = event.total || previous.total;
-      files.set(event.file, {
-        total,
-        loaded: event.status === "done" ? total : event.loaded || 0,
-      });
-    } else if (event.status === "initiate" && !files.has(event.file)) {
-      files.set(event.file, { loaded: 0, total: 0 });
-    } else {
-      return;
-    }
-
-    let loaded = 0;
-    let total = 0;
-    files.forEach((file) => {
-      loaded += file.loaded;
-      total += file.total;
-    });
-
-    globalThis.postMessage({
-      requestId,
-      type: "PROGRESS",
-      progress: {
+    const isWeights = /\.onnx$/i.test(event.file);
+    if (
+      isWeights &&
+      (event.status === "progress" || event.status === "done") &&
+      event.total > 0
+    ) {
+      post({
         phase: "loading-model",
-        loadedBytes: loaded,
-        totalBytes: total,
-      },
-    });
+        loadedBytes: event.status === "done" ? event.total : event.loaded || 0,
+        totalBytes: event.total,
+      });
+    } else if (event.status === "initiate") {
+      post({ phase: "loading-model" });
+    }
   };
 }
 
+/** Supported registry entry and its adapter, or a MODEL_LOAD_FAILED error. */
+function resolveModel(modelId) {
+  const model = getColumnClassifierModel(modelId);
+  const adapter = model && ADAPTERS[model.strategy];
+  if (!isColumnClassifierModelSupported(model) || !adapter || adapter.task !== model.task) {
+    throw new ClassifierError(
+      AI_ERROR_CODES.MODEL_LOAD_FAILED,
+      `Unsupported AI model: ${modelId}`
+    );
+  }
+  return { model, adapter };
+}
+
+async function disposePipeline(promise) {
+  try {
+    const classifier = await promise;
+    await classifier?.dispose?.();
+  } catch (_error) {
+    // A failed load has nothing to release.
+  }
+}
+
 /**
- * Loads the pipeline once per worker and reuses it for every request. A
- * failed load is forgotten so the researcher can retry.
+ * Loads the model's pipeline once and reuses it while the same model is
+ * requested. A failed load is forgotten so the researcher can retry. Must
+ * only be called from a queued task: the previous model is then no longer in
+ * use and is released before the new one is loaded.
  */
-function getClassifier(assetBaseUrl, requestId) {
-  if (classifierPromise && configuredAssetBaseUrl === assetBaseUrl) {
-    return classifierPromise;
+async function getClassifier({ modelUrl, ortWasmUrl }, model, requestId) {
+  const key = `${model.version}|${modelUrl}`;
+  if (loadedClassifier?.key === key) {
+    return loadedClassifier.promise;
   }
 
-  configuredAssetBaseUrl = assetBaseUrl;
-  classifierPromise = (async () => {
-    await verifyAssetManifest(assetBaseUrl);
-    configureLocalOnlyEnvironment(assetBaseUrl);
+  if (loadedClassifier) {
+    const previous = loadedClassifier.promise;
+    loadedClassifier = null;
+    await disposePipeline(previous);
+  }
 
+  const promise = (async () => {
+    configureLocalOnlyEnvironment(modelUrl, ortWasmUrl);
     try {
-      return await pipeline(
-        AI_COLUMN_CLASSIFIER_MODEL.task,
-        AI_COLUMN_CLASSIFIER_MODEL.modelId,
-        {
-          device: AI_COLUMN_CLASSIFIER_MODEL.device,
-          dtype: AI_COLUMN_CLASSIFIER_MODEL.dtype,
-          local_files_only: true,
-          progress_callback: createLoadProgressReporter(requestId),
-        }
-      );
+      // Resolved against localModelPath: <modelUrl><revision>/<file>.
+      return await pipeline(model.task, model.revision, {
+        device: model.device,
+        dtype: model.dtype,
+        local_files_only: true,
+        progress_callback: createLoadProgressReporter(requestId),
+      });
     } catch (error) {
       throw new ClassifierError(
         AI_ERROR_CODES.MODEL_LOAD_FAILED,
@@ -161,13 +162,13 @@ function getClassifier(assetBaseUrl, requestId) {
       );
     }
   })();
+  loadedClassifier = { key, promise };
 
-  classifierPromise.catch(() => {
-    classifierPromise = null;
-    configuredAssetBaseUrl = null;
+  promise.catch(() => {
+    if (loadedClassifier?.promise === promise) loadedClassifier = null;
   });
 
-  return classifierPromise;
+  return promise;
 }
 
 function throwIfCancelled(requestId) {
@@ -176,39 +177,36 @@ function throwIfCancelled(requestId) {
   }
 }
 
-async function classifyColumns(requestId, { assetBaseUrl, inputs = [] }) {
-  const classifier = await getClassifier(assetBaseUrl, requestId);
+async function classifyColumns(
+  requestId,
+  { modelUrl, ortWasmUrl, modelId, inputs = [], candidateLabels = [], hypothesisTemplates = [] }
+) {
+  const { model, adapter } = resolveModel(modelId);
+  // Cancelled while queued: do not load a model for it.
+  throwIfCancelled(requestId);
+  const classifier = await getClassifier({ modelUrl, ortWasmUrl }, model, requestId);
   const results = [];
-
-  for (let index = 0; index < inputs.length; index += 1) {
-    throwIfCancelled(requestId);
+  const postProgress = (completed) =>
     globalThis.postMessage({
       requestId,
       type: "PROGRESS",
-      progress: {
-        phase: "classifying",
-        completed: index,
-        total: inputs.length,
-      },
+      progress: { phase: "classifying", completed, total: inputs.length },
     });
 
+  // Model ready: 0 of n. Then one event after each classified input, so the
+  // last event reports n of n.
+  throwIfCancelled(requestId);
+  postProgress(0);
+  for (let index = 0; index < inputs.length; index += 1) {
+    throwIfCancelled(requestId);
     const { key, text } = inputs[index];
-    // Average each label's score over the hypothesis templates.
-    const averagedScores = new Map(AI_CANDIDATE_LABELS.map((label) => [label, 0]));
+    let output;
     try {
-      for (const template of AI_HYPOTHESIS_TEMPLATES) {
-        const output = await classifier(text, AI_CANDIDATE_LABELS, {
-          hypothesis_template: template,
-          multi_label: false,
-        });
-        output.labels.forEach((label, labelIndex) => {
-          averagedScores.set(
-            label,
-            averagedScores.get(label) +
-              output.scores[labelIndex] / AI_HYPOTHESIS_TEMPLATES.length
-          );
-        });
-      }
+      output = await adapter.classify(classifier, {
+        text,
+        candidateLabels,
+        hypothesisTemplates,
+      });
     } catch (error) {
       throw new ClassifierError(
         AI_ERROR_CODES.INFERENCE_FAILED,
@@ -216,36 +214,53 @@ async function classifyColumns(requestId, { assetBaseUrl, inputs = [] }) {
       );
     }
 
-    const ranked = Array.from(averagedScores.entries()).sort(
-      (left, right) => right[1] - left[1]
-    );
-    results.push({
-      key,
-      labels: ranked.map(([label]) => label),
-      scores: ranked.map(([, score]) => score),
-    });
+    // Every candidate label must be scored exactly once; anything else would
+    // be misread as a different category.
+    if (
+      output?.labels?.length !== candidateLabels.length ||
+      output.scores?.length !== candidateLabels.length ||
+      new Set(output.labels).size !== candidateLabels.length ||
+      !output.labels.every((label) => candidateLabels.includes(label))
+    ) {
+      throw new ClassifierError(
+        AI_ERROR_CODES.INFERENCE_FAILED,
+        "AI model returned an unexpected label set."
+      );
+    }
+    results.push({ key, labels: output.labels, scores: output.scores });
+    postProgress(index + 1);
   }
 
   throwIfCancelled(requestId);
-  return { results };
+  return { results, modelId: model.id };
 }
 
 globalThis.onmessage = async ({ data }) => {
   const { requestId, type, payload } = data || {};
 
   if (type === "CANCEL") {
-    cancelledRequests.add(payload?.requestId);
+    if (activeRequests.has(payload?.requestId)) {
+      cancelledRequests.add(payload.requestId);
+    }
     return;
   }
 
+  activeRequests.add(requestId);
   try {
     let response;
     if (type === "PRELOAD_MODEL") {
-      // Starts loading the shared pipeline (e.g. while a CSV is still being
-      // parsed); the next CLASSIFY_COLUMNS request awaits the same promise.
+      // Loads the model (e.g. while a CSV is still being parsed) so the next
+      // CLASSIFY_COLUMNS request finds it ready. Queued like a request, so it
+      // never loads a second model while another one is in use.
       const startedAt = performance.now();
-      await getClassifier(payload?.assetBaseUrl, requestId);
-      response = { loaded: true, waitedMs: performance.now() - startedAt };
+      const { model } = resolveModel(payload?.modelId);
+      response = await enqueue(async () => {
+        const alreadyLoaded =
+          loadedClassifier?.key === `${model.version}|${payload?.modelUrl}`;
+        await getClassifier(payload, model, requestId);
+        return { loaded: true, alreadyLoaded };
+      });
+      response.waitedMs = performance.now() - startedAt;
     } else if (type === "CLASSIFY_COLUMNS") {
       const startedAt = performance.now();
       response = await enqueue(() => classifyColumns(requestId, payload));
@@ -265,6 +280,7 @@ globalThis.onmessage = async ({ data }) => {
       },
     });
   } finally {
+    activeRequests.delete(requestId);
     cancelledRequests.delete(requestId);
   }
 };

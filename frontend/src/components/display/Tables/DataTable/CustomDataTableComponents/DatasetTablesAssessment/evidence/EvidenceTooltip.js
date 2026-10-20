@@ -6,7 +6,7 @@ import StatisticalEvidence from "./StatisticalEvidence";
 
 function EvidenceTooltip({ evidence, field, scoringSystem, t }) {
   return (
-    <EvidenceTooltipContainer width={320}>
+    <EvidenceTooltipContainer width={360}>
       <StatisticalEvidence evidence={evidence} field={field} t={t} />
       <HistoricalEvidence
         historical={evidence.historical}

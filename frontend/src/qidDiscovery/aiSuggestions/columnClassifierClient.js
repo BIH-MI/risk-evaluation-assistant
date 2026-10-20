@@ -1,12 +1,16 @@
-import { buildColumnClassificationInput } from "./columnNameText";
+import {
+  buildColumnClassificationInput,
+  formatColumnPremise,
+} from "./columnNameText";
 import {
   buildUnavailableColumnSuggestion,
   interpretColumnClassification,
 } from "./columnSuggestions";
 import {
-  AI_ASSET_BASE_PATH,
-  AI_COLUMN_CLASSIFIER_VERSION,
   AI_ERROR_CODES,
+  AI_ORT_WASM_PATH,
+  getModelFilesBaseUrl,
+  resolveColumnClassifierModel,
 } from "./modelConfig";
 
 /*
@@ -14,7 +18,12 @@ import {
  *
  * - The worker (and with it @huggingface/transformers and ONNX Runtime) is
  *   created lazily on the first classification request, and the loaded model
- *   is reused by every later request in this browser tab.
+ *   is reused by every later request for the same model in this browser tab.
+ * - Every request names its model (registry id, see modelConfig.js) and the
+ *   URL of its installed files on REA's backend; the candidate labels and
+ *   hypothesis templates of the model's prompt profile are passed with it,
+ *   and inputs are formatted in the profile's premise format, so the worker
+ *   holds no application-specific prompt.
  * - Classification results are cached per session object, keyed by model
  *   version and normalized input. Each Add Dataset form creates its own
  *   session and disposes it on unmount, so classification histories are
@@ -97,15 +106,17 @@ function getClassifierWorker() {
   return classifierWorker;
 }
 
-function getAssetBaseUrl() {
-  const publicUrl = process.env.PUBLIC_URL || "";
-  return new URL(
-    `${publicUrl.replace(/\/$/, "")}${AI_ASSET_BASE_PATH}`,
-    window.location.href
-  ).href;
+// Locations passed to the worker, which has no access to the page's URL
+// configuration.
+function getModelLocations(model) {
+  const publicUrl = (process.env.PUBLIC_URL || "").replace(/\/$/, "");
+  return {
+    modelUrl: getModelFilesBaseUrl(model),
+    ortWasmUrl: new URL(`${publicUrl}${AI_ORT_WASM_PATH}`, window.location.href).href,
+  };
 }
 
-function postClassifyRequest(inputs, { onProgress, signal }) {
+function postClassifyRequest(inputs, { model, onProgress, signal }) {
   const worker = getClassifierWorker();
   const requestId = `ai:${nextRequestId}`;
   nextRequestId += 1;
@@ -140,8 +151,11 @@ function postClassifyRequest(inputs, { onProgress, signal }) {
       requestId,
       type: "CLASSIFY_COLUMNS",
       payload: {
-        assetBaseUrl: getAssetBaseUrl(),
+        ...getModelLocations(model),
+        modelId: model.id,
         inputs,
+        candidateLabels: model.prompt.candidateLabels,
+        hypothesisTemplates: model.prompt.hypothesisTemplates,
       },
     });
   });
@@ -153,9 +167,12 @@ function postClassifyRequest(inputs, { onProgress, signal }) {
  * values. Failures are ignored here: the next classification request retries
  * the load and reports the error through its suggestions.
  *
+ * @param {string} modelId Registry id.
  * @returns {Promise<{ loaded: boolean, waitedMs?: number }>}
  */
-export function preloadColumnClassifier() {
+export function preloadColumnClassifier(modelId) {
+  const model = resolveColumnClassifierModel(modelId);
+  if (!model) return Promise.resolve({ loaded: false });
   let worker;
   try {
     worker = getClassifierWorker();
@@ -174,7 +191,10 @@ export function preloadColumnClassifier() {
     worker.postMessage({
       requestId,
       type: "PRELOAD_MODEL",
-      payload: { assetBaseUrl: getAssetBaseUrl() },
+      payload: {
+        ...getModelLocations(model),
+        modelId: model.id,
+      },
     });
   });
 }
@@ -188,35 +208,95 @@ export function isCancelledClassification(error) {
  *
  * @returns {{
  *   classifyColumns: (columns: Array<{columnKey: string, columnName: string, description?: string}>,
- *     options?: { onProgress?: Function, signal?: AbortSignal }) => Promise<Object[]>,
+ *     options?: { modelId?: string|null, onProgress?: Function, signal?: AbortSignal }) => Promise<Object[]>,
  *   buildUnavailableSuggestions: (columns: Array, error: Error) => Object[],
  *   dispose: () => void,
  * }}
  */
 export function createColumnClassifierSession() {
   const cache = new Map();
-  const cacheKeyFor = (input) =>
-    `${AI_COLUMN_CLASSIFIER_VERSION}|${input.cacheKey}`;
+  // Model version (repository, revision, dtype, prompt profile) first:
+  // results of different models or prompts are never mixed.
+  const cacheKeyFor = (model, input) => `${model.version}|${input.cacheKey}`;
 
   async function classifyColumns(columns = [], options = {}) {
+    // null: no model is available (see describeAiModelConfiguration).
+    if (options.modelId === null) {
+      throw new ColumnClassifierError(
+        AI_ERROR_CODES.NO_MODEL_AVAILABLE,
+        "No AI model is available."
+      );
+    }
+    const model = resolveColumnClassifierModel(options.modelId);
+    // An explicitly requested model that this build cannot run is reported
+    // as unavailable; no other model is used in its place.
+    if (!model) {
+      throw new ColumnClassifierError(
+        AI_ERROR_CODES.NO_MODEL_AVAILABLE,
+        `AI model is not supported: ${options.modelId}`
+      );
+    }
     const prepared = columns.map((column) => ({
       columnKey: column.columnKey,
       input: buildColumnClassificationInput(column),
     }));
 
     const uncachedInputs = new Map();
+    // Columns per uncached input (equal names share one inference).
+    const columnsPerInput = new Map();
     prepared.forEach(({ input }) => {
-      const key = cacheKeyFor(input);
-      if (!cache.has(key) && !uncachedInputs.has(key)) {
-        uncachedInputs.set(key, { key, text: input.text });
+      const key = cacheKeyFor(model, input);
+      if (cache.has(key)) return;
+      if (!uncachedInputs.has(key)) {
+        uncachedInputs.set(key, {
+          key,
+          text: formatColumnPremise(input, model.prompt.inputFormat),
+        });
       }
+      columnsPerInput.set(key, (columnsPerInput.get(key) || 0) + 1);
     });
 
-    if (uncachedInputs.size > 0) {
-      const { results } = await postClassifyRequest(
-        Array.from(uncachedInputs.values()),
-        options
+    options.onCacheStats?.({ total: prepared.length, uncached: uncachedInputs.size });
+
+    // Progress counts columns: cached ones are complete from the start, and
+    // the worker's per-input counts are converted to columns.
+    const total = prepared.length;
+    const cachedColumns =
+      total - Array.from(columnsPerInput.values()).reduce((sum, count) => sum + count, 0);
+    const inputOrder = Array.from(uncachedInputs.keys());
+    const completedColumnsAfter = [cachedColumns];
+    inputOrder.forEach((key, index) => {
+      completedColumnsAfter.push(completedColumnsAfter[index] + columnsPerInput.get(key));
+    });
+    const reportProgress = (progress) => {
+      if (progress?.phase !== "classifying") {
+        options.onProgress?.(progress);
+        return;
+      }
+      const completedInputs = Math.min(
+        Math.max(Number(progress.completed) || 0, 0),
+        inputOrder.length
       );
+      options.onProgress?.({
+        phase: "classifying",
+        completed: completedColumnsAfter[completedInputs],
+        total,
+      });
+    };
+
+    if (uncachedInputs.size === 0) {
+      reportProgress({ phase: "classifying", completed: 0 });
+    } else {
+      const { results, modelId } = await postClassifyRequest(
+        Array.from(uncachedInputs.values()),
+        { ...options, onProgress: reportProgress, model }
+      );
+      if (modelId !== model.id) {
+        throw new ColumnClassifierError(
+          AI_ERROR_CODES.INFERENCE_FAILED,
+          "AI worker answered with a different model."
+        );
+      }
       results.forEach(({ key, labels, scores }) => {
         cache.set(key, { labels, scores });
       });
@@ -226,12 +306,13 @@ export function createColumnClassifierSession() {
       interpretColumnClassification({
         columnKey,
         input,
-        output: cache.get(cacheKeyFor(input)),
+        output: cache.get(cacheKeyFor(model, input)),
+        modelId: model.id,
       })
     );
   }
 
-  function buildUnavailableSuggestions(columns = [], error) {
+  function buildUnavailableSuggestions(columns = [], error, { modelId } = {}) {
     return columns.map((column) =>
       buildUnavailableColumnSuggestion({
         columnKey: column.columnKey,
@@ -239,6 +320,7 @@ export function createColumnClassifierSession() {
         error: error
           ? { code: error.code || null, message: error.message || "" }
           : null,
+        modelId,
       })
     );
   }

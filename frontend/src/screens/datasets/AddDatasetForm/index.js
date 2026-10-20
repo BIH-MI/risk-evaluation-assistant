@@ -21,6 +21,10 @@ import RAFloatingAlertStack from "components/feedback/RAFloatingAlertStack";
 import RAInput from "components/input/RAInput";
 import { CSVDropzone } from "utils/CSVDropzone";
 import { getErrorMessage } from "utils/errors";
+import {
+  AI_REVIEW_DECISIONS,
+  suggestsExclusionReview,
+} from "qidDiscovery/aiSuggestions";
 import { addDataset } from "store/datasets/datasetsThunks";
 import {
   buildDirectIdentifierSubmissionMessage,
@@ -32,6 +36,11 @@ import { useDatasetSchemaEditor } from "./useDatasetSchemaEditor";
 import { useDatasetTableProfiling } from "./useDatasetTableProfiling";
 import { useQidDiscoveryConfigurationSelection } from "./useQidDiscoveryConfigurationSelection";
 import { useAiIdentifierSuggestions } from "./useAiIdentifierSuggestions";
+import { useAiModelSelection } from "./useAiModelSelection";
+import {
+  AI_MODEL_STATUS,
+  getColumnClassifierModel,
+} from "qidDiscovery/aiSuggestions";
 import { useInitialQidProfiling } from "./useInitialQidProfiling";
 import { getTableAiState } from "./aiSuggestions/aiSuggestionTableState";
 import { markQidStage, startQidPipelineTiming } from "./qidPipelineTimings";
@@ -69,6 +78,19 @@ export default function AddDatasetForm() {
     loadError: qidConfigurationsLoadError,
   } = useQidDiscoveryConfigurationSelection(token);
 
+  const {
+    enabled: aiScreeningEnabled,
+    models: aiModels,
+    defaultModelId: defaultAiModelId,
+    allowSelection: allowAiModelSelection,
+    selectedModelId: selectedAiModelId,
+    setSelectedModelId: setSelectedAiModelId,
+    unavailableReason: aiModelUnavailableReason,
+    loading: aiModelsLoading,
+  } = useAiModelSelection(selectedQidDiscoveryConfiguration, {
+    locked: tables.length > 0,
+  });
+
   const directIdentifierValidation = useMemo(
     () => validateDirectIdentifierExclusions(tables),
     [tables]
@@ -102,9 +124,12 @@ export default function AddDatasetForm() {
     handleColumnDeleted,
     handleTableRemoved,
     handleManualExclusionChange,
+    reviewSuggestion,
   } = useAiIdentifierSuggestions({
     tables,
     onAiExclusionDecisions: handleAiExclusionDecisions,
+    modelId: selectedAiModelId,
+    enabled: aiScreeningEnabled,
   });
 
   const {
@@ -117,6 +142,7 @@ export default function AddDatasetForm() {
     renameAttribute,
     changeAttributeDataType,
     changeAttributeExclusion,
+    confirmAttributeExclusion,
     applyAiExclusionDecisions,
   } = useDatasetSchemaEditor({
     tables,
@@ -162,6 +188,32 @@ export default function AddDatasetForm() {
       changeAttributeExclusion(tableId, columnKey, excluded);
     },
     [changeAttributeExclusion, findColumn, handleManualExclusionChange]
+  );
+
+  /**
+   * Records the researcher's decision to keep the column's current exclusion
+   * state ("Confirm exclusion" / "Keep included"). The exclusion does not
+   * change, so profiling is not recomputed.
+   */
+  const handleConfirmScreening = useCallback(
+    (tableId, columnKey) => {
+      const column = findColumn(tableId, columnKey);
+      if (!column) return;
+      const excluded = Boolean(column.excluded);
+      const suggestion = aiStateByTable[tableId]?.suggestions?.[columnKey];
+      reviewSuggestion(
+        tableId,
+        columnKey,
+        excluded
+          ? AI_REVIEW_DECISIONS.ACCEPTED
+          : suggestsExclusionReview(suggestion)
+          ? AI_REVIEW_DECISIONS.REJECTED
+          : AI_REVIEW_DECISIONS.ACKNOWLEDGED,
+        excluded
+      );
+      confirmAttributeExclusion(tableId, columnKey);
+    },
+    [aiStateByTable, confirmAttributeExclusion, findColumn, reviewSuggestion]
   );
 
   useEffect(() => {
@@ -238,6 +290,21 @@ export default function AddDatasetForm() {
     [classifyFields, preloadModel, prepareTable, selectedQidDiscoveryConfiguration]
   );
 
+  // The selected model is recorded as provenance only if it actually
+  // classified at least one column (not when AI was skipped or unavailable).
+  const aiScreeningModelUsed = useMemo(
+    () =>
+      Boolean(selectedAiModelId) &&
+      Object.values(aiStateByTable).some((state) =>
+        Object.values(state?.suggestions || {}).some(
+          (suggestion) =>
+            suggestion.model?.registryId === selectedAiModelId &&
+            suggestion.modelStatus !== AI_MODEL_STATUS.UNAVAILABLE
+        )
+      ),
+    [aiStateByTable, selectedAiModelId]
+  );
+
   /**
    * Persists aggregate profiling output and reviewed exclusion decisions. Raw
    * rows, encoded columns, and subset partitions remain browser-local.
@@ -285,6 +352,7 @@ export default function AddDatasetForm() {
             description,
             sharedUsers,
             selectedQidDiscoveryConfiguration,
+            aiScreeningModelId: aiScreeningModelUsed ? selectedAiModelId : null,
             tables,
           }),
           token,
@@ -314,12 +382,14 @@ export default function AddDatasetForm() {
         });
     },
     [
+      aiScreeningModelUsed,
       description,
       directIdentifierSubmissionMessage,
       directIdentifierValidation,
       dispatch,
       name,
       navigate,
+      selectedAiModelId,
       selectedQidDiscoveryConfiguration,
       sharedUsers,
       tables,
@@ -344,11 +414,16 @@ export default function AddDatasetForm() {
         component="form"
         onSubmit={handleSubmit}
         sx={{
-          maxWidth: 1000,
-          mx: "auto",
           display: "flex",
           flexDirection: "column",
           gap: 2,
+          // Form fields keep a readable width; preview tables use the full
+          // available width.
+          "& > :not([data-preview-table]):not(button)": {
+            width: "100%",
+            maxWidth: 1000,
+            alignSelf: "center",
+          },
         }}
       >
         <RATypography variant="h5" textAlign="center">
@@ -421,6 +496,81 @@ export default function AddDatasetForm() {
           ))}
         </RAInput>
 
+        {aiScreeningEnabled && (
+        <RAInput
+          select
+          label={t("datasets.form.aiModelLabel", "AI Model")}
+          value={selectedAiModelId ?? ""}
+          onChange={(event) => setSelectedAiModelId(event.target.value)}
+          fullWidth
+          // One model per dataset: results of different models are not mixed.
+          // Researchers choose only when more than one model is usable;
+          // otherwise the configured default is used automatically.
+          disabled={
+            aiModelsLoading || !allowAiModelSelection || tables.length > 0
+          }
+          helperText={
+            !aiModelsLoading &&
+            aiModelUnavailableReason &&
+            (!aiModels.length || !selectedAiModelId)
+              ? t(
+                  aiModels.length
+                    ? "datasets.form.aiModelDefaultUnavailable"
+                    : "datasets.form.aiModelUnavailable",
+                  {
+                    model:
+                      getColumnClassifierModel(aiModelUnavailableReason.modelId)
+                        ?.displayName || aiModelUnavailableReason.modelId,
+                    reason: t(
+                      `qidDiscoveryConfiguration.aiScreening.installation.${aiModelUnavailableReason.reason}`,
+                      { detail: aiModelUnavailableReason.detail }
+                    ),
+                  }
+                )
+              : !aiModelsLoading && !aiModels.length
+              ? t(
+                  "datasets.form.aiModelNoneAvailable",
+                  "No AI model is available. Review the attributes manually."
+                )
+              : tables.length > 0
+              ? t(
+                  "datasets.form.aiModelLocked",
+                  "The AI model cannot be changed after tables have been added, so that all tables of this dataset are assessed by the same model. Remove all tables to change it."
+                )
+              : !allowAiModelSelection
+              ? t(
+                  "datasets.form.aiModelFromConfiguration",
+                  "Set by the selected QID Discovery configuration. The model analyses column names locally in your browser."
+                )
+              : t(
+                  "datasets.form.aiModelHelper",
+                  "The model analyses column names locally in your browser. Column names and data values are never sent to external services."
+                )
+          }
+        >
+          {aiModels.map((model) => (
+            <MenuItem key={model.id} value={model.id}>
+              <RABox display="flex" flexDirection="column">
+                <RATypography variant="button">
+                  {model.id === defaultAiModelId
+                    ? t("datasets.form.aiModelDefaultName", "{{name}} (Default)", {
+                        name: model.displayName,
+                      })
+                    : model.displayName}
+                </RATypography>
+                <RATypography variant="caption" color="text">
+                  {model.autoExclusionApproved
+                    ? t("datasets.form.aiModelApproved")
+                    : model.configurationEvaluated
+                    ? t("datasets.form.aiModelEvaluated")
+                    : t("datasets.form.aiModelNotEvaluated")}
+                </RATypography>
+              </RABox>
+            </MenuItem>
+          ))}
+        </RAInput>
+        )}
+
         <CSVDropzone
           onParse={handleTableParse}
           onAddTable={handleAddTable}
@@ -428,7 +578,10 @@ export default function AddDatasetForm() {
           setError={(message) =>
             setErrors((current) => ({ ...current, tables: message }))
           }
-          disabled={Boolean(selectedQidDiscoveryConfigurationError)}
+          // Wait for the AI model list so uploads use the intended model.
+          disabled={
+            Boolean(selectedQidDiscoveryConfigurationError) || aiModelsLoading
+          }
         />
 
         {directIdentifierSubmissionMessage && (
@@ -473,9 +626,11 @@ export default function AddDatasetForm() {
             onColumnNameChange={renameAttribute}
             onDataTypeChange={changeAttributeDataType}
             onExcludedChange={handleExcludedChange}
+            onConfirmScreening={handleConfirmScreening}
             onAddColumn={addAttribute}
             onDeleteColumn={deleteAttribute}
             aiState={getTableAiState(aiStateByTable, table._localTableId)}
+            aiEnabled={aiScreeningEnabled}
           />
         ))}
 

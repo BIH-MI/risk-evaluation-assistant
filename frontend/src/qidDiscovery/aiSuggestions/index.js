@@ -1,27 +1,35 @@
-// Public, side-effect-free API of the AI column suggestions. The worker-owning
-// client is a separate entry point ("qidDiscovery/aiSuggestions/columnClassifierClient")
-// so that importing these helpers never bundles or starts the AI worker.
+// Public, side-effect-free API of the AI column suggestions. The worker client
+// ("qidDiscovery/aiSuggestions/columnClassifierClient") and the installation
+// hook ("qidDiscovery/aiSuggestions/useAiModelInstallation") are separate entry
+// points, so importing these helpers never bundles or starts the AI worker.
 export {
-  AI_COLUMN_CLASSIFIER_MODEL,
-  AI_COLUMN_CLASSIFIER_VERSION,
   AI_ERROR_CODES,
+  AI_MODEL_VALIDATION_STATUS,
+  getColumnClassifierModel,
+  getSelectableColumnClassifierModels,
+  isColumnClassifierModelSupported,
+  resolveColumnClassifierModel,
 } from "./modelConfig";
+export { AI_REVIEW_SUGGESTIONS } from "./semanticCategories";
 export {
-  AI_REVIEW_SUGGESTIONS,
-  AI_SEMANTIC_CATEGORIES,
-  isIdentifierCategory,
-} from "./semanticCategories";
+  AI_INSTALL_STATES,
+  LEGACY_AI_SCREENING_SETTINGS,
+  chooseAiDefaultModelId,
+  getAiScreeningSettings,
+  isColumnClassifierModelUsable,
+  resolveAiScreeningModels,
+} from "./aiScreeningConfiguration";
 export {
+  AI_DECISION_SOURCES,
+  AI_MODEL_STATUS,
   AI_REVIEW_DECISIONS,
   AI_SUGGESTION_STATUS,
-  AI_SUGGESTION_THRESHOLDS,
   AI_UNCERTAINTY_REASONS,
+  getAiScreeningProvenance,
+  getCategoryForConcept,
   isSuggestionCurrent,
   markSuggestionReviewed,
   needsResearcherReview,
   suggestsExclusionReview,
 } from "./columnSuggestions";
-export {
-  buildColumnClassificationInput,
-  toReadableColumnName,
-} from "./columnNameText";
+export { AI_NAME_EVIDENCE_KINDS } from "./columnNameRules";

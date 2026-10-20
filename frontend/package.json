@@ -41,9 +41,10 @@
     "yup": "1.1.1"
   },
   "scripts": {
+    "prestart": "node scripts/copy-onnx-runtime.js",
     "start": "react-scripts start",
+    "prebuild": "node scripts/copy-onnx-runtime.js",
     "build": "react-scripts build",
-    "fetch:ai-assets": "node scripts/fetch-ai-assets.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "install:clean": "rm -rf node_modules/ && rm -rf package-lock.json && npm install && npm start",

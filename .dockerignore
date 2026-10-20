@@ -1,0 +1,6 @@
+# Only the backend image is built from the repository root. It needs the
+# backend sources and the AI model registry shared with the frontend.
+*
+!backend/pom.xml
+!backend/src
+!frontend/src/qidDiscovery/aiSuggestions/modelRegistry.json

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "react-oidc-context";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
-import { CircularProgress } from "@mui/material";
+import { LinearProgress } from "@mui/material";
 
 import RAAlert from "components/feedback/RAAlert";
 import RABox from "components/layout/RABox";
@@ -16,7 +16,10 @@ import {
   fetchQidDiscoveryConfigurationsApi,
   updateQidDiscoveryConfigurationApi,
 } from "api/qidDiscoveryConfigurations";
+import { chooseAiDefaultModelId } from "qidDiscovery/aiSuggestions";
+import { useAiModelInstallation } from "qidDiscovery/aiSuggestions/useAiModelInstallation";
 
+import AiScreeningSection from "./components/AiScreeningSection";
 import ConfigurationDetailsSection from "./components/ConfigurationDetailsSection";
 import SubsetProfilingSection from "./components/SubsetProfilingSection";
 import {
@@ -38,6 +41,9 @@ export default function AddEditQidDiscoveryConfiguration() {
   const isEditMode = Boolean(id);
 
   const [configurations, setConfigurations] = useState([]);
+  // AI model installation in this deployment; null while loading.
+  const { installation: aiInstallation, install: installAiModel } =
+    useAiModelInstallation(isAdmin ? token : null);
   const [form, setForm] = useState(() => emptyQidDiscoveryConfigurationForm());
   const [showErrors, setShowErrors] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -90,9 +96,12 @@ export default function AddEditQidDiscoveryConfiguration() {
   // translates its messages via t, so it must stay a dependency to re-run
   // validation (and refresh already-shown errors) on language switch.
   const validationErrors = useMemo(
-    () => validateQidConfigurationForm(t, form, configurations),
+    () =>
+      validateQidConfigurationForm(t, form, configurations, {
+        aiInstallation,
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [configurations, form, currentLanguage]
+    [configurations, form, aiInstallation, currentLanguage]
   );
   const hasErrors = hasQidConfigurationFormErrors(validationErrors);
 
@@ -109,6 +118,32 @@ export default function AddEditQidDiscoveryConfiguration() {
       profiling: {
         ...previous.profiling,
         [field]: value,
+      },
+    }));
+  }, []);
+
+  const updateAiScreeningField = useCallback((field, value) => {
+    setForm((previous) => ({
+      ...previous,
+      aiScreening: {
+        ...previous.aiScreening,
+        [field]: value,
+      },
+    }));
+  }, []);
+
+  // The allowed models and the default change together in one update, so
+  // the default is always one of the allowed models.
+  const updateAiAllowedModels = useCallback((allowedModelIds) => {
+    setForm((previous) => ({
+      ...previous,
+      aiScreening: {
+        ...previous.aiScreening,
+        allowedModelIds,
+        defaultModelId: chooseAiDefaultModelId(
+          allowedModelIds,
+          previous.aiScreening.defaultModelId
+        ),
       },
     }));
   }, []);
@@ -158,12 +193,10 @@ export default function AddEditQidDiscoveryConfiguration() {
 
   if (loading) {
     return (
-      <RABox p={5} display="flex" justifyContent="center">
-        <CircularProgress
-          size={60}
-          thickness={4}
-          color="primary"
-          disableShrink
+      <RABox p={5} maxWidth="900px" width="100%" mx="auto">
+        <LinearProgress
+          color="info"
+          aria-label={t("qidDiscoveryConfiguration.form.loading")}
         />
       </RABox>
     );
@@ -207,6 +240,15 @@ export default function AddEditQidDiscoveryConfiguration() {
         errors={validationErrors.profiling}
         showErrors={showErrors}
         onChange={updateProfilingField}
+      />
+      <AiScreeningSection
+        aiScreening={form.aiScreening}
+        installation={aiInstallation}
+        onInstallModel={installAiModel}
+        errors={validationErrors.aiScreening}
+        showErrors={showErrors}
+        onChange={updateAiScreeningField}
+        onAllowedModelsChange={updateAiAllowedModels}
       />
 
       <RABox display="flex" justifyContent="center" mt={2}>

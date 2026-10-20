@@ -63,6 +63,32 @@ public class Dataset extends NamedResourceEntity {
     @JoinColumn(name = "qid_discovery_configuration_version_id")
     private QidDiscoveryConfigurationVersion qidDiscoveryConfigurationVersion;
 
+    /**
+     * AI model that screened the column names for direct identifiers when the
+     * dataset was created (null: no AI screening was recorded).
+     */
+    @Column(name = "ai_screening_model_id", length = 64)
+    private String aiScreeningModelId;
+
+    @Column(name = "ai_screening_model_repository", length = 200)
+    private String aiScreeningModelRepository;
+
+    @Column(name = "ai_screening_model_revision", length = 64)
+    private String aiScreeningModelRevision;
+
+    @Column(name = "ai_screening_model_dtype", length = 32)
+    private String aiScreeningModelDtype;
+
+    @Column(name = "ai_screening_prompt_version", length = 64)
+    private String aiScreeningPromptVersion;
+
+    @Column(name = "ai_screening_thresholds_version", length = 64)
+    private String aiScreeningThresholdsVersion;
+
+    /** Validation status of the model's exact configuration at screening time. */
+    @Column(name = "ai_screening_validation_status", length = 32)
+    private String aiScreeningValidationStatus;
+
     // Assessments of this dataset under one or more risk configurations.
     @OneToMany(mappedBy = "dataset", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference

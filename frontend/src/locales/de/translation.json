@@ -87,7 +87,18 @@
       "datasetNameLabel": "Datensatzname",
       "datasetDescriptionLabel": "Datensatzbeschreibung (optional)",
       "searchUsersPlaceholder": "Nach Vor- oder Nachnamen suchen",
-      "qidDiscoveryConfigurationLabel": "QID-Discovery-Konfiguration"
+      "qidDiscoveryConfigurationLabel": "QID-Discovery-Konfiguration",
+      "aiModelLabel": "KI-Modell",
+      "aiModelDefaultName": "{{name}} (Standard)",
+      "aiModelHelper": "Das Modell analysiert Spaltennamen lokal in Ihrem Browser. Spaltennamen und Datenwerte werden nie an externe Dienste gesendet.",
+      "aiModelLocked": "Das KI-Modell kann nach dem Hinzufügen von Tabellen nicht mehr geändert werden, damit alle Tabellen dieses Datensatzes mit demselben Modell bewertet werden. Entfernen Sie alle Tabellen, um es zu ändern.",
+      "aiModelNoneAvailable": "Kein KI-Modell verfügbar. Bitte prüfen Sie die Attribute manuell.",
+      "aiModelUnavailable": "Das KI-Modell der gewählten QID-Discovery-Konfiguration ({{model}}) kann hier nicht verwendet werden: {{reason}} Es wird kein anderes Modell verwendet. Bitte prüfen Sie die Attribute manuell und bitten Sie eine Administratorin oder einen Administrator, das Modell zu installieren.",
+      "aiModelDefaultUnavailable": "Das Standard-KI-Modell der gewählten QID-Discovery-Konfiguration ({{model}}) kann hier nicht verwendet werden: {{reason}} Wählen Sie eines der verfügbaren Modelle.",
+      "aiModelFromConfiguration": "Durch die gewählte QID-Discovery-Konfiguration festgelegt. Das Modell analysiert Spaltennamen lokal in Ihrem Browser.",
+      "aiModelEvaluated": "Evaluiert: Identifikator-Vorschläge müssen von Ihnen geprüft werden. Eindeutige Identifikator-Spaltennamen werden weiterhin automatisch ausgeschlossen.",
+      "aiModelApproved": "Für automatischen Ausschluss freigegeben: sicher erkannte Identifikatoren werden automatisch ausgeschlossen.",
+      "aiModelNotEvaluated": "In dieser Konfiguration nicht evaluiert: jeder Vorschlag muss von Ihnen geprüft werden."
     },
     "attributesTable": {
       "index": "#",
@@ -103,6 +114,7 @@
       "parsing": "Analysiere {{name}}...",
       "subsetProfilingUpdating": "Unterscheidbarkeits-Evidenz wird profiliert...",
       "subsetProfilingSummary": "{{subsetCount}} Attribut-Teilmengen über {{attributeCount}} geeignete Attribute ausgewertet.",
+      "subsetProfilingProvisional": "Vorläufig, bis die Identifikator-Prüfung abgeschlossen ist.",
       "noSubsetProfilingRequired": "Es war keine Multi-Attribut-Teilmengenprofilierung erforderlich.",
       "newTable": "Neue Tabelle",
       "newTableCounter": "Neue Tabelle ({{counter}})",
@@ -146,32 +158,63 @@
     },
     "longitudinal": {},
     "aiSuggestions": {
+      "status": {
+        "reviewNeeded": "Prüfung nötig",
+        "autoExcluded": "Automatisch ausgeschlossen",
+        "reviewed": "Geprüft",
+        "noExclusionSuggested": "Kein Ausschluss vorgeschlagen",
+        "notScreened": "Nicht geprüft",
+        "pending": "Wird geprüft…"
+      },
+      "indicatorAriaLabel": "Prüfung von {{name}} auf direkte Identifikatoren: {{status}}. Details anzeigen",
+      "legend": {
+        "title": "Prüfstatus"
+      },
+      "actions": {
+        "confirmExclusion": "Ausschluss bestätigen",
+        "keepIncluded": "Einbezogen lassen",
+        "confirmExclusionFor": "Ausschluss von {{name}} bestätigen",
+        "keepIncludedFor": "{{name}} einbezogen lassen"
+      },
       "tooltip": {
-        "title": "KI-Identifikatorbewertung",
-        "classificationLabel": "KI-Klassifikation",
-        "exclusionLabel": "Status",
-        "status": {
-          "autoExcluded": "Automatisch ausgeschlossen",
-          "excluded": "Ausgeschlossen",
-          "includedManually": "Durch Ihre Entscheidung eingeschlossen",
-          "included": "Für die QID-Bewertung eingeschlossen",
-          "manualReview": "Manuelle Prüfung erforderlich",
-          "unavailable": "KI-Bewertung nicht verfügbar",
-          "pending": "KI-Bewertung läuft",
-          "notAssessed": "Noch nicht bewertet"
+        "title": "Prüfung auf direkte Identifikatoren",
+        "categoryLabel": "Vorhergesagte Kategorie",
+        "evidenceLabel": "Evidenz",
+        "categoryUncertain": "Unsicher",
+        "uncertainPrediction": "{{category}} (unsicher)",
+        "sources": {
+          "columnName": "Spaltennamen-Regel",
+          "model": "KI-Modell",
+          "aiSuggestion": "KI-Vorschlag",
+          "valuePattern": "Wertemuster"
         },
         "message": {
-          "autoExcluded": "Die KI hat dieses Attribut als möglichen direkten Identifikator erkannt und aus dem QID-Profiling ausgeschlossen.",
-          "identifierExcluded": "Die KI hat dieses Attribut als möglichen direkten Identifikator erkannt. Es ist vom QID-Profiling ausgeschlossen.",
-          "identifierIncluded": "Die KI hat dieses Attribut als möglichen direkten Identifikator erkannt, Sie haben es jedoch eingeschlossen. Bitte prüfen Sie dies.",
-          "included": "Es wurde kein automatischer Ausschluss vorgeschlagen. Dieses Attribut kann dennoch zur Re-Identifikation beitragen.",
-          "nonIdentifierExcluded": "Es wurde kein automatischer Ausschluss vorgeschlagen. Das Attribut ist durch Ihre Entscheidung oder erkannte Wertemuster ausgeschlossen.",
-          "uncertain": "Die KI konnte nicht zuverlässig bestimmen, ob dieses Attribut ein Identifikator ist. Bitte prüfen Sie es.",
-          "unavailable": "Prüfen Sie das Attribut manuell.",
-          "pending": "Der Spaltenname wird klassifiziert. Sie können weiter bearbeiten.",
-          "notAssessed": "Prüfen Sie das Attribut manuell."
-        },
-        "guidance": "Bitte prüfen. Sie können das Kontrollkästchen manuell ändern."
+          "autoExcluded": "Die Prüfung hat einen möglichen direkten Identifikator erkannt, daher wurde das Attribut automatisch von der Profilierung ausgeschlossen.",
+          "autoExcludedByModel": "Das KI-Modell hat einen möglichen direkten Identifikator erkannt, daher wurde das Attribut automatisch von der Profilierung ausgeschlossen.",
+          "autoExcludedByName": "Der Spaltenname weist auf einen möglichen direkten Identifikator hin, daher wurde das Attribut automatisch von der Profilierung ausgeschlossen.",
+          "autoExcludedByNameAndModel": "Spaltenname und KI-Modell weisen beide auf einen möglichen direkten Identifikator hin, daher wurde das Attribut automatisch von der Profilierung ausgeschlossen.",
+          "autoExcludedByValuePattern": "Die Werte entsprechen einem Muster für direkte Identifikatoren, daher wurde das Attribut automatisch von der Profilierung ausgeschlossen.",
+          "included": "Es wurde kein Ausschluss vorgeschlagen. Das Attribut kann in Kombination mit anderen dennoch Personen identifizieren und wird daher als möglicher Quasi-Identifikator profiliert.",
+          "uncertain": "Die Prüfung konnte dieses Attribut nicht zuverlässig einordnen. Bitte prüfen Sie, ob es einen direkten Identifikator enthält.",
+          "identifierNotExcluded": "Die Prüfung deutet auf einen möglichen direkten Identifikator hin, das Attribut wurde aber nicht automatisch ausgeschlossen. Bitte prüfen Sie es.",
+          "valuePatternReview": "Einige Werte sehen wie ein direkter Identifikator aus. Bitte prüfen Sie das Attribut.",
+          "reviewedExcluded": "Sie haben entschieden, dieses Attribut von der QID-Profilierung auszuschließen.",
+          "reviewedIncluded": "Sie haben entschieden, dieses Attribut in die QID-Profilierung einzubeziehen.",
+          "pending": "Der Spaltenname wird eingeordnet. Sie können weiter bearbeiten.",
+          "provisionalIdentifier": "Die KI deutet auf einen möglichen direkten Identifikator hin, das gewählte Modell ist aber für den automatischen Ausschluss nicht freigegeben. Bitte prüfen Sie es.",
+          "modelNotEvaluated": "Das gewählte Modell wurde in dieser Konfiguration nicht evaluiert, daher kann sein Ergebnis einen direkten Identifikator nicht ausschließen. Bitte prüfen Sie es.",
+          "nameReview": "Der Spaltenname enthält häufig einen direkten Identifikator, etwa einen Namen oder einen möglicherweise pseudonymen Datensatzschlüssel. Bitte prüfen Sie es.",
+          "nameContext": "Die KI deutet auf einen direkten Identifikator hin, der Spaltenname aber auf Informationen über einen solchen oder auf einen Quasi-Identifikator. Bitte prüfen Sie es.",
+          "evidenceConflict": "Der Spaltenname sieht wie ein direkter Identifikator aus, aber das KI-Modell widerspricht sicher. Bitte prüfen Sie es.",
+          "notScreened": {
+            "disabled": "Die KI-Prüfung ist für die gewählte QID-Discovery-Konfiguration deaktiviert. Prüfen Sie dieses Attribut manuell auf direkte Identifikatoren.",
+            "manualTable": "Manuell hinzugefügte Tabellen werden nicht geprüft. Prüfen Sie dieses Attribut manuell auf direkte Identifikatoren.",
+            "modelUnavailable": "In dieser Installation ist kein KI-Modell verfügbar, daher liegt kein Ergebnis vor. Prüfen Sie dieses Attribut manuell auf direkte Identifikatoren.",
+            "loadFailed": "Das KI-Modell konnte nicht geladen werden. Prüfen Sie dieses Attribut manuell auf direkte Identifikatoren.",
+            "failed": "Die KI-Prüfung ist für dieses Attribut fehlgeschlagen. Prüfen Sie es manuell auf direkte Identifikatoren.",
+            "notRun": "Die KI-Prüfung wurde für dieses Attribut nicht ausgeführt (zum Beispiel abgebrochen). Prüfen Sie es manuell auf direkte Identifikatoren."
+          }
+        }
       },
       "categories": {
         "PERSON_NAME": "Personenname",
@@ -186,6 +229,29 @@
         "CLINICAL": "Klinisch",
         "ADMINISTRATIVE": "Administrativ",
         "OTHER": "Sonstiges / unsicher"
+      },
+      "review": {
+        "notScreened_one": "{{count}} Attribut wurde nicht geprüft ({{reason}}). Prüfen Sie es manuell auf direkte Identifikatoren.",
+        "notScreened_other": "{{count}} Attribute wurden nicht geprüft ({{reason}}). Prüfen Sie sie manuell auf direkte Identifikatoren.",
+        "notScreenedReasons": {
+          "disabled": "KI-Prüfung deaktiviert",
+          "manualTable": "manuell hinzugefügte Tabelle",
+          "modelUnavailable": "kein KI-Modell verfügbar",
+          "loadFailed": "KI-Modell konnte nicht geladen werden",
+          "failed": "KI-Prüfung fehlgeschlagen",
+          "notRun": "KI-Prüfung nicht ausgeführt"
+        }
+      },
+      "progress": {
+        "ariaLabel": "Fortschritt der KI-Prüfung",
+        "loadingModel": "KI-Modell wird geladen…",
+        "loadingModelBytes": "KI-Modell wird geladen: {{loaded}} von {{total}} MB ({{percent}} %)",
+        "classifying": "KI-Prüfung: {{completed}} von {{total}} Attributen ({{percent}} %)",
+        "completed": "Einordnung abgeschlossen: {{completed}}/{{total}} Attribute.",
+        "reviewRequired_one": "{{count}} muss geprüft werden.",
+        "reviewRequired_other": "{{count}} müssen geprüft werden.",
+        "unavailable": "KI-Prüfung nicht verfügbar. Bitte prüfen Sie die Attribute manuell.",
+        "failed": "KI-Prüfung nach {{completed}} von {{total}} Attributen fehlgeschlagen. Bitte prüfen Sie die Attribute manuell."
       }
     }
   },
@@ -209,18 +275,15 @@
     },
     "evidence": {
       "info": "Evidenz",
-      "quantitativeDistinguishabilityEvidence": "Quantitative Unterscheidbarkeits-Evidenz",
-      "individualAttribute": "Einzelattribut",
-      "combinationWithOtherAttributes": "In Kombination mit anderen Attributen",
-      "combinationWithOtherAttributesInfo": "Durchschnittswerte aus ausgewerteten Attribut-Teilmengen, die dieses Attribut enthalten; jede Teilmengengröße wird gleich gewichtet.",
-      "averageDistinction": "Durchschnittliche Distinction",
-      "averageSeparation": "Durchschnittliche Separation",
-      "averageSingletonFraction": "Durchschnittlicher Singleton-Anteil",
+      "distinguishabilityEvidence": "Unterscheidbarkeits-Evidenz",
+      "measure": "Maß",
+      "individual": "Einzeln",
+      "contextualMean": "Kontextueller Mittelwert",
       "contextualEvidenceUnavailable": "Für dieses Attribut ist keine kontextuelle Unterscheidbarkeits-Evidenz verfügbar.",
       "distinction": "Distinction",
       "separation": "Separation",
       "singletonFraction": "Singleton-Anteil",
-      "historicalEvidence": "Historische Evidenz",
+      "otherAssessments": "Andere Bewertungen",
       "directIdentifierEvidence": "Evidenz für direkten Identifikator",
       "evidenceSource": "Quelle",
       "attributeName": "Attributname",
@@ -722,7 +785,8 @@
       "editTitle": "QID Discovery bearbeiten",
       "createTitle": "QID Discovery erstellen",
       "saving": "Speichern...",
-      "save": "Speichern"
+      "save": "Speichern",
+      "loading": "Konfiguration wird geladen…"
     },
     "configurationDetails": {
       "title": "Konfigurationsdetails"
@@ -749,6 +813,43 @@
       "fieldInvalidNumber": "{{field}} muss eine gültige Zahl sein.",
       "fieldNotInteger": "{{field}} muss eine ganze Zahl sein.",
       "fieldBelowMin": "{{field}} muss mindestens {{min}} betragen."
+    },
+    "aiScreening": {
+      "title": "KI-gestützte Erkennung direkter Identifikatoren",
+      "description": "Vor der Profilierung können Spaltennamen von einem KI-Modell, das im Browser der Forschenden läuft, auf mögliche direkte Identifikatoren geprüft werden. Spaltennamen und Datenwerte werden nie an externe Dienste gesendet.",
+      "enabled": "KI-Prüfung aktivieren",
+      "disabledNotice": "Die KI-gestützte Prüfung ist deaktiviert. Die Modelleinstellungen bleiben erhalten, werden aber nicht verwendet.",
+      "allowedModels": "Verfügbare Modelle",
+      "allowedModelsHelper": "Die hier gewählten Modelle werden unter „Datensatz hinzufügen“ angeboten; bei mehreren wählen Forschende eines davon aus. Installieren Sie ein Modell zuerst; die Installation gilt für die gesamte Installation von REA.",
+      "defaultModel": "Standard-KI-Modell",
+      "defaultModelHelper": "Für neue Datensätze vorausgewählt.",
+      "unsupportedModel": "{{model}} (von diesem Build nicht unterstützt)",
+      "errors": {
+        "modelsUnavailable": "In dieser Installation nicht installiert: {{models}}. Installieren oder entfernen Sie diese Modelle.",
+        "modelsRequired": "Wählen Sie mindestens ein Modell aus.",
+        "defaultRequired": "Wählen Sie ein Standard-KI-Modell aus.",
+        "defaultNotAllowed": "Das Standard-KI-Modell muss eines der verfügbaren Modelle sein.",
+        "modelsUnsupported": "Von diesem REA-Build nicht unterstützt: {{models}}. Entfernen Sie diese Modelle."
+      },
+      "installation": {
+        "installed": "Installiert",
+        "install": "Installieren",
+        "retry": "Installation wiederholen",
+        "installing": "Wird installiert… {{percent}} %",
+        "failed": "Installation fehlgeschlagen: {{error}}",
+        "unknown": "Installationsstatus unbekannt",
+        "statusUnavailable": "Der Installationsstatus konnte nicht geladen werden ({{detail}}). Modelle, die nicht in dieser Konfiguration gespeichert sind, können erst hinzugefügt werden, wenn er verfügbar ist; andere Einstellungen können weiterhin gespeichert werden.",
+        "unsupported": "Dieser REA-Build kann dieses Modell nicht ausführen.",
+        "notInstalled": "Es ist in dieser Installation nicht installiert.",
+        "installFailed": "Seine Installation ist fehlgeschlagen ({{detail}}).",
+        "statusUnknown": "Sein Installationsstatus konnte nicht geladen werden ({{detail}})."
+      },
+      "validation": {
+        "approved": "Für automatischen Ausschluss freigegeben",
+        "evaluated": "Evaluiert: Identifikator-Vorschläge müssen geprüft werden",
+        "configurationChanged": "Für eine frühere Konfiguration evaluiert: alle Vorschläge müssen geprüft werden",
+        "notEvaluated": "Nicht evaluiert: alle Vorschläge müssen geprüft werden"
+      }
     }
   },
   "documentation": {

@@ -6,6 +6,18 @@
 
 const MAX_DESCRIPTION_LENGTH = 300;
 
+// Premise formats, selected per prompt profile (promptProfiles.js). A
+// format id is part of the prompt fingerprint: add a new format instead of
+// changing one.
+// - column-name-text-v1: "Column name: patient dob."
+// - data-field-text-v1: "Data field: patient dob." Avoids the word "name":
+//   BERT-style MNLI models otherwise rate "a person's name" as entailed for
+//   almost any column through lexical overlap.
+export const AI_COLUMN_TEXT_FORMATS = Object.freeze({
+  "column-name-text-v1": "Column name",
+  "data-field-text-v1": "Data field",
+});
+
 /**
  * Splits snake_case, kebab-case, dotted and camelCase/PascalCase names into
  * lowercase words: "PatientDOB_2" -> "patient dob 2",
@@ -28,24 +40,29 @@ function normalizeDescription(description = "") {
     .slice(0, MAX_DESCRIPTION_LENGTH);
 }
 
+/** Premise text of `input` in one of AI_COLUMN_TEXT_FORMATS. */
+export function formatColumnPremise(input, format) {
+  const prefix = AI_COLUMN_TEXT_FORMATS[format];
+  if (!prefix) throw new Error(`Unknown AI column text format: ${format}`);
+  return input.description
+    ? `${prefix}: ${input.readableName}. Description: ${input.description}.`
+    : `${prefix}: ${input.readableName}.`;
+}
+
 /**
- * Normalized classification input. `text` is sent to the model; `cacheKey`
- * identifies the input for session caching (equal inputs give equal results).
- * `columnName` keeps the exact current name so a rename that normalizes to the
- * same text (e.g. "FirstName" -> "first_name") still invalidates suggestions.
+ * Normalized classification input. `cacheKey` identifies the input for
+ * session caching (equal inputs give equal results for the same model and
+ * prompt profile). `columnName` keeps the exact current name so a rename that
+ * normalizes to the same words ("FirstName" -> "first_name") still
+ * invalidates suggestions.
  */
 export function buildColumnClassificationInput({ columnName, description }) {
   const readableName = toReadableColumnName(columnName);
   const normalizedDescription = normalizeDescription(description);
-  const text = normalizedDescription
-    ? `Column name: ${readableName}. Description: ${normalizedDescription}.`
-    : `Column name: ${readableName}.`;
-
   return {
     columnName: String(columnName || ""),
     readableName,
     description: normalizedDescription,
-    text,
-    cacheKey: text,
+    cacheKey: `${readableName}\u0000${normalizedDescription}`,
   };
 }

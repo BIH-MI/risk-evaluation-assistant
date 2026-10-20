@@ -25,6 +25,7 @@ public class QidDiscoveryConfigurationResponseDTO {
     private Long versionId;
     private Integer versionNumber;
     private QidDiscoveryProfilingConfigurationResponseDTO profiling;
+    private QidDiscoveryAiScreeningConfigurationResponseDTO aiScreening;
     private Long datasetCount;
     private String creatorUsername;
     private LocalDateTime creationDate;
@@ -44,6 +45,7 @@ public class QidDiscoveryConfigurationResponseDTO {
         this.versionId = version.getId();
         this.versionNumber = version.getVersionNumber();
         this.profiling = new QidDiscoveryProfilingConfigurationResponseDTO(version);
+        this.aiScreening = new QidDiscoveryAiScreeningConfigurationResponseDTO(version);
         this.datasetCount = datasetCount;
         this.creatorUsername = configuration.getCreatorUsername();
         this.creationDate = configuration.getCreationDate();

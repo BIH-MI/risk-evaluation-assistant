@@ -1,4 +1,5 @@
 import { toDatasetAttributePayload } from "qidDiscovery";
+import { getAiScreeningProvenance } from "qidDiscovery/aiSuggestions";
 
 function buildTablePayload(table) {
   const displayName = table.name || "";
@@ -7,6 +8,13 @@ function buildTablePayload(table) {
     name: displayName.replace(/\.csv$/i, ""),
     attributes: (table.columnMeta || []).map(toDatasetAttributePayload),
   };
+}
+
+// The AI model that screened the column names: registry id, pinned
+// revision, quantisation, prompt profile and column-name rules, thresholds
+// and validation status. null when no model was used.
+function buildAiScreeningPayload(modelId) {
+  return modelId ? getAiScreeningProvenance(modelId) : null;
 }
 
 /**
@@ -18,6 +26,7 @@ export function buildAddDatasetPayload({
   description,
   sharedUsers,
   selectedQidDiscoveryConfiguration,
+  aiScreeningModelId = null,
   tables,
 }) {
   return {
@@ -26,6 +35,7 @@ export function buildAddDatasetPayload({
     qidDiscoveryConfigurationId: selectedQidDiscoveryConfiguration.id,
     qidDiscoveryConfigurationVersionId:
       selectedQidDiscoveryConfiguration.versionId,
+    aiScreening: buildAiScreeningPayload(aiScreeningModelId),
     sharedUsernames: sharedUsers.map((user) => user.username),
     tables: tables.map(buildTablePayload),
   };

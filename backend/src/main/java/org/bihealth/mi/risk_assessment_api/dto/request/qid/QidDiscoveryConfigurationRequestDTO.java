@@ -16,4 +16,16 @@ public class QidDiscoveryConfigurationRequestDTO {
     private Boolean active;
     private Boolean defaultConfiguration;
     private QidDiscoveryProfilingConfigurationRequestDTO profiling;
+    // Optional: omitted means QidDiscoveryAiScreeningDefaults.
+    private QidDiscoveryAiScreeningConfigurationRequestDTO aiScreening;
+
+    public QidDiscoveryConfigurationRequestDTO(
+            String name,
+            String description,
+            Boolean active,
+            Boolean defaultConfiguration,
+            QidDiscoveryProfilingConfigurationRequestDTO profiling
+    ) {
+        this(name, description, active, defaultConfiguration, profiling, null);
+    }
 }

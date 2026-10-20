@@ -2,11 +2,13 @@ package org.bihealth.mi.risk_assessment_api.service;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.bihealth.mi.risk_assessment_api.dto.request.qid.QidDiscoveryAiScreeningConfigurationRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.request.qid.QidDiscoveryConfigurationRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.request.qid.QidDiscoveryProfilingConfigurationRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.qid.QidDiscoveryConfigurationResponseDTO;
 import org.bihealth.mi.risk_assessment_api.exception.EntityNameAlreadyExistsException;
 import org.bihealth.mi.risk_assessment_api.model.NamedResourceConstraints;
+import org.bihealth.mi.risk_assessment_api.model.qid.QidDiscoveryAiScreeningDefaults;
 import org.bihealth.mi.risk_assessment_api.model.qid.QidDiscoveryConfiguration;
 import org.bihealth.mi.risk_assessment_api.model.qid.QidDiscoveryConfigurationVersion;
 import org.bihealth.mi.risk_assessment_api.repository.dataset.DatasetRepository;
@@ -18,7 +20,9 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -35,9 +39,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class QidDiscoveryConfigurationService {
 
+    private static final int MAX_AI_ALLOWED_MODELS = 16;
+
     private final QidDiscoveryConfigurationRepository configurationRepository;
     private final QidDiscoveryConfigurationVersionRepository versionRepository;
     private final DatasetRepository datasetRepository;
+    private final AiModelRegistry aiModelRegistry;
 
     @Transactional(readOnly = true)
     public List<QidDiscoveryConfigurationResponseDTO> listConfigurations(boolean activeOnly, boolean isAdmin) {
@@ -164,6 +171,7 @@ public class QidDiscoveryConfigurationService {
         dto.setActive(true);
         dto.setDefaultConfiguration(false);
         dto.setProfiling(toRequestProfiling(sourceVersion));
+        dto.setAiScreening(toRequestAiScreening(sourceVersion));
 
         return createConfiguration(dto, username, true);
     }
@@ -271,8 +279,80 @@ public class QidDiscoveryConfigurationService {
         version.setVersionNumber(versionNumber);
         version.setMaxSubsetSize(validateRequiredInteger(profiling.getMaxSubsetSize(), "Maximum Subset Size", 1));
         version.setMaxEvaluatedSubsets(validateRequiredInteger(profiling.getMaxEvaluatedSubsets(), "Maximum Evaluated Subsets", 1));
+        applyAiScreening(version, dto.getAiScreening());
 
         return version;
+    }
+
+    /**
+     * Validates and stores AI screening settings. New versions always store
+     * them explicitly; a request without them gets the defaults. Only models
+     * of the AI model registry are accepted and the default must be allowed.
+     * Disabled screening keeps its model selection for later reactivation.
+     * Existing versions are never rewritten.
+     */
+    private void applyAiScreening(
+            QidDiscoveryConfigurationVersion version,
+            QidDiscoveryAiScreeningConfigurationRequestDTO aiScreening
+    ) {
+        if (aiScreening == null) {
+            version.setAiScreeningEnabled(QidDiscoveryAiScreeningDefaults.ENABLED);
+            version.setAiAllowedModelIds(new ArrayList<>(QidDiscoveryAiScreeningDefaults.ALLOWED_MODEL_IDS));
+            version.setAiDefaultModelId(QidDiscoveryAiScreeningDefaults.DEFAULT_MODEL_ID);
+            return;
+        }
+
+        boolean enabled = !Boolean.FALSE.equals(aiScreening.getEnabled());
+        LinkedHashSet<String> allowed = new LinkedHashSet<>();
+        if (aiScreening.getAllowedModelIds() != null) {
+            for (String rawId : aiScreening.getAllowedModelIds()) {
+                String id = rawId == null ? "" : rawId.trim();
+                if (!aiModelRegistry.isSupported(id)) {
+                    throw new IllegalArgumentException("Unsupported AI model: " + rawId);
+                }
+                allowed.add(id);
+            }
+        }
+        if (allowed.size() > MAX_AI_ALLOWED_MODELS) {
+            throw new IllegalArgumentException("At most " + MAX_AI_ALLOWED_MODELS + " AI models can be allowed.");
+        }
+
+        String defaultModelId = trimToNull(aiScreening.getDefaultModelId());
+        if (enabled && allowed.isEmpty()) {
+            throw new IllegalArgumentException("Select at least one AI model when AI screening is enabled.");
+        }
+        if (enabled && defaultModelId == null) {
+            throw new IllegalArgumentException("A default AI model is required when AI screening is enabled.");
+        }
+        if (defaultModelId != null && !allowed.contains(defaultModelId)) {
+            throw new IllegalArgumentException("The default AI model must be one of the available models.");
+        }
+
+        version.setAiScreeningEnabled(enabled);
+        version.setAiAllowedModelIds(new ArrayList<>(allowed));
+        version.setAiDefaultModelId(defaultModelId);
+    }
+
+    /** The version's AI screening settings, with defaults for legacy versions. */
+    private QidDiscoveryAiScreeningConfigurationRequestDTO toRequestAiScreening(QidDiscoveryConfigurationVersion version) {
+        if (version.getAiScreeningEnabled() == null) return null;
+        return new QidDiscoveryAiScreeningConfigurationRequestDTO(
+                version.getAiScreeningEnabled(),
+                version.getAiAllowedModelIds() == null ? List.of() : version.getAiAllowedModelIds(),
+                version.getAiDefaultModelId()
+        );
+    }
+
+    /** Effective allowed model ids of a version (defaults for legacy versions). */
+    @Transactional(readOnly = true)
+    public List<String> getEffectiveAiAllowedModelIds(QidDiscoveryConfigurationVersion version) {
+        if (version.getAiScreeningEnabled() == null) {
+            return QidDiscoveryAiScreeningDefaults.ALLOWED_MODEL_IDS;
+        }
+        if (!version.getAiScreeningEnabled() || version.getAiAllowedModelIds() == null) {
+            return List.of();
+        }
+        return version.getAiAllowedModelIds();
     }
 
     private QidDiscoveryProfilingConfigurationRequestDTO toRequestProfiling(QidDiscoveryConfigurationVersion version) {

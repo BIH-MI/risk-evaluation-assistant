@@ -1,6 +1,6 @@
 // src/screens/datasets/AddDatasetForm/PreviewTable.js
 import React, { useEffect, useMemo, useState } from "react";
-import { CircularProgress, IconButton } from "@mui/material";
+import { IconButton, Tooltip } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import DeleteIcon from "@mui/icons-material/DeleteOutline";
 import { useTranslation } from "react-i18next";
@@ -14,10 +14,31 @@ import {
 import RATypography from "../../../components/display/RATypography";
 import RAInput from "../../../components/input/RAInput";
 import { isSuggestionCurrent } from "qidDiscovery/aiSuggestions";
-import { AiColumnAssessmentInfo } from "./aiSuggestions/AiColumnAssessmentInfo";
+import {
+  AiColumnAssessmentInfo,
+  ScreeningStatusLegend,
+} from "./aiSuggestions/AiColumnAssessmentInfo";
+import {
+  AiScreeningProgress,
+  LabeledLinearProgress,
+} from "./aiSuggestions/AiScreeningProgress";
 import { AI_TABLE_STATUS } from "./aiSuggestions/aiSuggestionTableState";
+import {
+  getColumnScreening,
+  getTableReviewSummary,
+} from "./aiSuggestions/screeningStatus";
 
 const getColumnIdentity = (column = {}) => column.sourceField || column.field;
+
+// Narrower cell padding than the shared table default, so the columns fit
+// without horizontal scrolling on desktop. Scoped to this table.
+const previewTableContainerSx = {
+  "& thead th, & tbody td": { px: 1.5 },
+  "& tbody td": { verticalAlign: "middle" },
+};
+
+// Longer names do not fit the name input; they are shown in full on hover.
+const NAME_TOOLTIP_MIN_LENGTH = 24;
 
 function getSubsetProfilingStatus(file, { t, language }) {
   if (file.isManual || !file._qidProfilingSession) return null;
@@ -84,7 +105,9 @@ export const PreviewTable = React.memo(function PreviewTable({
   onExcludedChange,
   onAddColumn,
   onDeleteColumn,
+  onConfirmScreening,
   aiState,
+  aiEnabled,
 }) {
   const { t, i18n } = useTranslation();
   const [bufferName, setBufferName] = useState(file.name);
@@ -113,16 +136,17 @@ export const PreviewTable = React.memo(function PreviewTable({
           borderColor: "divider",
           borderRadius: 2,
           display: "flex",
-          alignItems: "center",
+          flexDirection: "column",
           justifyContent: "center",
+          gap: 2,
           minHeight: 150,
           bgcolor: "action.hover",
         }}
       >
-        <CircularProgress size={24} />
-        <RATypography variant="body2" sx={{ ml: 2 }}>
-          {t("datasets.add.parsing", { name: file.name })}
-        </RATypography>
+        {/* The CSV parser reports no percentage: indeterminate. */}
+        <LabeledLinearProgress label={t("datasets.add.parsing", { name: file.name })} />
+        {/* Header names can already be classified while the file is parsed. */}
+        <AiScreeningProgress aiState={aiState} />
       </RABox>
     );
   }
@@ -144,23 +168,25 @@ export const PreviewTable = React.memo(function PreviewTable({
     {
       Header: t("datasets.attributesTable.index"),
       id: "rowIndex",
-      width: 50,
+      width: 40,
       align: "center",
       Cell: ({ row }) => (
-        <RATypography variant="caption">{row.index + 1}</RATypography>
+        <RATypography variant="caption">{row.original.position + 1}</RATypography>
       ),
     },
     {
       Header: t("datasets.attributesTable.name"),
       accessor: "field",
       align: "center",
-      width: 300,
       Cell: ({ row }) => (
         // Keeps the input readable: auto table layout otherwise lets the
-        // name column shrink when other cells are wide.
-        <RABox sx={{ minWidth: 200 }}>
+        // name column shrink to make room for the examples.
+        <RABox sx={{ minWidth: { xs: 200, md: 260, xl: 340 } }}>
           <MemoNameCell
             initialValue={row.original.field}
+            tooltip={
+              row.original.field.length >= NAME_TOOLTIP_MIN_LENGTH ? row.original.field : ""
+            }
             onCommit={(newValue) =>
               onColumnNameChange(
                 file._localTableId,
@@ -192,26 +218,33 @@ export const PreviewTable = React.memo(function PreviewTable({
     {
       Header: t("datasets.add.examples"),
       accessor: "examples",
-      align: "center",
+      align: "left",
+      // Takes the width the other columns leave.
+      width: "100%",
       Cell: ({ row }) => {
-        const vals = topValuesMap[row.original.field] || [];
+        const examples = (topValuesMap[row.original.field] || []).join(", ");
+        if (!examples) {
+          return <span style={{ color: "#ccc" }}>-</span>;
+        }
         return (
-          <RABox
-            sx={{
-              fontSize: 12,
-              pl: 1,
-              width: "200px",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {vals.length > 0 ? (
-              vals.join(", ")
-            ) : (
-              <span style={{ color: "#ccc" }}>-</span>
-            )}
-          </RABox>
+          // The text is positioned absolutely, so it never widens the
+          // column; it is truncated, and shown in full on hover.
+          <Tooltip title={examples} placement="top" arrow>
+            <RABox sx={{ position: "relative", minWidth: 160, height: "1.5em", fontSize: 12 }}>
+              <RABox
+                sx={{
+                  position: "absolute",
+                  inset: 0,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  lineHeight: "1.5em",
+                }}
+              >
+                {examples}
+              </RABox>
+            </RABox>
+          </Tooltip>
         );
       },
     },
@@ -220,7 +253,7 @@ export const PreviewTable = React.memo(function PreviewTable({
       accessor: "excluded",
       align: "center",
       Cell: ({ row }) => (
-        <RABox display="flex" alignItems="center" justifyContent="center">
+        <RABox display="flex" alignItems="center" justifyContent="center" gap={0.5}>
           <MemoCheckboxCell
             initialValue={row.original.excluded}
             onCommit={(checked) =>
@@ -231,22 +264,27 @@ export const PreviewTable = React.memo(function PreviewTable({
               )
             }
           />
-          <AiColumnAssessmentInfo
-            suggestion={getCurrentSuggestion(
-              row.original.columnKey,
-              row.original.field
-            )}
-            isPending={isAiRunning}
-            excluded={row.original.excluded}
-            aiAutoExcluded={row.original.aiAutoExcluded}
-          />
+          {/* Fixed width (room for two icons) keeps checkboxes aligned. */}
+          <RABox sx={{ width: 48, flexShrink: 0, display: "flex" }}>
+            <AiColumnAssessmentInfo
+              // Per column, so an open popover never moves to another row
+              // when the page changes.
+              key={row.original.columnKey}
+              screening={row.original.screening}
+              attributeName={row.original.field}
+              excluded={row.original.excluded}
+              onConfirm={() =>
+                onConfirmScreening(file._localTableId, row.original.columnKey)
+              }
+            />
+          </RABox>
         </RABox>
       ),
     },
     {
       Header: t("datasets.attributesTable.delete"),
       id: "delete",
-      width: 50,
+      width: 48,
       align: "center",
       Cell: ({ row }) => (
         <IconButton
@@ -262,16 +300,42 @@ export const PreviewTable = React.memo(function PreviewTable({
     },
   ];
 
-  const rows = columnMeta.map((column) => ({
-    columnKey: getColumnIdentity(column),
-    field: column.field,
-    dataType: column.level,
-    excluded: Boolean(column.excluded),
-    aiAutoExcluded: column.aiAutoExcluded === true && column.excluded === true,
-  }));
+  const rows = columnMeta.map((column, position) => {
+    const columnKey = getColumnIdentity(column);
+    return {
+      columnKey,
+      position,
+      field: column.field,
+      dataType: column.level,
+      excluded: Boolean(column.excluded),
+      screening: getColumnScreening({
+        column,
+        suggestion: getCurrentSuggestion(columnKey, column.field),
+        aiState,
+        aiEnabled,
+        isAiRunning,
+        isManualTable: Boolean(file.isManual),
+      }),
+    };
+  });
+  // Potential direct identifiers awaiting review are profiled as QID
+  // candidates until the researcher decides, so profiling is provisional.
+  // Counts are hidden while classification runs (they are still changing).
+  const reviewSummary = getTableReviewSummary(rows);
+  const reviewCount = isAiRunning ? 0 : reviewSummary.required;
+  const profilingStatus =
+    subsetProfilingStatus && reviewCount > 0 && !file.isProfiling
+      ? `${subsetProfilingStatus} ${t("datasets.add.subsetProfilingProvisional")}`
+      : subsetProfilingStatus;
+  // The progress line already says when AI screening is unavailable.
+  const showNotScreened =
+    !isAiRunning &&
+    reviewSummary.notScreened > 0 &&
+    aiState.status !== AI_TABLE_STATUS.UNAVAILABLE;
+  const reviewKey = (name) => `datasets.aiSuggestions.review.${name}`;
 
   return (
-    <RABox mt={2} p={2}>
+    <RABox mt={2} p={2} data-preview-table>
       <RABox
         display="flex"
         alignItems="center"
@@ -307,17 +371,28 @@ export const PreviewTable = React.memo(function PreviewTable({
         </IconButton>
       </RABox>
 
-      {subsetProfilingStatus && (
-        <RABox
-          display="flex"
-          alignItems="center"
-          flexWrap="wrap"
-          gap={1}
-          mb={1}
-        >
-          <RATypography variant="caption" color="text">
-            {subsetProfilingStatus}
-          </RATypography>
+      <RABox mb={1}>
+        <AiScreeningProgress aiState={aiState} reviewCount={reviewCount} />
+      </RABox>
+
+      {showNotScreened && (
+        <RATypography variant="caption" display="block" color="text" mb={1}>
+          {t(reviewKey("notScreened"), {
+            count: reviewSummary.notScreened,
+            reason: t(reviewKey(`notScreenedReasons.${reviewSummary.notScreenedReason}`)),
+          })}
+        </RATypography>
+      )}
+
+      {profilingStatus && (
+        <RATypography variant="caption" display="block" color="text" mb={1}>
+          {profilingStatus}
+        </RATypography>
+      )}
+
+      {rows.length > 0 && (
+        <RABox mb={0.5}>
+          <ScreeningStatusLegend />
         </RABox>
       )}
 
@@ -329,6 +404,7 @@ export const PreviewTable = React.memo(function PreviewTable({
         canAdd={true}
         onAddClick={() => onAddColumn(file._localTableId)}
         addButtonPosition="bottom-right"
+        tableContainerSx={previewTableContainerSx}
       />
     </RABox>
   );

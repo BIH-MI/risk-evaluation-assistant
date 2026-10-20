@@ -31,6 +31,35 @@ function applyUnprofiledColumnDefaults(columnMeta = []) {
  * (awaiting initial exclusions, isProfiling) -> isProfiling (subset
  * profiling) -> ready.
  */
+const getColumnIdentity = (column = {}) => column.sourceField || column.field;
+
+/**
+ * Profiling results are built from the column metadata the run started
+ * with. A review confirmation recorded while it ran (manualExclusionDecision
+ * without an exclusion change, see confirmAttributeExclusion) is carried
+ * over instead of being dropped with the older snapshot.
+ */
+function keepReviewConfirmations(profiledColumnMeta = [], currentColumnMeta = []) {
+  const current = new Map(
+    (currentColumnMeta || []).map((column) => [getColumnIdentity(column), column])
+  );
+  let changed = false;
+  const next = profiledColumnMeta.map((column) => {
+    const currentColumn = current.get(getColumnIdentity(column));
+    if (
+      column.manualExclusionDecision !== true &&
+      currentColumn?.manualExclusionDecision === true &&
+      currentColumn.field === column.field &&
+      Boolean(currentColumn.excluded) === Boolean(column.excluded)
+    ) {
+      changed = true;
+      return { ...column, manualExclusionDecision: true };
+    }
+    return column;
+  });
+  return changed ? next : profiledColumnMeta;
+}
+
 export function useDatasetTableProfiling({ tables, setTables, setErrors, t }) {
   // Assigned during render so callbacks and effects see committed tables.
   const tablesRef = useRef(tables);
@@ -142,7 +171,11 @@ export function useDatasetTableProfiling({ tables, setTables, setErrors, t }) {
 
       refreshUploadedTableProfile(profilingSession, nextColumnMeta)
         .then((profile) => {
-          if (initial) {
+          // A newer refresh (e.g. a researcher edit) supersedes this result.
+          const isCurrent =
+            getTable(tableId)?._qidRefreshRequestId === requestId;
+          if (initial && !isCurrent) discardQidPipelineTiming(tableId);
+          if (initial && isCurrent) {
             recordQidStage(
               tableId,
               "subsetProfilingMs",
@@ -153,7 +186,12 @@ export function useDatasetTableProfiling({ tables, setTables, setErrors, t }) {
               "evaluatedSubsets",
               profile.subsetProfilingSummary?.evaluatedSubsetCount
             );
-            reportQidPipelineTiming(tableId);
+            reportQidPipelineTiming(tableId, {
+              tableName: getTable(tableId)?.name,
+              columnMeta: profile.columnMeta,
+              summary: profile.subsetProfilingSummary,
+              configuration: profilingSession.qidDiscoveryConfiguration?.profiling,
+            });
           }
           setTables((currentTables) =>
             currentTables.map((currentTable) =>
@@ -161,7 +199,10 @@ export function useDatasetTableProfiling({ tables, setTables, setErrors, t }) {
               currentTable._qidRefreshRequestId === requestId
                 ? {
                     ...currentTable,
-                    columnMeta: profile.columnMeta,
+                    columnMeta: keepReviewConfirmations(
+                      profile.columnMeta,
+                      currentTable.columnMeta
+                    ),
                     subsetProfilingSummary: profile.subsetProfilingSummary,
                     isProfiling: false,
                   }

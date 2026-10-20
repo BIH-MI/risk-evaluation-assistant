@@ -51,6 +51,10 @@ function buildHistoricalEvidenceSummary(historical, field, scoringSystem) {
     });
 }
 
+/**
+ * Ratings given to this attribute in other assessments of the same dataset
+ * (other data-sharing contexts). Not a cross-project knowledge base.
+ */
 function HistoricalEvidence({ historical, field, scoringSystem, t }) {
   const summary = buildHistoricalEvidenceSummary(
     historical,
@@ -61,10 +65,8 @@ function HistoricalEvidence({ historical, field, scoringSystem, t }) {
 
   return (
     <EvidenceSection
-      title={t(
-        "datasetAssessments.evidence.historicalEvidence",
-        "Historical Evidence"
-      )}
+      centerTitle
+      title={t("datasetAssessments.evidence.otherAssessments", "Other Assessments")}
     >
       {summary.map(({ label, count }) => (
         <EvidenceMetricRow

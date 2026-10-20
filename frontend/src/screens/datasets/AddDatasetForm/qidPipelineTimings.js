@@ -5,7 +5,12 @@
  * anywhere or persisted. In production builds every function is a no-op.
  */
 
-const ENABLED = process.env.NODE_ENV === "development";
+import {
+  QID_EXPERIMENT_REPORT_ENABLED,
+  reportQidExperiment,
+} from "./qidExperimentReport";
+
+const ENABLED = QID_EXPERIMENT_REPORT_ENABLED;
 const timingsByTable = new Map();
 
 const round = (ms) => (typeof ms === "number" ? Math.round(ms) : ms);
@@ -24,6 +29,14 @@ export function recordQidStage(tableId, stage, value, { once = false } = {}) {
   timing.stages[stage] = round(value);
 }
 
+/** Adds `value` to a counter stage (e.g. AI inputs over several runs). */
+export function addQidStage(tableId, stage, value) {
+  if (!ENABLED) return;
+  const timing = timingsByTable.get(tableId);
+  if (!timing) return;
+  timing.stages[stage] = (timing.stages[stage] || 0) + value;
+}
+
 /** Records the elapsed time since the upload started under `stage`. */
 export function markQidStage(tableId, stage, { once = true } = {}) {
   if (!ENABLED) return;
@@ -32,16 +45,22 @@ export function markQidStage(tableId, stage, { once = true } = {}) {
   recordQidStage(tableId, stage, performance.now() - timing.startedAt, { once });
 }
 
-/** Logs the collected timings once, when initial profiling has finished. */
-export function reportQidPipelineTiming(tableId) {
+/**
+ * Prints the experiment report once, when the table's current initial
+ * profiling has finished. `context` holds the profiled columnMeta, subset
+ * summary, configuration and table name (aggregates only).
+ */
+export function reportQidPipelineTiming(tableId, context = {}) {
   if (!ENABLED) return;
   const timing = timingsByTable.get(tableId);
   if (!timing) return;
   timingsByTable.delete(tableId);
-  // eslint-disable-next-line no-console
-  console.info("[REA QID pipeline]", {
-    ...timing.stages,
-    totalMs: round(performance.now() - timing.startedAt),
+  reportQidExperiment({
+    ...context,
+    stages: {
+      ...timing.stages,
+      totalMs: round(performance.now() - timing.startedAt),
+    },
   });
 }
 

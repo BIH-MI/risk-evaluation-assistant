@@ -18,5 +18,7 @@ pgdata/
 # Ignore SSL certificates and private keys
 nginx/certs/
 
-# Self-hosted AI model/runtime assets (npm run fetch:ai-assets)
+# ONNX Runtime files copied from node_modules (scripts/copy-onnx-runtime.js)
 frontend/public/ai-assets/
+# AI model files installed by the backend (local development)
+backend/ai-models/

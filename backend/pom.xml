@@ -107,6 +107,19 @@
     </dependencies>
 
 	<build>
+		<resources>
+			<resource>
+				<directory>src/main/resources</directory>
+			</resource>
+			<!-- The AI model registry is shared with the frontend (single source of truth). -->
+			<resource>
+				<directory>${project.basedir}/../frontend/src/qidDiscovery/aiSuggestions</directory>
+				<includes>
+					<include>modelRegistry.json</include>
+				</includes>
+				<targetPath>ai</targetPath>
+			</resource>
+		</resources>
 		<plugins>
 			<!-- Enable MapStruct annotation processing -->
 			<plugin>

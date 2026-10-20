@@ -9,7 +9,9 @@
 // - "qidDiscovery/aiSuggestions": pure helpers for optional AI column-name
 //   suggestions (categories, statuses, review transitions).
 // - "qidDiscovery/aiSuggestions/columnClassifierClient": owns the AI Web
-//   Worker that lazily loads the self-hosted zero-shot model.
+//   Worker that lazily loads the selected model from REA's backend.
+// - "qidDiscovery/aiSuggestions/useAiModelInstallation": installation status
+//   of the AI models (backend API).
 
 // QID Discovery Configuration.
 export { DEFAULT_QID_DISCOVERY_PROFILING_CONFIGURATION } from "./configuration/defaults";

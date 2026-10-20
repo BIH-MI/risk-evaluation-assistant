@@ -1,27 +1,27 @@
 import React, { useCallback, useState } from "react";
 import PropTypes from "prop-types";
-import {
-  CircularProgress,
-  ClickAwayListener,
-  IconButton,
-  Tooltip,
-  Typography,
-} from "@mui/material";
+import { Button, ButtonBase, Popover, Tooltip, Typography } from "@mui/material";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import RemoveCircleOutlineIcon from "@mui/icons-material/RemoveCircleOutline";
+import VerifiedUserOutlinedIcon from "@mui/icons-material/VerifiedUserOutlined";
+import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 import { useTranslation } from "react-i18next";
 
 import RABox from "components/layout/RABox";
 import { useMaterialUIController } from "context";
 import {
-  AI_SUGGESTION_STATUS,
-  suggestsExclusionReview,
-} from "qidDiscovery/aiSuggestions";
+  REVIEW_STATE,
+  SCREENING_LEGEND_STATUSES,
+  SCREENING_STATUS,
+} from "./screeningStatus";
 
-// Explicit tooltip surface colours. REA's dark theme does not set
-// palette.mode, so MUI's background.paper/text.primary/divider keep their
-// light defaults there, and RATypography turns "dark"/"text" colours white in
-// dark mode. Both themes therefore get fixed, opaque, high-contrast colours
-// keyed off the controller's darkMode flag.
+// Explicit surface colours. REA's dark theme does not set palette.mode, so
+// MUI's background.paper/text.primary/divider keep their light defaults
+// there, and RATypography turns "dark"/"text" colours white in dark mode.
+// Both themes therefore get fixed, opaque, high-contrast colours keyed off
+// the controller's darkMode flag.
 const SURFACE_COLORS = {
   light: {
     background: "#ffffff",
@@ -39,120 +39,62 @@ const SURFACE_COLORS = {
   },
 };
 
-function getCategoryLabel(t, category) {
-  return t(
-    `datasets.aiSuggestions.categories.${category || "OTHER"}`,
-    category || ""
-  );
+// Icon and colour per status. Colour is never the only signal: every status
+// has its own icon shape, accessible name and legend label. `null` tone means the neutral icon
+// colour of the current theme.
+const STATUS_APPEARANCE = {
+  [SCREENING_STATUS.REVIEW_NEEDED]: { Icon: WarningAmberRoundedIcon, tone: "warning.main" },
+  [SCREENING_STATUS.AUTO_EXCLUDED]: { Icon: VerifiedUserOutlinedIcon, tone: "info.main" },
+  [SCREENING_STATUS.REVIEWED]: { Icon: CheckCircleOutlineIcon, tone: "success.main" },
+  [SCREENING_STATUS.NO_EXCLUSION_SUGGESTED]: { Icon: InfoOutlinedIcon, tone: null },
+  [SCREENING_STATUS.NOT_SCREENED]: { Icon: RemoveCircleOutlineIcon, tone: null },
+  [SCREENING_STATUS.PENDING]: { Icon: HourglassEmptyIcon, tone: null },
+};
+
+const key = (name) => `datasets.aiSuggestions.${name}`;
+
+function useSurfaceColors() {
+  const [controller] = useMaterialUIController();
+  return controller.darkMode ? SURFACE_COLORS.dark : SURFACE_COLORS.light;
 }
 
-// What the model predicted. A manual review decision does not change the
-// prediction, so reviewed suggestions keep their original status.
-function getPredictionStatus(suggestion) {
-  if (suggestion.status === AI_SUGGESTION_STATUS.REVIEWED) {
-    return suggestion.review?.reviewedStatus || AI_SUGGESTION_STATUS.SUGGESTED;
-  }
-  return suggestion.status;
+function StatusIcon({ status, colors, size }) {
+  const { Icon, tone } = STATUS_APPEARANCE[status];
+  return <Icon aria-hidden sx={{ fontSize: size, color: tone || colors.icon, flexShrink: 0 }} />;
 }
 
-/**
- * Maps a prediction and the column's actual exclusion state to the compact
- * assessment shown to the researcher. Classification (what the model thinks)
- * and exclusion (the checkbox) are reported separately.
- */
-function getAssessmentView({ suggestion, isPending, excluded, aiAutoExcluded }) {
-  if (!suggestion) {
-    return {
-      tone: "grey.500",
-      status: isPending ? "pending" : "notAssessed",
-      message: isPending ? "pending" : "notAssessed",
-    };
-  }
-  if (suggestion.status === AI_SUGGESTION_STATUS.UNAVAILABLE) {
-    return { tone: "grey.500", status: "unavailable", message: "unavailable" };
-  }
-  if (getPredictionStatus(suggestion) === AI_SUGGESTION_STATUS.UNCERTAIN) {
-    return { tone: "warning.main", status: "manualReview", message: "uncertain" };
-  }
+StatusIcon.propTypes = {
+  status: PropTypes.oneOf(Object.values(SCREENING_STATUS)).isRequired,
+  colors: PropTypes.object.isRequired,
+  size: PropTypes.number,
+};
 
-  const category = suggestion.category;
-  if (suggestsExclusionReview(suggestion)) {
-    if (aiAutoExcluded) {
-      return {
-        tone: "warning.main",
-        status: "autoExcluded",
-        category,
-        message: "autoExcluded",
-        guidance: true,
-      };
-    }
-    return excluded
-      ? { tone: "warning.main", status: "excluded", category, message: "identifierExcluded" }
-      : {
-          tone: "warning.main",
-          status: "includedManually",
-          category,
-          message: "identifierIncluded",
-        };
+StatusIcon.defaultProps = {
+  size: 18,
+};
+
+function getCategoryText(t, screening) {
+  const { prediction, status } = screening;
+  if (status === SCREENING_STATUS.NOT_SCREENED || status === SCREENING_STATUS.PENDING) {
+    return null;
   }
-
-  return excluded
-    ? { tone: "grey.500", status: "excluded", category, message: "nonIdentifierExcluded" }
-    : { tone: "success.main", status: "included", category, message: "included" };
-}
-
-function AssessmentContent({ colors, ...props }) {
-  const { t } = useTranslation();
-  const view = getAssessmentView(props);
-  const key = (name) => `datasets.aiSuggestions.tooltip.${name}`;
-
-  return (
-    <RABox display="flex" flexDirection="column" gap={0.75} sx={{ maxWidth: 260 }}>
-      <Typography variant="button" fontWeight="bold" sx={{ color: colors.primary }}>
-        {t(key("title"))}
-      </Typography>
-      {view.category && (
-        <LabeledLine
-          colors={colors}
-          label={t(key("classificationLabel"))}
-          value={getCategoryLabel(t, view.category)}
-        />
-      )}
-      <RABox display="flex" alignItems="center" gap={0.75}>
-        <RABox
-          component="span"
-          sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: view.tone, flexShrink: 0 }}
-        />
-        <LabeledLine
-          colors={colors}
-          label={t(key("exclusionLabel"))}
-          value={t(key(`status.${view.status}`))}
-        />
-      </RABox>
-      <Typography
-        variant="caption"
-        display="block"
-        sx={{ color: colors.secondary, lineHeight: 1.45 }}
-      >
-        {t(key(`message.${view.message}`))}
-      </Typography>
-      {view.guidance && (
-        <Typography
-          variant="caption"
-          fontWeight="medium"
-          display="block"
-          sx={{ color: colors.primary, lineHeight: 1.45 }}
-        >
-          {t(key("guidance"))}
-        </Typography>
-      )}
-    </RABox>
-  );
+  if (prediction.valueConcept) {
+    return t(`datasets.directIdentifiers.concepts.${prediction.valueConcept}`, prediction.valueConcept);
+  }
+  let text;
+  if (prediction.category) {
+    text = t(key(`categories.${prediction.category}`), prediction.category);
+  } else if (prediction.nameOnly || prediction.valueReview) {
+    text = t("datasets.directIdentifiers.potentialIdentifier", "Potential identifier");
+  } else {
+    return t(key("tooltip.categoryUncertain"));
+  }
+  return prediction.uncertain ? t(key("tooltip.uncertainPrediction"), { category: text }) : text;
 }
 
 function LabeledLine({ colors, label, value }) {
   return (
-    <Typography variant="caption" display="block" sx={{ color: colors.secondary }}>
+    <Typography variant="caption" display="block" sx={{ color: colors.secondary, lineHeight: 1.45 }}>
       {label}:{" "}
       <RABox component="span" sx={{ fontWeight: 600, color: colors.primary }}>
         {value}
@@ -161,104 +103,220 @@ function LabeledLine({ colors, label, value }) {
   );
 }
 
-/**
- * Small information icon shown next to the EXCLUDED checkbox. Opens a
- * read-only AI column assessment on hover, keyboard focus, or click/tap.
- * It contains no controls: the checkbox stays the only way to change the
- * exclusion.
- */
-export function AiColumnAssessmentInfo({
-  suggestion,
-  isPending,
-  excluded,
-  aiAutoExcluded,
-}) {
-  const { t } = useTranslation();
-  const [controller] = useMaterialUIController();
-  const colors = controller.darkMode ? SURFACE_COLORS.dark : SURFACE_COLORS.light;
-  const [open, setOpen] = useState(false);
-  const handleOpen = useCallback(() => setOpen(true), []);
-  const handleClose = useCallback(() => setOpen(false), []);
-  const handleToggle = useCallback(() => setOpen((current) => !current), []);
-  const showSpinner = isPending && !suggestion;
+LabeledLine.propTypes = {
+  colors: PropTypes.object.isRequired,
+  label: PropTypes.string.isRequired,
+  value: PropTypes.string.isRequired,
+};
+
+/** Screening details: predicted category, contributing evidence, why. */
+function ScreeningDetails({ screening, colors }) {
+  const { t, i18n } = useTranslation();
+  const category = getCategoryText(t, screening);
+  const sources = new Intl.ListFormat(i18n.language, { type: "conjunction" }).format(
+    screening.evidence.map((source) => t(key(`tooltip.sources.${source}`)))
+  );
+  const evidence = sources && sources[0].toLocaleUpperCase(i18n.language) + sources.slice(1);
 
   return (
-    <ClickAwayListener onClickAway={handleClose}>
-      <RABox component="span" display="inline-flex">
-        <Tooltip
-          open={open}
-          onOpen={handleOpen}
-          onClose={handleClose}
-          arrow
-          placement="top"
-          describeChild
-          title={
-            <AssessmentContent
-              colors={colors}
-              suggestion={suggestion}
-              isPending={isPending}
-              excluded={excluded}
-              aiAutoExcluded={aiAutoExcluded}
-            />
-          }
-          // Prefer above the icon; flip below/sideways and stay inside the
-          // viewport when there is not enough room (e.g. first table rows).
-          PopperProps={{
-            modifiers: [
-              {
-                name: "flip",
-                options: { fallbackPlacements: ["bottom", "left", "right"] },
-              },
-              { name: "preventOverflow", options: { padding: 8 } },
-            ],
-          }}
-          componentsProps={{
-            tooltip: {
-              sx: {
-                bgcolor: colors.background,
-                color: colors.primary,
-                // The global tooltip override sets opacity 0.7.
-                opacity: 1,
+    <RABox display="flex" flexDirection="column" gap={0.5} sx={{ textAlign: "left" }}>
+      <Typography
+        variant="caption"
+        fontWeight="bold"
+        sx={{ color: colors.primary, textTransform: "uppercase", letterSpacing: 0.4 }}
+      >
+        {t(key("tooltip.title"))}
+      </Typography>
+      {(category || evidence) && (
+        <RABox display="flex" flexDirection="column">
+          {category && (
+            <LabeledLine colors={colors} label={t(key("tooltip.categoryLabel"))} value={category} />
+          )}
+          {evidence && (
+            <LabeledLine colors={colors} label={t(key("tooltip.evidenceLabel"))} value={evidence} />
+          )}
+        </RABox>
+      )}
+      <Typography variant="caption" display="block" sx={{ color: colors.secondary, lineHeight: 1.45 }}>
+        {t(key(`tooltip.message.${screening.message}`))}
+      </Typography>
+    </RABox>
+  );
+}
+
+ScreeningDetails.propTypes = {
+  screening: PropTypes.object.isRequired,
+  colors: PropTypes.object.isRequired,
+};
+
+const surfaceSx = (colors) => ({
+  bgcolor: colors.background,
+  color: colors.primary,
+  border: "1px solid",
+  borderColor: colors.border,
+  boxShadow: 3,
+  p: 1.25,
+  width: "max-content",
+  maxWidth: "min(300px, calc(100vw - 32px))",
+});
+
+/**
+ * Status icon(s) next to the Excluded checkbox, plus an amber review icon
+ * for an automatic exclusion that still awaits confirmation. Hover or
+ * keyboard focus shows the screening details; click/tap opens them in a
+ * popover that also holds the review confirmation when one is required.
+ * Opening either never records a review; the checkbox stays the control for
+ * including or excluding the attribute.
+ */
+export function AiColumnAssessmentInfo({ screening, attributeName, excluded, onConfirm }) {
+  const { t } = useTranslation();
+  const colors = useSurfaceColors();
+  const [tooltipOpen, setTooltipOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const handleTooltipOpen = useCallback(() => setTooltipOpen(true), []);
+  const handleTooltipClose = useCallback(() => setTooltipOpen(false), []);
+  const handleClick = useCallback((event) => {
+    setTooltipOpen(false);
+    setAnchorEl(event.currentTarget);
+  }, []);
+  const handlePopoverClose = useCallback(() => setAnchorEl(null), []);
+  const { status } = screening;
+  const reviewRequired = screening.review === REVIEW_STATE.REQUIRED;
+  const confirmationPending = status === SCREENING_STATUS.AUTO_EXCLUDED && reviewRequired;
+  const label = confirmationPending
+    ? `${t(key(`status.${status}`))}, ${t(key("status.reviewNeeded"))}`
+    : t(key(`status.${status}`));
+  const action = excluded ? "confirmExclusion" : "keepIncluded";
+  const popoverOpen = Boolean(anchorEl);
+
+  return (
+    <>
+      <Tooltip
+        open={tooltipOpen && !popoverOpen}
+        onOpen={handleTooltipOpen}
+        onClose={handleTooltipClose}
+        arrow
+        placement="top"
+        // Keeps the button's own accessible name; the details describe it.
+        describeChild
+        title={<ScreeningDetails screening={screening} colors={colors} />}
+        // Prefer above the indicator; flip and stay inside the viewport
+        // when there is not enough room (e.g. first table rows).
+        PopperProps={{
+          modifiers: [
+            { name: "flip", options: { fallbackPlacements: ["bottom", "left", "right"] } },
+            { name: "preventOverflow", options: { padding: 8 } },
+          ],
+        }}
+        componentsProps={{
+          tooltip: {
+            // The global tooltip override sets opacity 0.7.
+            sx: { ...surfaceSx(colors), opacity: 1 },
+          },
+          arrow: {
+            sx: {
+              color: colors.background,
+              "&::before": {
+                backgroundColor: colors.background,
                 border: "1px solid",
                 borderColor: colors.border,
-                boxShadow: 3,
-                p: 1.25,
-                maxWidth: 280,
               },
             },
-            arrow: {
-              sx: {
-                color: colors.background,
-                "&::before": {
-                  backgroundColor: colors.background,
-                  border: "1px solid",
-                  borderColor: colors.border,
-                },
-              },
-            },
+          },
+        }}
+      >
+        <ButtonBase
+          onClick={handleClick}
+          aria-label={t(key("indicatorAriaLabel"), { name: attributeName, status: label })}
+          aria-haspopup="dialog"
+          aria-expanded={popoverOpen}
+          sx={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 0.25,
+            p: 0.5,
+            borderRadius: 1,
+            "&:focus-visible": { outline: "2px solid", outlineColor: "info.main" },
           }}
         >
-          <IconButton
-            size="small"
-            onClick={handleToggle}
-            aria-label={t("datasets.aiSuggestions.tooltip.title")}
-            sx={{ p: 0.25, color: aiAutoExcluded ? "warning.main" : colors.icon }}
-          >
-            {showSpinner ? (
-              <CircularProgress size={14} thickness={5} color="inherit" />
-            ) : (
-              <InfoOutlinedIcon sx={{ fontSize: 16 }} />
-            )}
-          </IconButton>
-        </Tooltip>
-      </RABox>
-    </ClickAwayListener>
+          <StatusIcon status={status} colors={colors} />
+          {confirmationPending && (
+            <StatusIcon status={SCREENING_STATUS.REVIEW_NEEDED} colors={colors} />
+          )}
+        </ButtonBase>
+      </Tooltip>
+      <Popover
+        open={popoverOpen}
+        anchorEl={anchorEl}
+        onClose={handlePopoverClose}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        transformOrigin={{ vertical: "top", horizontal: "center" }}
+        marginThreshold={8}
+        PaperProps={{
+          role: "dialog",
+          "aria-label": t(key("tooltip.title")),
+          sx: surfaceSx(colors),
+        }}
+      >
+        <ScreeningDetails screening={screening} colors={colors} />
+        {reviewRequired && (
+          <RABox display="flex" justifyContent="flex-end" mt={1}>
+            <Button
+              size="small"
+              variant="outlined"
+              color="info"
+              onClick={() => {
+                setAnchorEl(null);
+                onConfirm();
+              }}
+              aria-label={t(key(`actions.${action}For`), { name: attributeName })}
+              sx={{ textTransform: "none" }}
+            >
+              {t(key(`actions.${action}`))}
+            </Button>
+          </RABox>
+        )}
+      </Popover>
+    </>
   );
 }
 
 AiColumnAssessmentInfo.propTypes = {
-  suggestion: PropTypes.object,
-  isPending: PropTypes.bool,
-  excluded: PropTypes.bool,
-  aiAutoExcluded: PropTypes.bool,
+  // From getColumnScreening (screeningStatus.js).
+  screening: PropTypes.shape({
+    status: PropTypes.oneOf(Object.values(SCREENING_STATUS)).isRequired,
+    review: PropTypes.oneOf(Object.values(REVIEW_STATE)).isRequired,
+    message: PropTypes.string.isRequired,
+    prediction: PropTypes.object.isRequired,
+    evidence: PropTypes.arrayOf(PropTypes.string).isRequired,
+  }).isRequired,
+  attributeName: PropTypes.string.isRequired,
+  excluded: PropTypes.bool.isRequired,
+  // Records the researcher's decision for the current exclusion state.
+  onConfirm: PropTypes.func.isRequired,
 };
+
+/** Compact legend of the screening statuses (icon + label). */
+export function ScreeningStatusLegend() {
+  const { t } = useTranslation();
+  const colors = useSurfaceColors();
+  return (
+    <RABox
+      component="ul"
+      aria-label={t(key("legend.title"))}
+      sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", columnGap: 1.5, rowGap: 0.25, m: 0, p: 0, listStyle: "none" }}
+    >
+      <Typography component="li" variant="caption" fontWeight="bold" sx={{ color: colors.secondary }}>
+        {t(key("legend.title"))}:
+      </Typography>
+      {SCREENING_LEGEND_STATUSES.map((status) => (
+        <RABox component="li" key={status} display="inline-flex" alignItems="center" gap={0.5}>
+          <StatusIcon status={status} colors={colors} size={14} />
+          <Typography variant="caption" sx={{ color: colors.secondary }}>
+            {t(key(`status.${status}`))}
+          </Typography>
+        </RABox>
+      ))}
+    </RABox>
+  );
+}

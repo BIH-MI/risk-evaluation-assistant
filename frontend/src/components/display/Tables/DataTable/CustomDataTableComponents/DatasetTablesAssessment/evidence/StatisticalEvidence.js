@@ -1,158 +1,138 @@
 import React from "react";
-import { Tooltip } from "@mui/material";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import RABox from "components/layout/RABox";
-import RATypography from "components/display/RATypography";
+import { EvidenceLine, EvidenceSection } from "./EvidencePrimitives";
 import {
-  EvidenceLine,
-  EvidenceMetricRow,
-  EvidenceSection,
-  evidenceTooltipComponentsProps,
-} from "./EvidencePrimitives";
-import {
-  formatMetricNumber,
+  formatDistinguishabilityValue,
   hasEvidenceValue,
   hasQuantitativeEvidenceDetails,
 } from "./evidenceUtils";
 
-function metricRowsFromValues(rows) {
-  return rows
-    .filter(([, value]) => hasEvidenceValue(value))
-    .map(([label, value]) => ({
-      label,
-      value: formatMetricNumber(value),
-    }));
-}
+const MISSING_VALUE = "–";
 
-function EvidenceRows({ rows }) {
-  return rows.map(({ label, value }) => (
-    <EvidenceMetricRow key={`${label}:${value}`} label={label} value={value} />
-  ));
-}
+const cellSx = {
+  fontSize: "0.8125rem",
+  lineHeight: 1.5,
+  whiteSpace: "nowrap",
+};
 
-function IndividualAttributeEvidence({ individual, t }) {
-  const rows = metricRowsFromValues([
+const headerCellSx = {
+  ...cellSx,
+  fontSize: "0.78rem",
+  fontWeight: 700,
+  color: "var(--evidence-heading, inherit)",
+  pb: 0.5,
+  borderBottom: "1px solid var(--evidence-divider, rgba(255, 255, 255, 0.16))",
+};
+
+const labelCellSx = {
+  ...cellSx,
+  color: "var(--evidence-muted, inherit)",
+};
+
+const valueCellSx = {
+  ...cellSx,
+  fontWeight: 600,
+  // Explicit: RABox defaults to the theme's dark text colour.
+  color: "var(--evidence-value, #F8FAFC)",
+  textAlign: "right",
+  fontVariantNumeric: "tabular-nums",
+};
+
+const formatValue = (value) =>
+  hasEvidenceValue(value) ? formatDistinguishabilityValue(value) : MISSING_VALUE;
+
+/**
+ * Measure | Individual | Contextual mean. Individual values are the
+ * attribute's own statistics; contextual means are the existing contextual
+ * evidence (means over evaluated subsets containing the attribute, each
+ * subset size weighted equally). Values are shown as stored.
+ */
+function DistinguishabilityGrid({ individual, overall, t }) {
+  const rows = [
     [
       t("datasetAssessments.evidence.distinction", "Distinction"),
       individual?.distinction,
+      overall?.meanDistinction,
     ],
     [
       t("datasetAssessments.evidence.separation", "Separation"),
       individual?.separation,
+      overall?.meanSeparation,
     ],
     [
       t("datasetAssessments.evidence.singletonFraction", "Singleton fraction"),
       individual?.singletonFraction,
+      overall?.meanSingletonFraction,
     ],
-  ]);
-
-  if (!rows.length) return null;
-
-  return (
-    <RABox sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
-      <RATypography
-        variant="caption"
-        color="white"
-        fontWeight="bold"
-        display="block"
-        sx={{ fontSize: "0.72rem", lineHeight: 1.3, opacity: 0.9 }}
-      >
-        {t(
-          "datasetAssessments.evidence.individualAttribute",
-          "Individual attribute"
-        )}
-      </RATypography>
-      <EvidenceRows rows={rows} />
-    </RABox>
-  );
-}
-
-function ContextualEvidenceHeading({ t }) {
-  const title = t(
-    "datasetAssessments.evidence.combinationWithOtherAttributes",
-    "In combination with other attributes"
-  );
-  const description = t(
-    "datasetAssessments.evidence.combinationWithOtherAttributesInfo",
-    "Averages across evaluated subsets containing this attribute, with each subset size weighted equally."
-  );
+  ];
 
   return (
     <RABox
+      role="table"
       sx={{
-        display: "flex",
-        alignItems: "center",
-        gap: 0.5,
-        minWidth: 0,
+        display: "grid",
+        gridTemplateColumns: "minmax(max-content, 1fr) auto auto",
+        columnGap: 2.5,
+        rowGap: 0.375,
+        alignItems: "baseline",
       }}
     >
-      <RATypography
-        variant="caption"
-        color="white"
-        fontWeight="bold"
-        display="block"
-        sx={{
-          fontSize: "0.72rem",
-          lineHeight: 1.3,
-          opacity: 0.9,
-          overflowWrap: "anywhere",
-        }}
-      >
-        {title}
-      </RATypography>
-      <Tooltip
-        arrow
-        placement="top"
-        componentsProps={evidenceTooltipComponentsProps}
-        title={description}
-      >
-        <InfoOutlinedIcon
-          aria-label={description}
-          tabIndex={0}
-          sx={{
-            flex: "0 0 auto",
-            fontSize: 13,
-            color: "white",
-            cursor: "help",
-            opacity: 0.72,
-          }}
-        />
-      </Tooltip>
+      <RABox role="columnheader" sx={headerCellSx}>
+        {t("datasetAssessments.evidence.measure", "Measure")}
+      </RABox>
+      <RABox role="columnheader" sx={{ ...headerCellSx, textAlign: "right" }}>
+        {t("datasetAssessments.evidence.individual", "Individual")}
+      </RABox>
+      <RABox role="columnheader" sx={{ ...headerCellSx, textAlign: "right" }}>
+        {t("datasetAssessments.evidence.contextualMean", "Contextual mean")}
+      </RABox>
+      {rows.map(([label, individualValue, combinationValue]) => (
+        <React.Fragment key={label}>
+          <RABox role="rowheader" sx={labelCellSx}>
+            {label}
+          </RABox>
+          <RABox role="cell" sx={valueCellSx}>
+            {formatValue(individualValue)}
+          </RABox>
+          <RABox role="cell" sx={valueCellSx}>
+            {formatValue(combinationValue)}
+          </RABox>
+        </React.Fragment>
+      ))}
     </RABox>
   );
 }
 
-// Contextual evidence comes only from subset profiling of the uploaded CSV. It
-// is never derived from individual statistics, so when no subset evidence was
-// persisted the section says so explicitly instead of disappearing.
-function ContextualAttributeEvidence({ overall, t }) {
-  const rows = metricRowsFromValues([
-    [
-      t(
-        "datasetAssessments.evidence.averageDistinction",
-        "Average Distinction"
-      ),
-      overall?.meanDistinction,
-    ],
-    [
-      t("datasetAssessments.evidence.averageSeparation", "Average Separation"),
-      overall?.meanSeparation,
-    ],
-    [
-      t(
-        "datasetAssessments.evidence.averageSingletonFraction",
-        "Average Singleton fraction"
-      ),
-      overall?.meanSingletonFraction,
-    ],
-  ]);
+// Only Distinguishability has quantitative evidence; it comes from aggregate
+// profiling statistics persisted with the dataset. Combination means come
+// only from subset profiling and are never derived from individual values.
+function StatisticalEvidence({ evidence, field, t }) {
+  if (field !== "distinguishability") return null;
+
+  const quantitative = evidence.quantitative;
+  if (!hasQuantitativeEvidenceDetails(quantitative)) return null;
+
+  const overall = quantitative.subsetContext?.overall;
+  const hasCombinationEvidence = [
+    overall?.meanDistinction,
+    overall?.meanSeparation,
+    overall?.meanSingletonFraction,
+  ].some(hasEvidenceValue);
 
   return (
-    <RABox sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
-      <ContextualEvidenceHeading t={t} />
-      {rows.length ? (
-        <EvidenceRows rows={rows} />
-      ) : (
+    <EvidenceSection
+      centerTitle
+      title={t(
+        "datasetAssessments.evidence.distinguishabilityEvidence",
+        "Distinguishability Evidence"
+      )}
+    >
+      <DistinguishabilityGrid
+        individual={quantitative.individual}
+        overall={overall}
+        t={t}
+      />
+      {!hasCombinationEvidence && (
         <EvidenceLine>
           {t(
             "datasetAssessments.evidence.contextualEvidenceUnavailable",
@@ -160,30 +140,6 @@ function ContextualAttributeEvidence({ overall, t }) {
           )}
         </EvidenceLine>
       )}
-    </RABox>
-  );
-}
-
-// Only Distinguishability has quantitative evidence; it comes from aggregate
-// profiling statistics persisted with the dataset.
-function StatisticalEvidence({ evidence, field, t }) {
-  if (field !== "distinguishability") return null;
-
-  const quantitative = evidence.quantitative;
-  if (!hasQuantitativeEvidenceDetails(quantitative)) return null;
-
-  return (
-    <EvidenceSection
-      title={t(
-        "datasetAssessments.evidence.quantitativeDistinguishabilityEvidence",
-        "Quantitative Distinguishability Evidence"
-      )}
-    >
-      <IndividualAttributeEvidence individual={quantitative.individual} t={t} />
-      <ContextualAttributeEvidence
-        overall={quantitative.subsetContext?.overall}
-        t={t}
-      />
     </EvidenceSection>
   );
 }

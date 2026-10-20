@@ -28,6 +28,9 @@ public class DatasetRequestDTO {
     private Long qidDiscoveryConfigurationId;
     private Long qidDiscoveryConfigurationVersionId;
 
+    // AI model used for direct-identifier screening (recorded on creation).
+    private DatasetAiScreeningRequestDTO aiScreening;
+
     // Additional users who should be able to access the dataset.
     private List<String> sharedUsernames;
 

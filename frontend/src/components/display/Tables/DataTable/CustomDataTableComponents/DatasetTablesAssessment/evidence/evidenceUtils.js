@@ -11,6 +11,33 @@ export const formatMetricNumber = (value) => {
   });
 };
 
+/**
+ * Formats Distinction, Separation and Singleton fraction for display with
+ * 4 decimal places (an exact zero is "0.0000"), and more places only when 4
+ * would show a nonzero value as zero (or a value below 1 as 1). Display only;
+ * the stored values are unchanged.
+ */
+export const formatDistinguishabilityValue = (value) => {
+  if (!hasEvidenceValue(value) || value === "") return value;
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return value;
+
+  let fractionDigits = 4;
+  while (fractionDigits < 12) {
+    const factor = 10 ** fractionDigits;
+    const rounded = Math.round(numeric * factor) / factor;
+    const hidesNonzero = rounded === 0 && numeric !== 0;
+    const hidesBelowOne = Math.abs(rounded) === 1 && Math.abs(numeric) !== 1;
+    if (!hidesNonzero && !hidesBelowOne) break;
+    fractionDigits += 1;
+  }
+
+  return numeric.toLocaleString(undefined, {
+    minimumFractionDigits: 4,
+    maximumFractionDigits: fractionDigits,
+  });
+};
+
 export const titleCaseToken = (value) =>
   String(value || "")
     .replace(/_/g, " ")

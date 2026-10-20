@@ -69,8 +69,10 @@ services:
   # =======================================================
   spring-boot-app:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      # Repository root: the backend build includes the shared AI model
+      # registry from frontend/ (see backend/Dockerfile and .dockerignore).
+      context: .
+      dockerfile: backend/Dockerfile
       args:
         # Pass Proxy/Maven settings to the build process
         MAVEN_OPTS: ${MAVEN_OPTS}
@@ -83,6 +85,9 @@ services:
       - SPRING_PROFILES_ACTIVE=container
       - NO_PROXY=${NO_PROXY}
       - no_proxy=${NO_PROXY}
+      # Used to download approved AI model files behind a proxy
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - HTTP_PROXY=${HTTP_PROXY}
 
       # Inject Database Connection Details
       - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
@@ -114,6 +119,9 @@ services:
       - APP_SETUP_UPDATE_THRESHOLDS=${APP_SETUP_UPDATE_THRESHOLDS}
       - APP_SETUP_UPDATE_QUESTIONS=${APP_SETUP_UPDATE_QUESTIONS}
 
+    volumes:
+      # Installed AI model files (persist across restarts and redeployments)
+      - ai-models:/app/ai-models
     restart: unless-stopped
     depends_on:
       - postgres
@@ -173,3 +181,4 @@ networks:
 
 volumes:
   postgres-data:
+  ai-models:

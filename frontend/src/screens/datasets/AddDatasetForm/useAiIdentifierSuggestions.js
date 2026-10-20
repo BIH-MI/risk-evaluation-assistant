@@ -7,6 +7,7 @@ import {
   AI_SUGGESTION_STATUS,
   isSuggestionCurrent,
   markSuggestionReviewed,
+  resolveColumnClassifierModel,
   suggestsExclusionReview,
 } from "qidDiscovery/aiSuggestions";
 import {
@@ -15,7 +16,7 @@ import {
   preloadColumnClassifier,
 } from "qidDiscovery/aiSuggestions/columnClassifierClient";
 import { AI_TABLE_STATUS, EMPTY_TABLE_STATE } from "./aiSuggestions/aiSuggestionTableState";
-import { recordQidStage } from "./qidPipelineTimings";
+import { addQidStage, recordQidStage } from "./qidPipelineTimings";
 
 /*
  * Frontend-local state for optional AI identifier suggestions in Add Dataset.
@@ -28,6 +29,14 @@ import { recordQidStage } from "./qidPipelineTimings";
  * names are parsed (the model is preloaded when the upload starts), and again
  * for any column whose name or description changes. Only column names and
  * researcher-written descriptions reach the AI worker.
+ *
+ * All classifications use the model selected for the form (`modelId`, a
+ * registry id). The form locks the selection once tables exist, and results
+ * of any other model are discarded, so one dataset never mixes models.
+ * `modelId` null means no model is available: columns are reported as
+ * "AI unavailable" and left to manual review. With `enabled` false (AI
+ * screening disabled by the QID discovery configuration) no model is loaded
+ * and no unavailability is reported; column-name rules still apply.
  *
  * Before a table's initial subset profiling, its confident identifier
  * suggestions are collected with getInitialAiScreening() and applied in one
@@ -138,7 +147,12 @@ function omitKey(object, key) {
   return rest;
 }
 
-export function useAiIdentifierSuggestions({ tables, onAiExclusionDecisions }) {
+export function useAiIdentifierSuggestions({
+  tables,
+  onAiExclusionDecisions,
+  modelId,
+  enabled = true,
+}) {
   const [aiStateByTable, setAiStateByTable] = useState({});
   const tablesRef = useRef(tables);
   const aiStateRef = useRef(aiStateByTable);
@@ -146,21 +160,29 @@ export function useAiIdentifierSuggestions({ tables, onAiExclusionDecisions }) {
   // tableId -> Set<AbortController>: one per in-flight run, so a rename's
   // single-column run does not cancel the table's initial run.
   const controllersRef = useRef(new Map());
+  // tableId -> id of the newest classification run (progress ownership).
+  const latestRunRef = useRef(new Map());
   const columnVersionsRef = useRef(new Map());
   // `${tableId}\0${columnKey}` -> { columnName, description, controller }.
   const inFlightRef = useRef(new Map());
-  // tableId -> boolean. Enabled when an uploaded table is first ready;
-  // disabled by Cancel / "Continue without AI"; re-enabled by an explicit run.
-  const autoClassifyRef = useRef(new Map());
   const onAiExclusionDecisionsRef = useRef(onAiExclusionDecisions);
   // tableId -> Map<columnKey, columnName>: results that arrived after the
   // initial-profiling fallback fired. They are shown, but not applied
   // automatically, so they cannot trigger another profiling run on their own.
   const suppressedRef = useRef(new Map());
 
+  // null (no usable model) also for an unsupported explicit id: the default
+  // model is never substituted for the configured one.
+  const resolvedModelId =
+    modelId === null ? null : resolveColumnClassifierModel(modelId)?.id ?? null;
+  const modelIdRef = useRef(resolvedModelId);
+  const enabledRef = useRef(enabled);
+
   // Assigned during render: header classification can start before this
   // hook's effects have run for a just-added table.
   tablesRef.current = tables;
+  modelIdRef.current = resolvedModelId;
+  enabledRef.current = enabled;
 
   useEffect(() => {
     aiStateRef.current = aiStateByTable;
@@ -213,7 +235,7 @@ export function useAiIdentifierSuggestions({ tables, onAiExclusionDecisions }) {
     columnVersionsRef.current.get(columnVersionKey(tableId, columnKey)) || 0;
 
   const runForTable = useCallback(
-    async (tableId, { columnKeys = null, auto = false, fields = null } = {}) => {
+    async (tableId, { columnKeys = null, fields = null } = {}) => {
       const table = tablesRef.current.find(
         (currentTable) => currentTable._localTableId === tableId
       );
@@ -224,11 +246,6 @@ export function useAiIdentifierSuggestions({ tables, onAiExclusionDecisions }) {
         ? fields.map((field) => ({ field, sourceField: field }))
         : table.columnMeta;
       if (!Array.isArray(sourceColumns)) return;
-      if (!auto) {
-        // An explicit run replaces any automatic or earlier run.
-        autoClassifyRef.current.set(tableId, true);
-        abortTableRuns(tableId);
-      }
 
       const descriptions =
         aiStateRef.current[tableId]?.descriptions || EMPTY_TABLE_STATE.descriptions;
@@ -268,28 +285,40 @@ export function useAiIdentifierSuggestions({ tables, onAiExclusionDecisions }) {
         ])
       );
       const runStartedAt = performance.now();
+      const runModelId = modelIdRef.current;
+      const runEnabled = enabledRef.current;
+      // Only the newest run of a table reports progress; events of older,
+      // cancelled or superseded runs are ignored.
+      const runId = (latestRunRef.current.get(tableId) || 0) + 1;
+      latestRunRef.current.set(tableId, runId);
+      const isLatestRun = () => latestRunRef.current.get(tableId) === runId;
       const isCurrentRun = () =>
         !controller.signal.aborted &&
         tablesRef.current.some(
           (currentTable) => currentTable._localTableId === tableId
         );
-      // Another run for this table is still active: keep its status/progress.
+      // Another run for this table is still active: keep its status.
       const hasOtherActiveRuns = () => tableRuns.size > 1;
+      let lastProgress = { phase: "loading-model", completed: 0, total: columns.length };
 
-      updateTableState(tableId, (previous) => ({
-        ...previous,
-        status:
-          previous.status === AI_TABLE_STATUS.CLASSIFYING && hasOtherActiveRuns()
-            ? previous.status
-            : AI_TABLE_STATUS.LOADING_MODEL,
-        error: null,
-      }));
+      if (runEnabled) {
+        updateTableState(tableId, (previous) => ({
+          ...previous,
+          status:
+            previous.status === AI_TABLE_STATUS.CLASSIFYING && hasOtherActiveRuns()
+              ? previous.status
+              : AI_TABLE_STATUS.LOADING_MODEL,
+          // A new run starts from zero; no earlier completion is shown.
+          progress: lastProgress,
+          error: null,
+        }));
+      }
 
       // Merges results, skipping any column that was renamed, deleted or had
       // its description changed while the request was in flight, and never
       // replacing a researcher-reviewed suggestion for the same input.
       // Exclusions are applied by the reconciliation effect below.
-      const mergeSuggestions = (incoming, nextStatus, error = null) => {
+      const mergeSuggestions = (incoming, nextStatus, error = null, finalProgress = null) => {
         const currentTable = tablesRef.current.find(
           (candidate) => candidate._localTableId === tableId
         );
@@ -309,6 +338,7 @@ export function useAiIdentifierSuggestions({ tables, onAiExclusionDecisions }) {
             (isPreparing ? { field: suggestion.columnKey } : null);
           if (
             !column ||
+            (suggestion.model?.registryId ?? null) !== modelIdRef.current ||
             getColumnVersion(tableId, suggestion.columnKey) !==
               versionsAtStart.get(suggestion.columnKey) ||
             !isSuggestionCurrent(suggestion, {
@@ -338,7 +368,8 @@ export function useAiIdentifierSuggestions({ tables, onAiExclusionDecisions }) {
               hasOtherActiveRuns() && nextStatus === AI_TABLE_STATUS.READY
                 ? previous.status
                 : nextStatus,
-            progress: hasOtherActiveRuns() ? previous.progress : null,
+            progress:
+              hasOtherActiveRuns() || !isLatestRun() ? previous.progress : finalProgress,
             error,
             suggestions,
           };
@@ -346,17 +377,35 @@ export function useAiIdentifierSuggestions({ tables, onAiExclusionDecisions }) {
       };
 
       try {
+        if (!runEnabled) {
+          // Column-name rules only; nothing is reported as unavailable.
+          mergeSuggestions(
+            getSession().buildUnavailableSuggestions(columns, null, { modelId: null }),
+            AI_TABLE_STATUS.READY
+          );
+          return;
+        }
         const suggestions = await getSession().classifyColumns(columns, {
+          modelId: runModelId,
           signal: controller.signal,
+          onCacheStats: ({ total, uncached }) => {
+            addQidStage(tableId, "aiInputsClassified", uncached);
+            addQidStage(tableId, "aiInputsFromCache", total - uncached);
+          },
           onProgress: (progress) => {
-            if (!isCurrentRun()) return;
+            if (!isCurrentRun() || !isLatestRun()) return;
+            lastProgress = {
+              ...progress,
+              completed: progress?.completed ?? lastProgress.completed,
+              total: progress?.total ?? lastProgress.total,
+            };
             updateTableState(tableId, (previous) => ({
               ...previous,
               status:
                 progress?.phase === "classifying"
                   ? AI_TABLE_STATUS.CLASSIFYING
                   : AI_TABLE_STATUS.LOADING_MODEL,
-              progress,
+              progress: lastProgress,
             }));
           },
         });
@@ -364,28 +413,37 @@ export function useAiIdentifierSuggestions({ tables, onAiExclusionDecisions }) {
         recordQidStage(tableId, "aiClassificationMs", performance.now() - runStartedAt, {
           once: true,
         });
-        mergeSuggestions(suggestions, AI_TABLE_STATUS.READY);
+        mergeSuggestions(suggestions, AI_TABLE_STATUS.READY, null, {
+          phase: "completed",
+          completed: suggestions.length,
+          total: columns.length,
+        });
       } catch (error) {
         if (isCancelledClassification(error) || controller.signal.aborted) {
           if (hasOtherActiveRuns()) return;
+          // Cancelled: no completion is claimed.
           updateTableState(tableId, (previous) => ({
             ...previous,
             status: Object.keys(previous.suggestions).length
               ? AI_TABLE_STATUS.READY
               : AI_TABLE_STATUS.IDLE,
-            progress: null,
+            progress: isLatestRun() ? null : previous.progress,
           }));
           return;
         }
         if (!isCurrentRun()) return;
 
         mergeSuggestions(
-          getSession().buildUnavailableSuggestions(columns, error),
+          getSession().buildUnavailableSuggestions(columns, error, {
+            modelId: runModelId,
+          }),
           AI_TABLE_STATUS.UNAVAILABLE,
           {
             code: error?.code || AI_ERROR_CODES.INFERENCE_FAILED,
             message: error?.message || "",
-          }
+          },
+          // Keeps the counts reached before the failure (never 100%).
+          { ...lastProgress, phase: "failed" }
         );
       } finally {
         tableRuns.delete(controller);
@@ -396,7 +454,7 @@ export function useAiIdentifierSuggestions({ tables, onAiExclusionDecisions }) {
         });
       }
     },
-    [abortTableRuns, getSession, updateTableState]
+    [getSession, updateTableState]
   );
 
   // Automatic classification: after initial profiling of an uploaded CSV,
@@ -407,10 +465,6 @@ export function useAiIdentifierSuggestions({ tables, onAiExclusionDecisions }) {
     tables.forEach((table) => {
       const tableId = table._localTableId;
       if (!isUploadedTableReady(table)) return;
-      if (!autoClassifyRef.current.has(tableId)) {
-        autoClassifyRef.current.set(tableId, true);
-      }
-      if (!autoClassifyRef.current.get(tableId)) return;
 
       const state = aiStateByTable[tableId] || EMPTY_TABLE_STATE;
       const columnKeys = table.columnMeta
@@ -435,7 +489,7 @@ export function useAiIdentifierSuggestions({ tables, onAiExclusionDecisions }) {
         .map(getColumnIdentity);
 
       if (columnKeys.length) {
-        runForTable(tableId, { columnKeys, auto: true });
+        runForTable(tableId, { columnKeys });
       }
     });
   }, [aiStateByTable, runForTable, tables]);
@@ -477,18 +531,23 @@ export function useAiIdentifierSuggestions({ tables, onAiExclusionDecisions }) {
   const classifyFields = useCallback(
     (tableId, fields = []) => {
       if (!fields.length) return;
-      autoClassifyRef.current.set(tableId, true);
-      runForTable(tableId, { fields, auto: true });
+      runForTable(tableId, { fields });
     },
     [runForTable]
   );
 
   /** Starts loading the model, e.g. while an uploaded CSV is being parsed. */
   const preloadModel = useCallback((tableId) => {
+    if (modelIdRef.current === null) return;
     const startedAt = performance.now();
-    preloadColumnClassifier().then(({ loaded }) => {
+    const model = resolveColumnClassifierModel(modelIdRef.current);
+    if (!model) return;
+    recordQidStage(tableId, "aiModel", model.displayName);
+    preloadColumnClassifier(model.id).then(({ loaded, alreadyLoaded }) => {
       if (loaded) {
         recordQidStage(tableId, "modelLoadMs", performance.now() - startedAt);
+        // "warm": the model was already loaded (or loading) in this tab.
+        recordQidStage(tableId, "modelState", alreadyLoaded ? "warm" : "cold");
       }
     });
   }, []);
@@ -506,26 +565,6 @@ export function useAiIdentifierSuggestions({ tables, onAiExclusionDecisions }) {
     });
     suppressedRef.current.set(tableId, suppressed);
   }, []);
-
-  const cancelForTable = useCallback(
-    (tableId) => {
-      autoClassifyRef.current.set(tableId, false);
-      abortTableRuns(tableId);
-    },
-    [abortTableRuns]
-  );
-
-  const continueWithoutAi = useCallback(
-    (tableId) => {
-      autoClassifyRef.current.set(tableId, false);
-      abortTableRuns(tableId);
-      updateTableState(tableId, (previous) => ({
-        ...previous,
-        manualReviewConfirmed: true,
-      }));
-    },
-    [abortTableRuns, updateTableState]
-  );
 
   /**
    * Invalidates a renamed column's suggestion; the auto-classification effect
@@ -575,7 +614,7 @@ export function useAiIdentifierSuggestions({ tables, onAiExclusionDecisions }) {
     (tableId) => {
       abortTableRuns(tableId);
       controllersRef.current.delete(tableId);
-      autoClassifyRef.current.delete(tableId);
+      latestRunRef.current.delete(tableId);
       suppressedRef.current.delete(tableId);
       const prefix = columnVersionKey(tableId, "");
       [columnVersionsRef.current, inFlightRef.current].forEach((map) => {
@@ -642,41 +681,16 @@ export function useAiIdentifierSuggestions({ tables, onAiExclusionDecisions }) {
     [reviewSuggestion]
   );
 
-  /** Reopens a reviewed suggestion so the researcher can decide again. */
-  const reopenSuggestion = useCallback(
-    (tableId, columnKey) => {
-      updateTableState(tableId, (previous) => {
-        const suggestion = previous.suggestions[columnKey];
-        if (suggestion?.status !== AI_SUGGESTION_STATUS.REVIEWED) return previous;
-        return {
-          ...previous,
-          suggestions: {
-            ...previous.suggestions,
-            [columnKey]: {
-              ...suggestion,
-              status: suggestion.review?.reviewedStatus || AI_SUGGESTION_STATUS.SUGGESTED,
-            },
-          },
-        };
-      });
-    },
-    [updateTableState]
-  );
-
   return {
     aiStateByTable,
-    runForTable,
     classifyFields,
     preloadModel,
     suppressLateAutoExclusions,
-    cancelForTable,
-    continueWithoutAi,
     handleColumnRenamed,
     handleColumnDeleted,
     handleTableRemoved,
     setColumnDescription,
     reviewSuggestion,
     handleManualExclusionChange,
-    reopenSuggestion,
   };
 }

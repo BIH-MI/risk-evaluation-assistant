@@ -1,4 +1,17 @@
 import { DEFAULT_QID_DISCOVERY_PROFILING_CONFIGURATION } from "qidDiscovery";
+import {
+  getAiScreeningSettings,
+  getColumnClassifierModel,
+  isColumnClassifierModelSupported,
+  isColumnClassifierModelUsable,
+  LEGACY_AI_SCREENING_SETTINGS,
+} from "qidDiscovery/aiSuggestions";
+
+const aiScreeningToForm = (settings) => ({
+  enabled: settings.enabled,
+  allowedModelIds: [...settings.allowedModelIds],
+  defaultModelId: settings.defaultModelId || "",
+});
 
 export const emptyQidDiscoveryConfigurationForm = () => ({
   id: null,
@@ -15,6 +28,7 @@ export const emptyQidDiscoveryConfigurationForm = () => ({
       DEFAULT_QID_DISCOVERY_PROFILING_CONFIGURATION.maxEvaluatedSubsets
     ),
   },
+  aiScreening: aiScreeningToForm(LEGACY_AI_SCREENING_SETTINGS),
 });
 
 export function normalizeQidConfigurationToForm(configuration) {
@@ -37,6 +51,9 @@ export function normalizeQidConfigurationToForm(configuration) {
         profiling.maxEvaluatedSubsets ?? empty.profiling.maxEvaluatedSubsets
       ),
     },
+    // Configurations saved before AI screening was configurable get the
+    // settings they have been using (legacy defaults).
+    aiScreening: aiScreeningToForm(getAiScreeningSettings(configuration)),
   };
 }
 
@@ -83,13 +100,60 @@ function addNumberError(
   }
 }
 
+/**
+ * AI screening must name at least one model when enabled and the default
+ * must be one of the allowed models. Every allowed model must be supported
+ * by this build (the backend rejects other ids as well) and, when screening
+ * is enabled, installed. If the installation status could not be loaded,
+ * installation is unknown: the editor shows that instead of treating every
+ * model as missing, so other settings can still be saved.
+ */
+function validateAiScreening(t, aiScreening, aiInstallation) {
+  const errors = {};
+  const key = (name) => `qidDiscoveryConfiguration.aiScreening.errors.${name}`;
+  const unsupported = aiScreening.allowedModelIds.filter(
+    (modelId) => !isColumnClassifierModelSupported(getColumnClassifierModel(modelId))
+  );
+  // Disabled screening keeps its model list but never uses it.
+  const notInstalled =
+    aiScreening.enabled && aiInstallation?.status === "ok"
+      ? aiScreening.allowedModelIds.filter(
+          (modelId) =>
+            !unsupported.includes(modelId) &&
+            !isColumnClassifierModelUsable(modelId, aiInstallation.installedModelIds)
+        )
+      : [];
+  if (unsupported.length) {
+    errors.allowedModelIds = t(key("modelsUnsupported"), {
+      models: unsupported.join(", "),
+    });
+  } else if (notInstalled.length) {
+    errors.allowedModelIds = t(key("modelsUnavailable"), {
+      models: notInstalled.join(", "),
+    });
+  } else if (aiScreening.enabled && !aiScreening.allowedModelIds.length) {
+    errors.allowedModelIds = t(key("modelsRequired"));
+  }
+  if (aiScreening.enabled && !aiScreening.defaultModelId) {
+    errors.defaultModelId = t(key("defaultRequired"));
+  } else if (
+    aiScreening.defaultModelId &&
+    !aiScreening.allowedModelIds.includes(aiScreening.defaultModelId)
+  ) {
+    errors.defaultModelId = t(key("defaultNotAllowed"));
+  }
+  return errors;
+}
+
 export function validateQidConfigurationForm(
   t,
   form,
-  existingConfigurations = []
+  existingConfigurations = [],
+  { aiInstallation = null } = {}
 ) {
   const fields = {};
   const profiling = {};
+  const aiScreening = validateAiScreening(t, form.aiScreening, aiInstallation);
 
   if (!form.name.trim()) {
     fields.name = t("qidDiscoveryConfiguration.errors.nameRequired");
@@ -129,12 +193,13 @@ export function validateQidConfigurationForm(
     { integer: true, min: 1 }
   );
 
-  return { fields, profiling };
+  return { fields, profiling, aiScreening };
 }
 
 export const hasQidConfigurationFormErrors = (errors) =>
   Object.keys(errors.fields).length > 0 ||
-  Object.keys(errors.profiling).length > 0;
+  Object.keys(errors.profiling).length > 0 ||
+  Object.keys(errors.aiScreening).length > 0;
 
 const payloadNumber = (value) =>
   value === null || value === undefined || value === "" ? null : Number(value);
@@ -150,6 +215,11 @@ export function qidConfigurationFormToPayload(form) {
       maxEvaluatedSubsets: payloadNumber(
         form.profiling.maxEvaluatedSubsets
       ),
+    },
+    aiScreening: {
+      enabled: Boolean(form.aiScreening.enabled),
+      allowedModelIds: form.aiScreening.allowedModelIds,
+      defaultModelId: form.aiScreening.defaultModelId || null,
     },
   };
 }

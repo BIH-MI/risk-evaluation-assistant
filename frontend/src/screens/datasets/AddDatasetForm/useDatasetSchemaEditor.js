@@ -334,6 +334,32 @@ export function useDatasetSchemaEditor({
   );
 
   /**
+   * Records an explicit researcher decision that keeps the column's current
+   * exclusion state (review confirmation). Only metadata changes: the set of
+   * profiled attributes is the same, so profiling is not recomputed. A
+   * profiling run still in flight keeps the decision (see
+   * useDatasetTableProfiling).
+   */
+  const confirmAttributeExclusion = useCallback(
+    (tableId, columnKey) => {
+      const confirm = (currentTable) =>
+        currentTable._localTableId === tableId && Array.isArray(currentTable.columnMeta)
+          ? {
+              ...currentTable,
+              columnMeta: currentTable.columnMeta.map((column) =>
+                getColumnIdentity(column) === columnKey
+                  ? { ...column, manualExclusionDecision: true }
+                  : column
+              ),
+            }
+          : currentTable;
+      tablesRef.current = tablesRef.current.map(confirm);
+      setTables((currentTables) => currentTables.map(confirm));
+    },
+    [setTables]
+  );
+
+  /**
    * Applies confident AI decisions to an already profiled table (see
    * applyAiExclusionDecisionsToColumns). Profiling is refreshed only when the
    * set of eligible attributes actually changes.
@@ -376,6 +402,7 @@ export function useDatasetSchemaEditor({
     renameAttribute,
     changeAttributeDataType,
     changeAttributeExclusion,
+    confirmAttributeExclusion,
     applyAiExclusionDecisions,
   };
 }

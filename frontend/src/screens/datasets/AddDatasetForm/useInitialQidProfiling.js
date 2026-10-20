@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 
+import { AI_MODEL_STATUS } from "qidDiscovery/aiSuggestions";
+
 import { getInitialAiScreening } from "./useAiIdentifierSuggestions";
 import { applyAiExclusionDecisionsToColumns } from "./useDatasetSchemaEditor";
 import { markQidStage, recordQidStage } from "./qidPipelineTimings";
@@ -76,6 +78,13 @@ export function useInitialQidProfiling({
       recordQidStage(tableId, "initialExclusionMs", performance.now() - startedAt);
       recordQidStage(tableId, "aiAutoExclusions", decisions.length);
       recordQidStage(tableId, "aiScreeningTimedOut", fallback);
+      recordQidStage(
+        tableId,
+        "aiUnavailableColumns",
+        Object.values(aiStateRef.current[tableId]?.suggestions || {}).filter(
+          (suggestion) => suggestion.modelStatus === AI_MODEL_STATUS.UNAVAILABLE
+        ).length
+      );
       markQidStage(tableId, "initialProfilingStartedAtMs");
     },
     [clearTimer, runInitialProfile, suppressLateAutoExclusions]

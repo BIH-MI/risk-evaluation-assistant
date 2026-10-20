@@ -1,7 +1,9 @@
 package org.bihealth.mi.risk_assessment_api.config;
 
+import org.bihealth.mi.risk_assessment_api.dto.request.qid.QidDiscoveryAiScreeningConfigurationRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.request.qid.QidDiscoveryConfigurationRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.request.qid.QidDiscoveryProfilingConfigurationRequestDTO;
+import org.bihealth.mi.risk_assessment_api.model.qid.QidDiscoveryAiScreeningDefaults;
 import org.bihealth.mi.risk_assessment_api.model.qid.QidDiscoveryConfiguration;
 import org.bihealth.mi.risk_assessment_api.repository.qid.QidDiscoveryConfigurationRepository;
 import org.bihealth.mi.risk_assessment_api.service.QidDiscoveryConfigurationService;
@@ -12,8 +14,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Seeds the default QID profiling limits used for new dataset profiling
- * sessions.
+ * Seeds the default QID discovery configuration (profiling limits and AI
+ * screening with the registry's default model) when it is missing. An
+ * existing configuration, possibly edited by an administrator, is never
+ * changed or given a new version; it is only marked as default when no active
+ * default exists.
  */
 @Order(2)
 @Component
@@ -65,6 +70,13 @@ public class QidDiscoveryConfigurationSeeder implements CommandLineRunner {
         dto.setProfiling(new QidDiscoveryProfilingConfigurationRequestDTO(
                 4,
                 25000
+        ));
+        // Stored explicitly; the backend installs this model on startup
+        // (installByDefault in the model registry).
+        dto.setAiScreening(new QidDiscoveryAiScreeningConfigurationRequestDTO(
+                QidDiscoveryAiScreeningDefaults.ENABLED,
+                QidDiscoveryAiScreeningDefaults.ALLOWED_MODEL_IDS,
+                QidDiscoveryAiScreeningDefaults.DEFAULT_MODEL_ID
         ));
         return dto;
     }

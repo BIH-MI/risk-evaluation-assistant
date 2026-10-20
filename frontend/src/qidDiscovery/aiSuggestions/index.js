@@ -27,6 +27,7 @@ export {
   AI_UNCERTAINTY_REASONS,
   getAiScreeningProvenance,
   getCategoryForConcept,
+  isGeneralUncertainty,
   isSuggestionCurrent,
   markSuggestionReviewed,
   needsResearcherReview,

@@ -12,10 +12,10 @@ import { DIRECT_IDENTIFIER_CONFIDENCE } from "./profiling/directIdentifierRules"
  * are omitted from quantitative Distinguishability subset evidence.
  *
  * Only value-pattern evidence and explicit researcher decisions reach this
- * policy. AI column-name suggestions (aiSuggestions/) are deliberately kept
- * out: Add Dataset may exclude a confidently classified column (tracked by its
- * own `aiAutoExcluded` flag), but AI never blocks submission or counts as
- * confirmed identifier evidence.
+ * policy. AI and column-name screening (aiSuggestions/) is deliberately kept
+ * out and never counts as confirmed identifier evidence: Add Dataset may
+ * exclude a column on its own `aiAutoExcluded` flag, and requires a decision
+ * for unresolved screening findings before submission (screeningStatus.js).
  */
 
 const formatFallbackLabel = (value) =>

@@ -15,14 +15,18 @@ import jakarta.persistence.EntityNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.ProxySelector;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
+import java.nio.channels.UnresolvedAddressException;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.DirectoryStream;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -33,12 +37,18 @@ import java.time.Duration;
 import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
 /**
@@ -47,10 +57,13 @@ import java.util.stream.Stream;
  * AiModelController); models never run here.
  *
  * <p>Files are only fetched from the configured source at the model's pinned revision, and a file
- * counts as installed only if its SHA-256 hash matches the registry. Downloads go to a temporary
- * directory first and are moved into place after verification, so an interrupted or failed
- * installation never leaves a partially written file in use. Installations run one at a time; a
- * request for a model that is already installing or installed returns its current status.</p>
+ * counts as installed only if its SHA-256 hash matches the registry. Redirects are followed only to
+ * the source host or the configured redirect hosts (Hugging Face serves files from its CDN), never
+ * from HTTPS to HTTP. Downloads go to a temporary directory first and are moved into place after
+ * verification, and a model is reported as installed only once all its files are verified, so an
+ * interrupted or failed installation is never served. Installations run one at a time; a request
+ * for a model that is already installing or installed returns its current status. Errors reported
+ * to clients are generic; details are logged.</p>
  *
  * <p>Layout: {@code <storage-dir>/<model id>/<revision>/<file>}. Files placed there manually (for
  * offline deployments) are accepted after the same hash verification at startup.</p>
@@ -63,6 +76,10 @@ public class AiModelInstallationService {
     private static final long MAX_FILE_BYTES = 2L * 1024 * 1024 * 1024;
     private static final long RESERVED_BYTES = 64L * 1024 * 1024;
     private static final long PROGRESS_STEP_BYTES = 1024 * 1024;
+    private static final int MAX_REDIRECTS = 5;
+    private static final Duration RESPONSE_TIMEOUT = Duration.ofMinutes(2);
+    // A download that receives no data for this long is aborted.
+    private static final Duration STALL_TIMEOUT = Duration.ofSeconds(60);
 
     public enum State { NOT_INSTALLED, INSTALLING, INSTALLED, FAILED }
 
@@ -95,16 +112,31 @@ public class AiModelInstallationService {
         thread.setDaemon(true);
         return thread;
     });
+    private final ScheduledExecutorService stallWatchdog = Executors.newSingleThreadScheduledExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "ai-model-download-watchdog");
+        thread.setDaemon(true);
+        return thread;
+    });
     private final Map<String, Status> statuses = new ConcurrentHashMap<>();
+    private final List<String> redirectHosts;
 
     public AiModelInstallationService(
             AiModelRegistry registry,
             @Value("${app.ai-models.storage-dir}") String storageDir,
-            @Value("${app.ai-models.source-url}") String sourceUrl
+            @Value("${app.ai-models.source-url}") String sourceUrl,
+            @Value("${app.ai-models.redirect-hosts:}") List<String> redirectHosts
     ) {
+        URI source = URI.create(sourceUrl.replaceAll("/+$", ""));
+        if (!("https".equals(source.getScheme()) || "http".equals(source.getScheme())) || source.getHost() == null) {
+            throw new IllegalStateException("app.ai-models.source-url must be an http(s) URL");
+        }
         this.registry = registry;
         this.storageDir = Path.of(storageDir).toAbsolutePath().normalize();
-        this.sourceUrl = sourceUrl.replaceAll("/+$", "");
+        this.sourceUrl = source.toString();
+        this.redirectHosts = redirectHosts.stream()
+                .map(host -> host.trim().toLowerCase(Locale.ROOT))
+                .filter(host -> !host.isEmpty())
+                .toList();
         this.httpClient = buildHttpClient();
     }
 
@@ -134,6 +166,7 @@ public class AiModelInstallationService {
     @PreDestroy
     void shutdown() {
         executor.shutdownNow();
+        stallWatchdog.shutdownNow();
     }
 
     public List<Status> getStatuses() {
@@ -228,23 +261,37 @@ public class AiModelInstallationService {
     }
 
     private void download(Model model, Asset asset, Path part, int completed) throws IOException, InterruptedException {
-        URI uri = URI.create(sourceUrl + "/" + model.repository() + "/resolve/" + model.revision() + "/" + asset.file());
-        HttpRequest request = HttpRequest.newBuilder(uri).timeout(Duration.ofMinutes(2)).GET().build();
-        HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
+        HttpResponse<InputStream> response = send(
+                URI.create(sourceUrl + "/" + model.repository() + "/resolve/" + model.revision() + "/" + asset.file()),
+                asset.file());
         try (InputStream body = response.body()) {
             if (response.statusCode() != 200) {
-                throw new IOException("Download of " + asset.file() + " failed (HTTP " + response.statusCode() + ")");
+                throw new InstallationException(
+                        "Download of " + asset.file() + " failed (HTTP " + response.statusCode() + ")");
             }
             long length = response.headers().firstValueAsLong("content-length").orElse(-1);
             if (length > MAX_FILE_BYTES) {
-                throw new IOException(asset.file() + " is larger than allowed");
+                throw new InstallationException(asset.file() + " is larger than allowed");
             }
             Files.createDirectories(part.getParent());
-            if (length > 0 && length + RESERVED_BYTES > Files.getFileStore(storageDir).getUsableSpace()) {
-                throw new IOException("Insufficient storage space for " + asset.file());
+            long usable = Files.getFileStore(storageDir).getUsableSpace();
+            if (Math.max(length, 0) + RESERVED_BYTES > usable) {
+                throw new InstallationException("Insufficient storage space for " + asset.file());
             }
             Long total = length > 0 ? length : null;
             MessageDigest digest = sha256();
+            AtomicLong lastData = new AtomicLong(System.nanoTime());
+            AtomicBoolean stalled = new AtomicBoolean();
+            // Closing the body ends a read that is blocked on a stalled connection.
+            ScheduledFuture<?> watchdog = stallWatchdog.scheduleWithFixedDelay(() -> {
+                if (System.nanoTime() - lastData.get() > STALL_TIMEOUT.toNanos() && stalled.compareAndSet(false, true)) {
+                    try {
+                        body.close();
+                    } catch (IOException ignored) {
+                        // The download thread reports the stall.
+                    }
+                }
+            }, 5, 5, TimeUnit.SECONDS);
             try (InputStream input = new DigestInputStream(body, digest);
                  OutputStream output = Files.newOutputStream(part)) {
                 byte[] buffer = new byte[64 * 1024];
@@ -252,9 +299,10 @@ public class AiModelInstallationService {
                 long reported = 0;
                 int read;
                 while ((read = input.read(buffer)) != -1) {
+                    lastData.set(System.nanoTime());
                     written += read;
                     if (written > MAX_FILE_BYTES) {
-                        throw new IOException(asset.file() + " is larger than allowed");
+                        throw new InstallationException(asset.file() + " is larger than allowed");
                     }
                     output.write(buffer, 0, read);
                     if (written - reported >= PROGRESS_STEP_BYTES) {
@@ -262,12 +310,70 @@ public class AiModelInstallationService {
                         updateProgress(model, completed, written, total);
                     }
                 }
+            } catch (IOException exception) {
+                if (stalled.get()) {
+                    throw new InstallationException("Download of " + asset.file() + " stalled", exception);
+                }
+                throw exception;
+            } finally {
+                watchdog.cancel(false);
+            }
+            if (stalled.get()) {
+                throw new InstallationException("Download of " + asset.file() + " stalled");
             }
             if (!HexFormat.of().formatHex(digest.digest()).equals(asset.sha256())) {
                 Files.deleteIfExists(part);
-                throw new IOException("Checksum verification failed for " + asset.file());
+                throw new InstallationException("Checksum verification failed for " + asset.file());
             }
         }
+    }
+
+    /**
+     * Sends a GET request, following redirects only to allowed hosts (see isAllowedRedirect).
+     * Redirect responses are drained and closed before the next request.
+     */
+    private HttpResponse<InputStream> send(URI uri, String file) throws IOException, InterruptedException {
+        URI current = uri;
+        for (int redirects = 0; ; redirects++) {
+            HttpRequest request = HttpRequest.newBuilder(current).timeout(RESPONSE_TIMEOUT).GET().build();
+            HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            int status = response.statusCode();
+            if (status != 301 && status != 302 && status != 303 && status != 307 && status != 308) {
+                return response;
+            }
+            response.body().close();
+            String location = response.headers().firstValue("location").orElse(null);
+            if (location == null || redirects >= MAX_REDIRECTS) {
+                throw new InstallationException("Download of " + file + " failed (invalid redirect)");
+            }
+            URI next = current.resolve(location);
+            if (!isAllowedRedirect(current, next)) {
+                log.warn("AI model download of {} redirected to a host that is not allowed: {}", file, next.getHost());
+                throw new InstallationException("Download of " + file + " was redirected to a host that is not allowed");
+            }
+            current = next;
+        }
+    }
+
+    /**
+     * Same host as the configured source, or one of `app.ai-models.redirect-hosts` (or a subdomain).
+     * HTTPS may never be downgraded to HTTP.
+     */
+    private boolean isAllowedRedirect(URI from, URI to) {
+        String scheme = to.getScheme();
+        String host = to.getHost();
+        if (host == null || !("https".equals(scheme) || "http".equals(scheme))) {
+            return false;
+        }
+        if ("https".equals(from.getScheme()) && !"https".equals(scheme)) {
+            return false;
+        }
+        String normalized = host.toLowerCase(Locale.ROOT);
+        if (normalized.equals(URI.create(sourceUrl).getHost().toLowerCase(Locale.ROOT))) {
+            return true;
+        }
+        return "https".equals(scheme) && redirectHosts.stream()
+                .anyMatch(allowed -> normalized.equals(allowed) || normalized.endsWith("." + allowed));
     }
 
     private void updateProgress(Model model, int completed, long bytes, Long total) {
@@ -286,15 +392,43 @@ public class AiModelInstallationService {
         }
     }
 
+    /** A message that is safe to show to administrators (no paths, hosts or stack details). */
     private static String describeFailure(Exception exception) {
-        String message = exception.getMessage();
-        if (message != null && message.contains("No space left")) {
-            return "Insufficient storage space";
+        if (exception instanceof InstallationException) {
+            return exception.getMessage();
         }
         if (exception instanceof InterruptedException) {
             return "Installation was interrupted";
         }
-        return message == null || message.isBlank() ? exception.getClass().getSimpleName() : message;
+        if (exception instanceof HttpTimeoutException) {
+            return "The model source did not respond in time";
+        }
+        if (exception instanceof ConnectException || exception instanceof UnresolvedAddressException
+                || exception.getCause() instanceof UnresolvedAddressException) {
+            return "Could not connect to the model source";
+        }
+        String message = exception.getMessage();
+        if (message != null && message.contains("No space left")) {
+            return "Insufficient storage space";
+        }
+        if (exception instanceof FileSystemException) {
+            return "Model files could not be written to storage";
+        }
+        if (exception instanceof IOException) {
+            return "Download failed";
+        }
+        return "Installation failed";
+    }
+
+    /** An installation failure whose message is safe to report to clients. */
+    private static final class InstallationException extends IOException {
+        InstallationException(String message) {
+            super(message);
+        }
+
+        InstallationException(String message, Throwable cause) {
+            super(message, cause);
+        }
     }
 
     private static void move(Path source, Path target) throws IOException {
@@ -337,10 +471,13 @@ public class AiModelInstallationService {
         }
     }
 
-    /** Uses HTTPS_PROXY/HTTP_PROXY when set (as in proxied deployments), otherwise the JVM's proxy settings. */
+    /**
+     * Uses HTTPS_PROXY/HTTP_PROXY when set (as in proxied deployments), otherwise the JVM's proxy
+     * settings. Redirects are followed by {@link #send}, which checks each target.
+     */
     private static HttpClient buildHttpClient() {
         HttpClient.Builder builder = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.NORMAL)
+                .followRedirects(HttpClient.Redirect.NEVER)
                 .connectTimeout(Duration.ofSeconds(30));
         String proxy = Stream.of("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy")
                 .map(System::getenv)

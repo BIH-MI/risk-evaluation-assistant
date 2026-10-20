@@ -15,7 +15,6 @@ export const EMPTY_TABLE_STATE = Object.freeze({
   progress: null,
   error: null,
   suggestions: {},
-  descriptions: {},
 });
 
 export function getTableAiState(aiStateByTable, tableId) {

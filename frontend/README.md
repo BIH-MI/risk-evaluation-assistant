@@ -26,10 +26,10 @@ The dev server reads `frontend/.env.development`. Production builds read `fronte
 ```bash
 npm start
 npm run build
-npm test
+npx eslint src scripts --ext .js
 ```
 
-`npm run build` is the main validation command for frontend changes.
+`npm run build` and the ESLint check are the validation commands for frontend changes.
 
 ## Important Change Points
 
@@ -122,6 +122,26 @@ CSV type detection lives in:
 - `frontend/src/utils/CSVDropzone.js`
 
 When adding a data type, update the frontend type list, detector, table cell icon/label rendering, backend `DataType` enum, and any sample data that should use the new type.
+
+### AI-Assisted Direct-Identifier Screening
+
+Code lives in `frontend/src/qidDiscovery/aiSuggestions/` (classification) and `frontend/src/screens/datasets/AddDatasetForm/` (Add Dataset integration):
+
+- `modelRegistry.json`: the single model registry, also packaged into the backend. Each entry pins a Hugging Face repository and commit, quantisation, the SHA-256 hash of every file, a prompt profile, a threshold profile and validation records.
+- `promptProfiles.js`, `semanticCategories.js`, `thresholds.js`: what a model is asked and how its scores are interpreted. Profiles are versioned by id and fingerprint; add a new profile instead of changing one that a validation record refers to.
+- `columnNameRules.js`: model-independent column-name evidence. Changing the phrases requires bumping `AI_NAME_RULES_VERSION`.
+- `columnSuggestions.js`: combines model output with column-name evidence and decides which results need a researcher decision (`needsResearcherReview`).
+- `worker/`: the Web Worker running Transformers.js with one adapter per inference strategy (currently zero-shot NLI). Requests are queued, only one model is kept in memory, and a worker that stops responding is terminated.
+- `AddDatasetForm/aiSuggestions/screeningStatus.js`: per-attribute status, review count and the submission check for unresolved findings.
+
+The ONNX Runtime WASM files are copied from `node_modules` into `public/ai-assets/` by `scripts/copy-onnx-runtime.js` (runs before `npm start` and `npm run build`, verified against pinned hashes). Model files are not part of the frontend; the backend installs and serves them (see the [backend guide](../backend/README.md#ai-model-installation)).
+
+**Adding a compatible zero-shot NLI model** (exported for Transformers.js with `onnx/model_quantized.onnx`):
+
+1. Add an entry to `modelRegistry.json` with a new `id`, the repository and full commit hash, `"dtype": "q8"`, `"strategy": "zero-shot-nli"`, a prompt and threshold profile, `"validations": []` and the SHA-256 hash of each file (`config.json`, `tokenizer.json`, `tokenizer_config.json`, `onnx/model_quantized.onnx`).
+2. Rebuild frontend and backend, install the model in the QID Discovery configuration, and allow it there.
+
+Other model types need a new adapter in `worker/` and a strategy in `modelConfig.js`. Add a validation record only after evaluating the exact configuration (revision, quantisation, prompt and threshold fingerprints), never edit recorded results, and set `approvedForAutoExclusion` only when the evidence supports automatic exclusion by the model alone.
 
 ### Translations
 

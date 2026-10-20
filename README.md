@@ -27,8 +27,10 @@ REA is implemented as a three-tier, containerized web application orchestrated w
 
 This section outlines the basic configurations available for the application. Docker Compose uses one environment file to configure Keycloak, Nginx, PostgreSQL, and the Spring Boot backend.
 
-- **Local (`.env.local`)**: Uses `KC_REALM_FILE=realm-config-local.json` to import the localhost Keycloak realm and enables backend sample data through setup variables such as `APP_SETUP_LOAD_SAMPLE_DATA`.
-- **Production (`.env.prod`)**: Treat this file as a template. Before deployment, configure the production Keycloak realm, TLS certificates, and Nginx reverse-proxy settings for your domain.
+- **Local (`.env.local`)**: Uses `KC_REALM_FILE=realm-config-local.json` to import the localhost Keycloak realm and loads demo data (`APP_SETUP_LOAD_SAMPLE_DATA=true`).
+- **Production (`.env.prod` with `docker-compose.prod.yml`)**: Treat `.env.prod` as a template: secrets (database, Keycloak admin, backend client secret) are left empty and must be provided by the deployment. Demo data is disabled. The production override runs Keycloak in production mode with its data in PostgreSQL and publishes only the Nginx ports. Before deployment, configure the production Keycloak realm (see the [backend guide](./backend/README.md#keycloak-realm-imports)), TLS certificates, and Nginx reverse-proxy settings for your domain.
+
+The base `docker-compose.yml` alone is a development setup (Keycloak `start-dev`, published database, backend and Keycloak ports) and is not suitable for production.
 
 ### 🔐 Keycloak
 
@@ -45,11 +47,13 @@ REA uses two application roles:
 
 ### 🌱 Backend - Spring Boot
 
-On application startup, two loaders initialize the database:
+On a fresh PostgreSQL database, the backend creates the schema and the essential configurations automatically; no SQL scripts are needed, and restarts keep all data:
 
-1. **ConfigLoader**: Imports complete risk configuration objects from JSON files in `backend/src/main/resources/data/`. Each JSON file represents one framework and contains its categories, questions, options, risk bands, risk matrix, and re-identification thresholds.
+1. **Risk frameworks**: complete risk configurations imported from the JSON files in `backend/src/main/resources/data/` (categories, questions, options, risk bands, risk matrix, re-identification thresholds).
+2. **Default attribute scoring system** and **default QID Discovery configuration** (including AI screening settings).
+3. **Demo data** (optional, `APP_SETUP_LOAD_SAMPLE_DATA`): a sample dataset with recipients, assessments and data-sharing activities.
 
-2. **DataLoader**: Inserts backend sample data (datasets, recipients, and their assessments) for testing purposes.
+Existing configurations are never overwritten. This initialisation is intended for fresh installations, not for upgrading existing databases across schema changes; see [Database Initialisation](./backend/README.md#database-initialisation).
 
 <br />
 
@@ -84,22 +88,29 @@ The local realm provides these demo accounts:
 
 These credentials are for local development only. The full list of imported local users is defined in `keycloak/realm-config-local.json`.
 
+For a production deployment, provide the secrets and add the production override:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d --build
+```
+
 ### 4. AI-Assisted Direct-Identifier Screening
 
-When a researcher uploads a CSV in **Add Dataset**, REA can screen the column names for potential direct identifiers (names, email addresses, insurance numbers, ...). The model runs in the researcher's browser: only column names reach it, and neither names nor data values are sent to external services. Its suggestions are combined with column-name rules and value-pattern evidence; attributes that need a decision are flagged for review, and every exclusion can be changed by the researcher before profiling.
+When a CSV is uploaded in **Add Dataset**, REA screens each attribute for potential direct identifiers (names, email addresses, insurance numbers, ...) before quasi-identifier profiling. REA combines three complementary sources of evidence to support attribute-level screening:
 
-**Administrators** manage models in **Configuration > QID Discovery > Edit Configuration > AI-Assisted Direct-Identifier Detection**:
+- **AI model:** a small zero-shot language model classifies the column name (and an optional researcher-written description). It runs in the researcher's browser; data values are never given to it, and nothing is sent to external services.
+- **Column-name rules:** unambiguous names such as `email_address` are excluded automatically, independent of the model.
+- **Value patterns:** the observed values are checked separately, locally in the browser, with regular expressions (for example email or IP address formats).
 
-- **Install** a supported model with one click. The backend downloads its files from the pinned Hugging Face revision, verifies each against its SHA-256 hash, and stores them persistently (Docker volume `ai-models`; locally `backend/ai-models/`). The default model, DeBERTaV3-XSmall, is installed automatically when the backend starts. A failed installation can be retried.
-- Choose which installed models are **available** and the **default model**. These settings are saved with the configuration version. Unchecking **Enable AI screening** keeps them for later but stops using them: no model is loaded in Add Dataset, while column-name rules, value-pattern checks, manual exclusion and profiling still apply.
+Column-name rules, value-pattern checks, manual exclusions and profiling also work when AI screening is disabled.
 
-**Researchers** see only models that the selected QID Discovery configuration allows and that are installed. With one such model it is used automatically; with several, researchers choose in Add Dataset and the default is preselected. If the default cannot be used, no other model is substituted silently. The model cannot be changed once tables have been added, so one dataset is never screened by two models. The model, revision, prompt and validation status used are recorded with the dataset.
+**Administrators** manage AI screening per QID Discovery configuration (**Configuration > QID Discovery > Edit Configuration > AI-Assisted Direct-Identifier Detection**): enable or disable it, choose the available models and the default, and install models. Installation downloads pinned, hash-verified files to the backend, which serves them to browsers.
 
-**Suggestions and automatic exclusions.** A model's prediction excludes a column automatically only if its exact configuration has been evaluated and approved for automatic exclusion. Otherwise, identifier predictions are suggestions the researcher must review, and models that have not been evaluated at all can never clear a column from review. Unambiguous identifier column names (for example `email_address`) are excluded automatically by the column-name rules, independent of the model; the researcher confirms or reverts each automatic exclusion. Currently no model is approved for automatic exclusion: DeBERTaV3-XSmall has been evaluated; MobileBERT-MNLI and DistilBERT-MNLI have not.
+**Researchers** use the configured model automatically, or choose one when several are available (the default is preselected). Attributes with an unresolved potential identifier finding are marked for review and must be excluded or explicitly kept before the dataset can be created. Every automatic exclusion can be reverted.
 
-**Adding a compatible model (developers).** Add an entry to `frontend/src/qidDiscovery/aiSuggestions/modelRegistry.json` (the single registry, also read by the backend) with the Hugging Face repository, pinned commit, quantisation, file hashes and a prompt and threshold profile. A zero-shot NLI model exported for Transformers.js needs no other change; other model types need a new adapter in `worker/`. Record an evaluation in `validations` only after measuring the exact configuration, and set `approvedForAutoExclusion` only when that evidence supports automatic exclusion.
+**Limitations.** AI classification uses column names and optional researcher-provided descriptions. Predictions may be incorrect, and model scores are neither calibrated probabilities nor estimates of re-identification risk. A model may exclude attributes on its own only if its exact configuration has been evaluated and approved for that; currently no model is approved. DeBERTaV3-XSmall has been evaluated; MobileBERT-MNLI and DistilBERT-MNLI have not. The researcher remains responsible for the final decision.
 
-**Maintenance.** The backend settings `AI_MODELS_STORAGE_DIR` (default `ai-models`) and `AI_MODELS_SOURCE_URL` (default `https://huggingface.co`, e.g. a mirror) control storage and download source; downloads honour `HTTPS_PROXY`. For offline deployments, copy the files into `<storage>/<model id>/<revision>/` and restart the backend: they are used only if their hashes match.
+Model management, adding models and deployment details: [frontend guide](./frontend/README.md#ai-assisted-direct-identifier-screening) and [backend guide](./backend/README.md#ai-model-installation).
 
 ## Developer Guides
 

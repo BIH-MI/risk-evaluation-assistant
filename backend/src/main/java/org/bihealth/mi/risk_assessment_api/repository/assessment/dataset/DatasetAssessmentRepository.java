@@ -11,5 +11,4 @@ public interface DatasetAssessmentRepository extends JpaRepository<DatasetAssess
     boolean existsByConfigurationId(Long configurationId);
     long countByConfigurationId(Long configurationId);
     long countByAttributeScoringSystemId(Long attributeScoringSystemId);
-    List<DatasetAssessment> findByAttributeScoringSystemIsNull();
 }

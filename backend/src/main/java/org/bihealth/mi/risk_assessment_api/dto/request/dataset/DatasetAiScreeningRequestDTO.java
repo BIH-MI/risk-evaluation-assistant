@@ -5,11 +5,12 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * The AI model actually used to screen this dataset's column names for
- * direct identifiers (browser-local): registry id, pinned repository and
- * revision, quantisation, prompt configuration version (prompt profile and
- * column-name rules), thresholds version and the model's validation status
- * for that exact configuration.
+ * The AI model the browser reports having used to screen this dataset's
+ * column names for direct identifiers: registry id, pinned repository and
+ * revision, quantisation, prompt version (prompt profile, prompt fingerprint
+ * and column-name rules version), thresholds version and validation status.
+ * Checked against the server-side registry before it is stored; the stored
+ * validation status is derived from the registry (DatasetService).
  */
 @Data
 @NoArgsConstructor

@@ -43,11 +43,26 @@ import {
 } from "qidDiscovery/aiSuggestions";
 import { useInitialQidProfiling } from "./useInitialQidProfiling";
 import { getTableAiState } from "./aiSuggestions/aiSuggestionTableState";
+import { getUnresolvedScreening } from "./aiSuggestions/screeningStatus";
 import { markQidStage, startQidPipelineTiming } from "./qidPipelineTimings";
 
 const getColumnIdentity = (column = {}) => column.sourceField || column.field;
 
 const DATASET_NAME_ALREADY_EXISTS = "DATASET_NAME_ALREADY_EXISTS";
+// Attributes named in the unresolved-review message before "n more".
+const MAX_LISTED_REVIEWS = 8;
+
+function buildUnresolvedReviewMessage(t, unresolved) {
+  const listed = unresolved
+    .slice(0, MAX_LISTED_REVIEWS)
+    .map(({ tableName, attributeName }) => `${tableName}: ${attributeName}`);
+  if (unresolved.length > MAX_LISTED_REVIEWS) {
+    listed.push(
+      t("datasets.alerts.unresolvedMore", { count: unresolved.length - MAX_LISTED_REVIEWS })
+    );
+  }
+  return t("datasets.alerts.unresolvedScreening", { attributes: listed.join(", ") });
+}
 
 export default function AddDatasetForm() {
   const navigate = useNavigate();
@@ -344,6 +359,23 @@ export default function AddDatasetForm() {
         }));
         return;
       }
+      // Potential direct identifiers that are still included need an explicit
+      // decision (exclude, or confirm "keep included"); results still being
+      // computed could add such findings.
+      const { screeningTables, unresolved } = getUnresolvedScreening(
+        tables,
+        aiStateByTable,
+        aiScreeningEnabled
+      );
+      if (screeningTables.length || unresolved.length) {
+        setErrors((current) => ({
+          ...current,
+          tables: screeningTables.length
+            ? t("datasets.alerts.screeningInProgress")
+            : buildUnresolvedReviewMessage(t, unresolved),
+        }));
+        return;
+      }
 
       dispatch(
         addDataset({
@@ -382,7 +414,9 @@ export default function AddDatasetForm() {
         });
     },
     [
+      aiScreeningEnabled,
       aiScreeningModelUsed,
+      aiStateByTable,
       description,
       directIdentifierSubmissionMessage,
       directIdentifierValidation,

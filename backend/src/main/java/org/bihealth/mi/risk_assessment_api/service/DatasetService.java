@@ -34,17 +34,21 @@ public class DatasetService {
 
     private final QidDiscoveryConfigurationService qidDiscoveryConfigurationService;
 
+    private final AiModelRegistry aiModelRegistry;
+
     /**
      * Creates the service with repositories for datasets and edit locks.
      */
     public DatasetService(
             DatasetRepository datasetRepository,
             EntityLockRepository lockRepository,
-            QidDiscoveryConfigurationService qidDiscoveryConfigurationService
+            QidDiscoveryConfigurationService qidDiscoveryConfigurationService,
+            AiModelRegistry aiModelRegistry
     ) {
         this.datasetRepository = datasetRepository;
         this.lockRepository = lockRepository;
         this.qidDiscoveryConfigurationService = qidDiscoveryConfigurationService;
+        this.aiModelRegistry = aiModelRegistry;
     }
 
     /**
@@ -251,37 +255,38 @@ public class DatasetService {
     }
 
     /**
-     * Records the AI model that screened the column names. The model must be
-     * allowed by the dataset's QID discovery configuration version. Recorded
-     * once, at creation: later edits do not change this provenance.
+     * Records the AI model that screened the column names, once, at creation. The browser reports
+     * it; the model must be allowed (and AI screening enabled) by the dataset's QID discovery
+     * configuration version, and the registry-controlled metadata must match the registry
+     * (AiModelRegistry#verifyScreeningProvenance). The stored validation status comes from the
+     * registry, so a client can never record an unapproved model as approved.
      */
     private void applyAiScreeningProvenance(Dataset dataset, DatasetAiScreeningRequestDTO aiScreening) {
         if (aiScreening == null || aiScreening.getModelId() == null || aiScreening.getModelId().isBlank()) {
             return;
         }
-        String modelId = aiScreening.getModelId().trim();
+        AiModelRegistry.ScreeningProvenance provenance = aiModelRegistry.verifyScreeningProvenance(
+                aiScreening.getModelId(),
+                aiScreening.getRepository(),
+                aiScreening.getRevision(),
+                aiScreening.getDtype(),
+                aiScreening.getPromptVersion(),
+                aiScreening.getThresholdsVersion(),
+                aiScreening.getValidationStatus()
+        );
         QidDiscoveryConfigurationVersion version = dataset.getQidDiscoveryConfigurationVersion();
-        if (version != null
-                && !qidDiscoveryConfigurationService.getEffectiveAiAllowedModelIds(version).contains(modelId)) {
+        if (version == null
+                || !qidDiscoveryConfigurationService.getEffectiveAiAllowedModelIds(version).contains(provenance.modelId())) {
             throw new IllegalArgumentException(
-                    "AI model " + modelId + " is not allowed by the selected QID discovery configuration.");
+                    "AI model " + provenance.modelId() + " is not allowed by the selected QID discovery configuration.");
         }
-        dataset.setAiScreeningModelId(limit(modelId, 64));
-        dataset.setAiScreeningModelRepository(limit(aiScreening.getRepository(), 200));
-        dataset.setAiScreeningModelRevision(limit(aiScreening.getRevision(), 64));
-        dataset.setAiScreeningModelDtype(limit(aiScreening.getDtype(), 32));
-        dataset.setAiScreeningPromptVersion(limit(aiScreening.getPromptVersion(), 64));
-        dataset.setAiScreeningThresholdsVersion(limit(aiScreening.getThresholdsVersion(), 64));
-        dataset.setAiScreeningValidationStatus(limit(aiScreening.getValidationStatus(), 32));
-    }
-
-    private static String limit(String value, int maxLength) {
-        if (value == null) return null;
-        String trimmed = value.trim();
-        if (trimmed.length() > maxLength) {
-            throw new IllegalArgumentException("AI screening provenance value is too long.");
-        }
-        return trimmed.isEmpty() ? null : trimmed;
+        dataset.setAiScreeningModelId(provenance.modelId());
+        dataset.setAiScreeningModelRepository(provenance.repository());
+        dataset.setAiScreeningModelRevision(provenance.revision());
+        dataset.setAiScreeningModelDtype(provenance.dtype());
+        dataset.setAiScreeningPromptVersion(provenance.promptVersion());
+        dataset.setAiScreeningThresholdsVersion(provenance.thresholdsVersion());
+        dataset.setAiScreeningValidationStatus(provenance.validationStatus());
     }
 
     /**

@@ -74,7 +74,10 @@
       "loadQidConfigurationsFailed": "Fehler beim Laden der QID-Discovery-Konfigurationen.",
       "qidConfigurationRequiredForProfiling": "Wählen Sie vor dem Profiling eine aktive QID-Discovery-Konfiguration aus.",
       "qidConfigurationRequiredForSubmit": "Wählen Sie vor dem Erstellen eines Datensatzes eine aktive QID-Discovery-Konfiguration aus.",
-      "qidConfigurationInvalid": "Die ausgewählte QID-Discovery-Konfiguration ist unvollständig oder ungültig. Bitte wenden Sie sich an einen Administrator."
+      "qidConfigurationInvalid": "Die ausgewählte QID-Discovery-Konfiguration ist unvollständig oder ungültig. Bitte wenden Sie sich an einen Administrator.",
+      "screeningInProgress": "Bitte warten Sie, bis die KI-Prüfung aller Tabellen abgeschlossen ist.",
+      "unresolvedScreening": "Prüfen Sie diese Attribute, bevor Sie den Datensatz anlegen: {{attributes}}. Schließen Sie jedes aus, oder öffnen Sie sein Prüfsymbol und wählen Sie „Einbezogen lassen“.",
+      "unresolvedMore": "{{count}} weitere"
     },
     "form": {
       "editDataset": "Datensatz bearbeiten",
@@ -195,14 +198,14 @@
           "autoExcludedByNameAndModel": "Spaltenname und KI-Modell weisen beide auf einen möglichen direkten Identifikator hin, daher wurde das Attribut automatisch von der Profilierung ausgeschlossen.",
           "autoExcludedByValuePattern": "Die Werte entsprechen einem Muster für direkte Identifikatoren, daher wurde das Attribut automatisch von der Profilierung ausgeschlossen.",
           "included": "Es wurde kein Ausschluss vorgeschlagen. Das Attribut kann in Kombination mit anderen dennoch Personen identifizieren und wird daher als möglicher Quasi-Identifikator profiliert.",
-          "uncertain": "Die Prüfung konnte dieses Attribut nicht zuverlässig einordnen. Bitte prüfen Sie, ob es einen direkten Identifikator enthält.",
+          "uncertain": "Die KI konnte dieses Attribut nicht zuverlässig einordnen, und nichts anderes deutet auf einen direkten Identifikator hin. Es bleibt einbezogen und wird als Quasi-Identifikator-Kandidat profiliert.",
           "identifierNotExcluded": "Die Prüfung deutet auf einen möglichen direkten Identifikator hin, das Attribut wurde aber nicht automatisch ausgeschlossen. Bitte prüfen Sie es.",
           "valuePatternReview": "Einige Werte sehen wie ein direkter Identifikator aus. Bitte prüfen Sie das Attribut.",
           "reviewedExcluded": "Sie haben entschieden, dieses Attribut von der QID-Profilierung auszuschließen.",
           "reviewedIncluded": "Sie haben entschieden, dieses Attribut in die QID-Profilierung einzubeziehen.",
           "pending": "Der Spaltenname wird eingeordnet. Sie können weiter bearbeiten.",
           "provisionalIdentifier": "Die KI deutet auf einen möglichen direkten Identifikator hin, das gewählte Modell ist aber für den automatischen Ausschluss nicht freigegeben. Bitte prüfen Sie es.",
-          "modelNotEvaluated": "Das gewählte Modell wurde in dieser Konfiguration nicht evaluiert, daher kann sein Ergebnis einen direkten Identifikator nicht ausschließen. Bitte prüfen Sie es.",
+          "modelNotEvaluated": "Das gewählte Modell wurde in dieser Konfiguration nicht evaluiert, daher kann sein Ergebnis einen direkten Identifikator nicht ausschließen. Nichts anderes deutet auf einen hin; das Attribut bleibt einbezogen und wird als Quasi-Identifikator-Kandidat profiliert.",
           "nameReview": "Der Spaltenname enthält häufig einen direkten Identifikator, etwa einen Namen oder einen möglicherweise pseudonymen Datensatzschlüssel. Bitte prüfen Sie es.",
           "nameContext": "Die KI deutet auf einen direkten Identifikator hin, der Spaltenname aber auf Informationen über einen solchen oder auf einen Quasi-Identifikator. Bitte prüfen Sie es.",
           "evidenceConflict": "Der Spaltenname sieht wie ein direkter Identifikator aus, aber das KI-Modell widerspricht sicher. Bitte prüfen Sie es.",
@@ -212,8 +215,10 @@
             "modelUnavailable": "In dieser Installation ist kein KI-Modell verfügbar, daher liegt kein Ergebnis vor. Prüfen Sie dieses Attribut manuell auf direkte Identifikatoren.",
             "loadFailed": "Das KI-Modell konnte nicht geladen werden. Prüfen Sie dieses Attribut manuell auf direkte Identifikatoren.",
             "failed": "Die KI-Prüfung ist für dieses Attribut fehlgeschlagen. Prüfen Sie es manuell auf direkte Identifikatoren.",
-            "notRun": "Die KI-Prüfung wurde für dieses Attribut nicht ausgeführt (zum Beispiel abgebrochen). Prüfen Sie es manuell auf direkte Identifikatoren."
-          }
+            "notRun": "Die KI-Prüfung wurde für dieses Attribut nicht ausgeführt (zum Beispiel abgebrochen). Prüfen Sie es manuell auf direkte Identifikatoren.",
+            "timedOut": "Die KI-Prüfung hat zu lange gedauert und wurde abgebrochen. Prüfen Sie dieses Attribut manuell auf direkte Identifikatoren."
+          },
+          "possibleIdentifier": "Die KI tendiert zu einem direkten Identifikator, ist sich aber nicht sicher. Bitte prüfen Sie es."
         }
       },
       "categories": {
@@ -239,7 +244,8 @@
           "modelUnavailable": "kein KI-Modell verfügbar",
           "loadFailed": "KI-Modell konnte nicht geladen werden",
           "failed": "KI-Prüfung fehlgeschlagen",
-          "notRun": "KI-Prüfung nicht ausgeführt"
+          "notRun": "KI-Prüfung nicht ausgeführt",
+          "timedOut": "die KI-Prüfung hat zu lange gedauert"
         }
       },
       "progress": {

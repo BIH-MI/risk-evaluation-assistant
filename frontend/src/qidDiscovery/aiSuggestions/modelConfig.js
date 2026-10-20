@@ -68,10 +68,13 @@ function getPromptFingerprint(prompt) {
  *   for that evaluation. Only then may a confident identifier prediction of
  *   the model alone exclude a column automatically.
  * - EVALUATED: evaluated, not approved. Identifier predictions require
- *   review; confident non-identifier predictions stand.
+ *   review; confident non-identifier predictions can overrule column-name
+ *   evidence only by sending the column to review (EVIDENCE_CONFLICT).
  * - CONFIGURATION_CHANGED: evaluated, but not in this configuration.
- * - NOT_EVALUATED: every prediction requires review, because thresholds
- *   tuned for another model or prompt say nothing about these scores.
+ * - NOT_EVALUATED: identifier predictions require review; non-identifier
+ *   results are shown as uncertain (thresholds tuned for another model or
+ *   prompt say nothing about these scores) and never overrule column-name or
+ *   value-pattern evidence. CONFIGURATION_CHANGED is treated the same way.
  */
 export const AI_MODEL_VALIDATION_STATUS = Object.freeze({
   APPROVED: "approved",
@@ -186,6 +189,8 @@ export const AI_ERROR_CODES = Object.freeze({
   MODEL_LOAD_FAILED: "AI_MODEL_LOAD_FAILED",
   INFERENCE_FAILED: "AI_INFERENCE_FAILED",
   CANCELLED: "AI_CANCELLED",
+  // The worker stopped responding (see columnClassifierClient.js).
+  TIMEOUT: "AI_TIMEOUT",
   // No AI model is enabled, supported and installed for this deployment.
   NO_MODEL_AVAILABLE: "AI_NO_MODEL_AVAILABLE",
 });

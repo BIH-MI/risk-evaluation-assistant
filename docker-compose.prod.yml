@@ -1,0 +1,36 @@
+# Production overrides for docker-compose.yml (requires Docker Compose 2.24+):
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#
+# - Keycloak runs in production mode and stores its data in PostgreSQL (the
+#   base file's development mode keeps it inside the container). TLS ends at
+#   Nginx, which proxies /auth/ to Keycloak over the internal network.
+# - Only Nginx publishes ports; PostgreSQL, Keycloak and the backend are
+#   reachable from the internal network only.
+# - Secrets must be provided by the deployment (environment or .env.prod);
+#   startup fails if they are missing.
+services:
+  keycloak:
+    command: ["start", "--import-realm"]
+    environment:
+      - KC_DB=postgres
+      - KC_DB_URL_HOST=postgres
+      - KC_DB_URL_DATABASE=${POSTGRES_DB_NAME:?set POSTGRES_DB_NAME}
+      - KC_DB_USERNAME=${POSTGRES_USER:?set POSTGRES_USER}
+      - KC_DB_PASSWORD=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      # Public URL including /auth, e.g. https://rea.example.org/auth
+      - KC_HOSTNAME=${KC_HOSTNAME:?set KC_HOSTNAME}
+      - KC_HOSTNAME_STRICT=true
+      - KC_HTTP_ENABLED=true
+      - KC_BOOTSTRAP_ADMIN_USERNAME=${KEYCLOAK_ADMIN_USER:?set KEYCLOAK_ADMIN_USER}
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:?set KEYCLOAK_ADMIN_PASSWORD}
+    ports: !reset []
+
+  postgres:
+    ports: !reset []
+
+  spring-boot-app:
+    environment:
+      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENT_SECRET=${REA_BACKEND_CLIENT_SECRET:?set REA_BACKEND_CLIENT_SECRET}
+      - APP_SETUP_LOAD_SAMPLE_DATA=false
+    ports: !reset []

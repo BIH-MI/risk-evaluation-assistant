@@ -13,7 +13,6 @@ import {
 } from "components/display/Tables/DataTable/CustomDataTableComponents/RowComponents";
 import RATypography from "../../../components/display/RATypography";
 import RAInput from "../../../components/input/RAInput";
-import { isSuggestionCurrent } from "qidDiscovery/aiSuggestions";
 import {
   AiColumnAssessmentInfo,
   ScreeningStatusLegend,
@@ -24,11 +23,9 @@ import {
 } from "./aiSuggestions/AiScreeningProgress";
 import { AI_TABLE_STATUS } from "./aiSuggestions/aiSuggestionTableState";
 import {
-  getColumnScreening,
   getTableReviewSummary,
+  getTableScreenings,
 } from "./aiSuggestions/screeningStatus";
-
-const getColumnIdentity = (column = {}) => column.sourceField || column.field;
 
 // Narrower cell padding than the shared table default, so the columns fit
 // without horizontal scrolling on desktop. Scoped to this table.
@@ -154,15 +151,6 @@ export const PreviewTable = React.memo(function PreviewTable({
   const isAiRunning =
     aiState.status === AI_TABLE_STATUS.LOADING_MODEL ||
     aiState.status === AI_TABLE_STATUS.CLASSIFYING;
-  const getCurrentSuggestion = (columnKey, field) => {
-    const storedSuggestion = aiState.suggestions[columnKey];
-    return isSuggestionCurrent(storedSuggestion, {
-      columnName: field,
-      description: aiState.descriptions[columnKey] || "",
-    })
-      ? storedSuggestion
-      : null;
-  };
 
   const columns = [
     {
@@ -264,8 +252,8 @@ export const PreviewTable = React.memo(function PreviewTable({
               )
             }
           />
-          {/* Fixed width (room for two icons) keeps checkboxes aligned. */}
-          <RABox sx={{ width: 48, flexShrink: 0, display: "flex" }}>
+          {/* Fixed width keeps the checkboxes aligned. */}
+          <RABox sx={{ width: 28, flexShrink: 0, display: "flex" }}>
             <AiColumnAssessmentInfo
               // Per column, so an open popover never moves to another row
               // when the page changes.
@@ -300,26 +288,18 @@ export const PreviewTable = React.memo(function PreviewTable({
     },
   ];
 
-  const rows = columnMeta.map((column, position) => {
-    const columnKey = getColumnIdentity(column);
-    return {
+  const rows = getTableScreenings({ table: file, aiState, aiEnabled }).map(
+    ({ column, columnKey, screening }, position) => ({
       columnKey,
       position,
       field: column.field,
       dataType: column.level,
       excluded: Boolean(column.excluded),
-      screening: getColumnScreening({
-        column,
-        suggestion: getCurrentSuggestion(columnKey, column.field),
-        aiState,
-        aiEnabled,
-        isAiRunning,
-        isManualTable: Boolean(file.isManual),
-      }),
-    };
-  });
-  // Potential direct identifiers awaiting review are profiled as QID
-  // candidates until the researcher decides, so profiling is provisional.
+      screening,
+    })
+  );
+  // Included potential direct identifiers awaiting review are profiled as
+  // QID candidates until the researcher decides, so profiling is provisional.
   // Counts are hidden while classification runs (they are still changing).
   const reviewSummary = getTableReviewSummary(rows);
   const reviewCount = isAiRunning ? 0 : reviewSummary.required;

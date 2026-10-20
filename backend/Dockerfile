@@ -22,7 +22,7 @@ RUN mvn ${MAVEN_OPTS} dependency:go-offline
 COPY frontend/src/qidDiscovery/aiSuggestions/modelRegistry.json /frontend/src/qidDiscovery/aiSuggestions/modelRegistry.json
 COPY backend/src ./src
 
-# Build the JAR file (skipping tests to speed up deployment)
+# Build the JAR file
 RUN mvn ${MAVEN_OPTS} clean package -DskipTests
 
 # =======================================================

@@ -9,12 +9,7 @@ import org.bihealth.mi.risk_assessment_api.model.qid.QidDiscoveryConfiguration;
 import org.bihealth.mi.risk_assessment_api.model.qid.QidDiscoveryConfigurationVersion;
 import org.bihealth.mi.risk_assessment_api.repository.dataset.DatasetRepository;
 import org.bihealth.mi.risk_assessment_api.repository.qid.QidDiscoveryConfigurationRepository;
-import org.bihealth.mi.risk_assessment_api.utils.EntityNameNormalizer;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -24,21 +19,18 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Seeds aggregate quantitative profiling evidence for the canonical LEOSS demo dataset.
+ * Aggregate quantitative profiling evidence for the LEOSS demo dataset, applied
+ * by {@link DataLoader} when it creates the demo data (never on later
+ * startups, so researcher edits to the demo dataset are kept).
  *
  * <p>This is intentionally not a backend QID profiler. The values below are
  * precomputed sample metadata matching the frontend profiling formulas. No raw
- * LEOSS rows are stored by this seeder.</p>
+ * LEOSS rows are stored.</p>
  */
 @Component
-@Order(4)
-public class DemoDatasetEvidenceSeeder implements CommandLineRunner {
+public class DemoDatasetEvidenceSeeder {
 
-    static final String LEOSS_DATASET_NAME = "LEOSS Public Use File";
     private static final String SEED_USER = "user";
-
-    @Value("${app.setup.load-sample-data:true}")
-    private boolean loadSampleData;
 
     private final DatasetRepository datasetRepository;
     private final QidDiscoveryConfigurationRepository qidConfigurationRepository;
@@ -51,18 +43,19 @@ public class DemoDatasetEvidenceSeeder implements CommandLineRunner {
         this.qidConfigurationRepository = qidConfigurationRepository;
     }
 
-    @Override
-    @Transactional
-    public void run(String... args) {
-        if (!loadSampleData) return;
-
+    /**
+     * Links the newly created LEOSS dataset to the default QID discovery
+     * configuration and stores its precomputed statistics. Must run in the
+     * caller's transaction, after QidDiscoveryConfigurationSeeder.
+     */
+    public void apply(Dataset leoss) {
         QidDiscoveryConfiguration defaultConfiguration =
                 resolveDefaultQidConfiguration().orElse(null);
         QidDiscoveryConfigurationVersion defaultVersion = defaultConfiguration == null
                 ? null
                 : defaultConfiguration.getCurrentVersionEntity().orElse(null);
 
-        upsertLeossEvidence(defaultConfiguration, defaultVersion);
+        applyLeossEvidence(leoss, defaultConfiguration, defaultVersion);
     }
 
     private Optional<QidDiscoveryConfiguration> resolveDefaultQidConfiguration() {
@@ -71,13 +64,11 @@ public class DemoDatasetEvidenceSeeder implements CommandLineRunner {
                 .or(qidConfigurationRepository::findFirstByActiveTrueOrderByIdAsc);
     }
 
-    private void upsertLeossEvidence(
+    private void applyLeossEvidence(
+            Dataset leoss,
             QidDiscoveryConfiguration qidConfiguration,
             QidDiscoveryConfigurationVersion qidConfigurationVersion
     ) {
-        Dataset leoss = findDatasetByNormalizedName(LEOSS_DATASET_NAME).orElse(null);
-        if (leoss == null) return;
-
         linkQidConfiguration(leoss, qidConfiguration, qidConfigurationVersion);
         DatasetTable table = findTable(leoss, "Patients").orElseGet(() -> {
             DatasetTable created = new DatasetTable();
@@ -113,16 +104,6 @@ public class DemoDatasetEvidenceSeeder implements CommandLineRunner {
         }
 
         datasetRepository.save(leoss);
-    }
-
-    private Optional<Dataset> findDatasetByNormalizedName(String name) {
-        String normalizedName = EntityNameNormalizer.normalizeForComparison(name);
-        return datasetRepository.findAll().stream()
-                .filter(dataset -> Objects.equals(
-                        normalizedName,
-                        EntityNameNormalizer.normalizeForComparison(dataset.getName())
-                ))
-                .findFirst();
     }
 
     private Optional<DatasetTable> findTable(Dataset dataset, String name) {

@@ -12,9 +12,9 @@ import {
  * researchers choose whenever more than one allowed model is usable.
  */
 
-// Applies to configurations saved before AI screening was configurable; the
-// backend reports them with `legacyDefaults: true`. Same as the backend's
-// QidDiscoveryAiScreeningDefaults.
+// Used when a configuration carries no aiScreening object. The backend
+// reports versions saved before AI screening was configurable with its
+// QidDiscoveryAiScreeningDefaults (same values, `legacyDefaults: true`).
 export const LEGACY_AI_SCREENING_SETTINGS = Object.freeze({
   enabled: true,
   allowedModelIds: Object.freeze([AI_DEFAULT_MODEL_ID]),

@@ -5,23 +5,30 @@ import {
   AI_SUGGESTION_STATUS,
   AI_UNCERTAINTY_REASONS,
   getCategoryForConcept,
+  isGeneralUncertainty,
+  isSuggestionCurrent,
   needsResearcherReview,
 } from "qidDiscovery/aiSuggestions";
+import { AI_TABLE_STATUS } from "./aiSuggestionTableState";
 
 /*
  * Direct-identifier screening status of one Add Dataset column, derived from
  * the column metadata, its current AI suggestion and its value-pattern
- * evidence. Shared by the table's status indicator, its tooltip, the legend
- * and the review count/filter, so they never disagree.
+ * evidence. Shared by the table's status indicator, its tooltip, the legend,
+ * the review count and submission validation, so they never disagree.
  *
  * Reported per column:
  * - prediction: what the screening detected (category, whether the
  *   prediction itself is uncertain);
  * - evidence: only the sources that produced the result;
- * - review: whether a researcher decision is still required. Only an
- *   explicit researcher decision (checkbox change or confirmation, recorded
- *   as `manualExclusionDecision`) completes a review; finished inference
- *   or opening the details never does.
+ * - review: whether a researcher decision is still required. It is required
+ *   only for an included column with a potential direct-identifier finding
+ *   (review-level value pattern, or an AI/column-name result for which
+ *   needsResearcherReview() is true), and blocks submission until resolved.
+ *   Excluded columns need no decision; an automatic exclusion can still be
+ *   confirmed. Only an explicit researcher decision (checkbox change or
+ *   confirmation, recorded as `manualExclusionDecision`) completes a review;
+ *   finished inference or opening the details never does.
  *
  * `status` is the single primary indicator derived from them.
  */
@@ -64,6 +71,7 @@ export const NOT_SCREENED_REASONS = Object.freeze({
   MANUAL_TABLE: "manualTable",
   MODEL_UNAVAILABLE: "modelUnavailable",
   LOAD_FAILED: "loadFailed",
+  TIMED_OUT: "timedOut",
   FAILED: "failed",
   NOT_RUN: "notRun",
 });
@@ -76,7 +84,6 @@ const MODEL_UNAVAILABLE_CODES = new Set([
 // Explanation per uncertainty reason (datasets.aiSuggestions.tooltip.message).
 const REVIEW_MESSAGES = {
   [AI_UNCERTAINTY_REASONS.PROVISIONAL_MODEL]: "provisionalIdentifier",
-  [AI_UNCERTAINTY_REASONS.MODEL_NOT_EVALUATED]: "modelNotEvaluated",
   [AI_UNCERTAINTY_REASONS.NAME_REVIEW]: "nameReview",
   [AI_UNCERTAINTY_REASONS.NAME_CONTEXT]: "nameContext",
   [AI_UNCERTAINTY_REASONS.EVIDENCE_CONFLICT]: "evidenceConflict",
@@ -103,6 +110,7 @@ function getNotScreenedReason({ suggestion, aiState, aiEnabled, isManualTable })
   const code = suggestion?.error?.code || aiState?.error?.code;
   if (MODEL_UNAVAILABLE_CODES.has(code)) return NOT_SCREENED_REASONS.MODEL_UNAVAILABLE;
   if (code === AI_ERROR_CODES.MODEL_LOAD_FAILED) return NOT_SCREENED_REASONS.LOAD_FAILED;
+  if (code === AI_ERROR_CODES.TIMEOUT) return NOT_SCREENED_REASONS.TIMED_OUT;
   if (code) return NOT_SCREENED_REASONS.FAILED;
   return NOT_SCREENED_REASONS.NOT_RUN;
 }
@@ -211,10 +219,7 @@ export function getColumnScreening({
   let review = REVIEW_STATE.NOT_REQUIRED;
   if (decided) {
     review = REVIEW_STATE.COMPLETED;
-  } else if (
-    !valueAutoExcluded &&
-    (valueReview || (suggestion && needsResearcherReview(suggestion)))
-  ) {
+  } else if (!excluded && (valueReview || needsResearcherReview(suggestion))) {
     review = REVIEW_STATE.REQUIRED;
   }
 
@@ -230,7 +235,7 @@ export function getColumnScreening({
   if (pending) {
     status = SCREENING_STATUS.PENDING;
     message = "pending";
-  } else if ((aiAutoExcluded || valueAutoExcluded) && review !== REVIEW_STATE.COMPLETED) {
+  } else if ((aiAutoExcluded || valueAutoExcluded) && !decided) {
     status = SCREENING_STATUS.AUTO_EXCLUDED;
     if (valueAutoExcluded) {
       evidence = [SCREENING_SOURCES.VALUE_PATTERN];
@@ -251,15 +256,15 @@ export function getColumnScreening({
     }
   } else if (review === REVIEW_STATE.REQUIRED) {
     status = SCREENING_STATUS.REVIEW_NEEDED;
-    const aiReview = Boolean(suggestion) && needsResearcherReview(suggestion);
-    message =
-      REVIEW_MESSAGES[suggestion?.uncertaintyReason] ||
-      (aiReview && predictionStatus === AI_SUGGESTION_STATUS.SUGGESTED
-        ? // An identifier suggestion that was not applied automatically.
-          "identifierNotExcluded"
-        : aiReview
-        ? "uncertain"
-        : "valuePatternReview");
+    const aiReview = needsResearcherReview(suggestion);
+    message = !aiReview
+      ? "valuePatternReview"
+      : isGeneralUncertainty(suggestion)
+      ? // Uncertain, but the model's top category is an identifier.
+        "possibleIdentifier"
+      : REVIEW_MESSAGES[suggestion.uncertaintyReason] ||
+        // An identifier suggestion that was not applied automatically.
+        "identifierNotExcluded";
   } else if (review === REVIEW_STATE.COMPLETED) {
     status = SCREENING_STATUS.REVIEWED;
     message = excluded ? "reviewedExcluded" : "reviewedIncluded";
@@ -268,7 +273,11 @@ export function getColumnScreening({
     message = `notScreened.${notScreenedReason}`;
   } else {
     status = SCREENING_STATUS.NO_EXCLUSION_SUGGESTED;
-    message = "included";
+    message = !isGeneralUncertainty(suggestion)
+      ? "included"
+      : suggestion.uncertaintyReason === AI_UNCERTAINTY_REASONS.MODEL_NOT_EVALUATED
+      ? "modelNotEvaluated"
+      : "uncertain";
   }
   if (
     status === SCREENING_STATUS.REVIEW_NEEDED ||
@@ -319,4 +328,64 @@ export function getTableReviewSummary(rows = []) {
   const notScreenedReason =
     Array.from(reasons.entries()).sort((left, right) => right[1] - left[1])[0]?.[0] || null;
   return { required, notScreened, notScreenedReason };
+}
+
+const getColumnIdentity = (column = {}) => column.sourceField || column.field;
+
+/**
+ * Screening of every column of one Add Dataset table (as shown in its
+ * preview). Only suggestions computed for the column's current name are
+ * used.
+ *
+ * @returns {Array<{ column: Object, columnKey: string, screening: Object }>}
+ */
+export function getTableScreenings({ table, aiState, aiEnabled }) {
+  const isAiRunning =
+    aiState.status === AI_TABLE_STATUS.LOADING_MODEL ||
+    aiState.status === AI_TABLE_STATUS.CLASSIFYING;
+  return (table.columnMeta || []).map((column) => {
+    const columnKey = getColumnIdentity(column);
+    const stored = aiState.suggestions[columnKey];
+    const suggestion = isSuggestionCurrent(stored, { columnName: column.field })
+      ? stored
+      : null;
+    return {
+      column,
+      columnKey,
+      screening: getColumnScreening({
+        column,
+        suggestion,
+        aiState,
+        aiEnabled,
+        isAiRunning,
+        isManualTable: Boolean(table.isManual),
+      }),
+    };
+  });
+}
+
+/**
+ * What still prevents submission: tables whose screening is running, and
+ * included attributes with a potential direct-identifier finding that the
+ * researcher has not resolved (excluded or confirmed).
+ *
+ * @returns {{ screeningTables: string[], unresolved: Array<{ tableName: string,
+ *   attributeName: string }> }}
+ */
+export function getUnresolvedScreening(tables = [], aiStateByTable = {}, aiEnabled = true) {
+  const screeningTables = [];
+  const unresolved = [];
+  tables.forEach((table) => {
+    if (!Array.isArray(table.columnMeta)) return;
+    const aiState = aiStateByTable[table._localTableId];
+    if (!aiState) return;
+    getTableScreenings({ table, aiState, aiEnabled }).forEach(({ column, screening }) => {
+      if (screening.status === SCREENING_STATUS.PENDING) {
+        if (!screeningTables.includes(table.name)) screeningTables.push(table.name);
+      } else if (screening.review === REVIEW_STATE.REQUIRED) {
+        unresolved.push({ tableName: table.name, attributeName: column.field });
+      }
+    });
+  });
+  return { screeningTables, unresolved };
 }

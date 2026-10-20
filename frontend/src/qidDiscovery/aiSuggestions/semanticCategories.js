@@ -4,8 +4,8 @@
  *
  * A category is a description of what a column name *appears to mean*. It is
  * never Direct Identifier evidence: only value-pattern evidence
- * (profiling/directIdentifierEvidence.js) affects submission validation and
- * persisted identifier summaries. Confident SUGGEST_EXCLUSION_REVIEW
+ * (profiling/directIdentifierEvidence.js) reaches the persisted identifier
+ * summaries. Confident SUGGEST_EXCLUSION_REVIEW
  * suggestions may automatically exclude a column in Add Dataset (tracked as
  * `aiAutoExcluded`), which the researcher can always override. A model's
  * identifier predictions are only confident if the model is approved for

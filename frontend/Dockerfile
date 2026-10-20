@@ -1,13 +1,17 @@
 # =======================================================
 # STAGE 1: BUILD (Node.js)
 # =======================================================
-FROM node:18-alpine AS build
+# Node.js 22 LTS, pinned for reproducible builds
+FROM node:22.23.3-alpine3.24 AS build
 
 WORKDIR /app
 
-# Install dependencies
-COPY package*.json ./
-RUN npm install
+# Install exactly the versions in package-lock.json. The lockfile resolves
+# TypeScript 6 (required by i18next), outside react-scripts 5's declared
+# peer range; --legacy-peer-deps installs the locked tree unchanged instead of
+# failing on that peer check.
+COPY package.json package-lock.json ./
+RUN npm ci --legacy-peer-deps
 
 # Copy source code
 COPY . .
@@ -27,14 +31,8 @@ ENV REACT_APP_OIDC_REDIRECT_URI=$REACT_APP_OIDC_REDIRECT_URI
 ENV REACT_APP_OIDC_POST_LOGOUT_REDIRECT_URI=$REACT_APP_OIDC_POST_LOGOUT_REDIRECT_URI
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
 
-# Debug: Print variables to build log
-RUN echo "Building with:" && \
-    echo $REACT_APP_OIDC_AUTHORITY && \
-    echo $REACT_APP_OIDC_CLIENT_ID && \
-    echo $REACT_APP_OIDC_REDIRECT_URI && \
-    echo $REACT_APP_OIDC_POST_LOGOUT_REDIRECT_URI
-
-# Create the production build (output to /app/build)
+# Create the production build (output to /app/build). "prebuild" copies the
+# hash-verified ONNX Runtime files from node_modules (scripts/copy-onnx-runtime.js).
 RUN npm run build
 
 # =======================================================
@@ -44,6 +42,10 @@ FROM nginx:1.25-alpine
 
 # Copy the build output to Nginx's html directory
 COPY --from=build /app/build /usr/share/nginx/html
+
+# SPA routing and the ONNX Runtime files under /ai-assets/ (WASM MIME type,
+# no index.html fallback for missing files)
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Expose HTTP port
 EXPOSE 80

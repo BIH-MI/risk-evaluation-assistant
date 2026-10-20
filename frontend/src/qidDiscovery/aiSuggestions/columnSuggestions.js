@@ -46,8 +46,9 @@ import { getModelThresholds } from "./thresholds";
  *
  * What a model's prediction may do depends on its validation status
  * (modelConfig.js): only a model approved for automatic exclusion can exclude
- * a column without column-name evidence, and a model whose exact
- * configuration was never evaluated cannot clear a column from review.
+ * a column without column-name evidence, and only a model evaluated in its
+ * exact configuration can overrule column-name evidence (EVIDENCE_CONFLICT).
+ * Which results need a researcher decision: needsResearcherReview().
  */
 
 export const AI_SUGGESTION_STATUS = Object.freeze({
@@ -388,18 +389,45 @@ export function suggestsExclusionReview(suggestion) {
   );
 }
 
+// Model uncertainty that points at no particular identifier. It is shown,
+// but asks for a decision only when the model's top category is an
+// identifier (see needsResearcherReview).
+const GENERAL_UNCERTAINTY_REASONS = new Set([
+  AI_UNCERTAINTY_REASONS.ABSTAINED,
+  AI_UNCERTAINTY_REASONS.LOW_SCORE,
+  AI_UNCERTAINTY_REASONS.SMALL_MARGIN,
+  AI_UNCERTAINTY_REASONS.IDENTIFIER_NEARBY,
+  AI_UNCERTAINTY_REASONS.MODEL_NOT_EVALUATED,
+]);
+
+const isIdentifierCategoryId = (categoryId) =>
+  isIdentifierCategory(AI_SEMANTIC_CATEGORIES.find((category) => category.id === categoryId));
+
+/** True for model uncertainty that does not point at an identifier. */
+export function isGeneralUncertainty(suggestion) {
+  return (
+    suggestion?.status === AI_SUGGESTION_STATUS.UNCERTAIN &&
+    GENERAL_UNCERTAINTY_REASONS.has(suggestion.uncertaintyReason)
+  );
+}
+
 /**
- * True while the suggestion still asks the researcher for an exclusion
- * decision: identifier-like suggestions and uncertain classifications.
- * Non-identifier suggestions do not block the "reviewed" state of the table.
+ * True when the suggestion is a potential direct-identifier finding that
+ * needs a researcher decision while the column is included: identifier
+ * suggestions, name-based reviews, unapproved models' identifier
+ * predictions, conflicting evidence, and uncertain results whose top
+ * category is an identifier. General uncertainty (low score, small margin,
+ * an unevaluated model's non-identifier result) does not, so an unevaluated
+ * model never makes every column a review; it never clears name or value
+ * evidence either, which is judged separately.
  */
 export function needsResearcherReview(suggestion) {
   if (!suggestion) return false;
-  if (suggestion.status === AI_SUGGESTION_STATUS.UNCERTAIN) return true;
-  return (
-    suggestion.status === AI_SUGGESTION_STATUS.SUGGESTED &&
-    suggestsExclusionReview(suggestion)
-  );
+  if (suggestion.status === AI_SUGGESTION_STATUS.SUGGESTED) {
+    return suggestsExclusionReview(suggestion);
+  }
+  if (suggestion.status !== AI_SUGGESTION_STATUS.UNCERTAIN) return false;
+  return !isGeneralUncertainty(suggestion) || isIdentifierCategoryId(suggestion.category);
 }
 
 /**

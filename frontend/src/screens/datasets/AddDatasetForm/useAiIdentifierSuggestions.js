@@ -27,8 +27,7 @@ import { addQidStage, recordQidStage } from "./qidPipelineTimings";
  *
  * Uploaded CSV tables are classified automatically as soon as their header
  * names are parsed (the model is preloaded when the upload starts), and again
- * for any column whose name or description changes. Only column names and
- * researcher-written descriptions reach the AI worker.
+ * for any column whose name changes. Only column names reach the AI worker.
  *
  * All classifications use the model selected for the form (`modelId`, a
  * registry id). The form locks the selection once tables exist, and results
@@ -78,12 +77,7 @@ function getColumnAiDecision(column, state) {
   if (column.manualExclusionDecision === true) return null;
   const columnKey = getColumnIdentity(column);
   const suggestion = state.suggestions[columnKey];
-  if (
-    !isSuggestionCurrent(suggestion, {
-      columnName: column.field,
-      description: state.descriptions[columnKey],
-    })
-  ) {
+  if (!isSuggestionCurrent(suggestion, { columnName: column.field })) {
     return null;
   }
   const decision = toAiExclusionDecision(suggestion);
@@ -116,10 +110,7 @@ export function getInitialAiScreening(table, state = EMPTY_TABLE_STATE) {
     if (!columnKey) return;
     if (
       column.manualExclusionDecision !== true &&
-      !isSuggestionCurrent(state.suggestions[columnKey], {
-        columnName: column.field,
-        description: state.descriptions[columnKey],
-      })
+      !isSuggestionCurrent(state.suggestions[columnKey], { columnName: column.field })
     ) {
       pendingColumns.push({ columnKey, columnName: column.field });
       return;
@@ -163,7 +154,7 @@ export function useAiIdentifierSuggestions({
   // tableId -> id of the newest classification run (progress ownership).
   const latestRunRef = useRef(new Map());
   const columnVersionsRef = useRef(new Map());
-  // `${tableId}\0${columnKey}` -> { columnName, description, controller }.
+  // `${tableId}\0${columnKey}` -> { columnName, controller }.
   const inFlightRef = useRef(new Map());
   const onAiExclusionDecisionsRef = useRef(onAiExclusionDecisions);
   // tableId -> Map<columnKey, columnName>: results that arrived after the
@@ -247,13 +238,10 @@ export function useAiIdentifierSuggestions({
         : table.columnMeta;
       if (!Array.isArray(sourceColumns)) return;
 
-      const descriptions =
-        aiStateRef.current[tableId]?.descriptions || EMPTY_TABLE_STATE.descriptions;
       const columns = sourceColumns
         .map((column) => ({
           columnKey: getColumnIdentity(column),
           columnName: column.field,
-          description: descriptions[getColumnIdentity(column)] || "",
         }))
         .filter(
           (column) =>
@@ -274,7 +262,6 @@ export function useAiIdentifierSuggestions({
       columns.forEach((column, index) => {
         inFlightRef.current.set(inFlightKeys[index], {
           columnName: column.columnName,
-          description: column.description,
           controller,
         });
       });
@@ -314,8 +301,8 @@ export function useAiIdentifierSuggestions({
         }));
       }
 
-      // Merges results, skipping any column that was renamed, deleted or had
-      // its description changed while the request was in flight, and never
+      // Merges results, skipping any column that was renamed or deleted while
+      // the request was in flight, and never
       // replacing a researcher-reviewed suggestion for the same input.
       // Exclusions are applied by the reconciliation effect below.
       const mergeSuggestions = (incoming, nextStatus, error = null, finalProgress = null) => {
@@ -332,6 +319,8 @@ export function useAiIdentifierSuggestions({
         // the header itself until column metadata exists.
         const isPreparing = Boolean(currentTable) && !Array.isArray(currentTable.columnMeta);
         const currentState = aiStateRef.current[tableId] || EMPTY_TABLE_STATE;
+        // Results of another model (the selection changed or AI was
+        // disabled) are discarded.
         const accepted = incoming.filter((suggestion) => {
           const column =
             currentColumns.get(suggestion.columnKey) ||
@@ -341,10 +330,7 @@ export function useAiIdentifierSuggestions({
             (suggestion.model?.registryId ?? null) !== modelIdRef.current ||
             getColumnVersion(tableId, suggestion.columnKey) !==
               versionsAtStart.get(suggestion.columnKey) ||
-            !isSuggestionCurrent(suggestion, {
-              columnName: column.field,
-              description: currentState.descriptions[suggestion.columnKey],
-            })
+            !isSuggestionCurrent(suggestion, { columnName: column.field })
           ) {
             return false;
           }
@@ -458,8 +444,8 @@ export function useAiIdentifierSuggestions({
   );
 
   // Automatic classification: after initial profiling of an uploaded CSV,
-  // and whenever a column lacks a suggestion for its current name and
-  // description (renames, description edits, added columns). Columns already
+  // and whenever a column lacks a suggestion for its current name (renames,
+  // added columns). Columns already
   // being classified are skipped, and cached inputs never reach the worker.
   useEffect(() => {
     tables.forEach((table) => {
@@ -474,17 +460,10 @@ export function useAiIdentifierSuggestions({
           const inFlight = inFlightRef.current.get(
             columnVersionKey(tableId, columnKey)
           );
-          if (
-            inFlight?.columnName === column.field &&
-            inFlight.description === (state.descriptions[columnKey] || "") &&
-            !inFlight.controller.signal.aborted
-          ) {
+          if (inFlight?.columnName === column.field && !inFlight.controller.signal.aborted) {
             return false;
           }
-          return !isSuggestionCurrent(state.suggestions[columnKey], {
-            columnName: column.field,
-            description: state.descriptions[columnKey],
-          });
+          return !isSuggestionCurrent(state.suggestions[columnKey], { columnName: column.field });
         })
         .map(getColumnIdentity);
 
@@ -569,30 +548,20 @@ export function useAiIdentifierSuggestions({
   /**
    * Invalidates a renamed column's suggestion; the auto-classification effect
    * then classifies the new name. Manually added columns have no
-   * sourceField, so their identity follows the name; the description moves to
-   * the new identity in that case.
+   * sourceField, so their identity follows the name.
    */
   const handleColumnRenamed = useCallback(
     (tableId, previousKey, nextKey) => {
       bumpColumnVersion(tableId, previousKey);
       bumpColumnVersion(tableId, nextKey);
       updateTableState(tableId, (previous) => {
-        const description = previous.descriptions[previousKey];
-        const descriptions =
-          previousKey === nextKey || description === undefined
-            ? previous.descriptions
-            : {
-                ...omitKey(previous.descriptions, previousKey),
-                [nextKey]: description,
-              };
         const suggestions = omitKey(
           omitKey(previous.suggestions, previousKey),
           nextKey
         );
-        return suggestions === previous.suggestions &&
-          descriptions === previous.descriptions
+        return suggestions === previous.suggestions
           ? previous
-          : { ...previous, suggestions, descriptions };
+          : { ...previous, suggestions };
       });
     },
     [bumpColumnVersion, updateTableState]
@@ -604,7 +573,6 @@ export function useAiIdentifierSuggestions({
       updateTableState(tableId, (previous) => ({
         ...previous,
         suggestions: omitKey(previous.suggestions, columnKey),
-        descriptions: omitKey(previous.descriptions, columnKey),
       }));
     },
     [bumpColumnVersion, updateTableState]
@@ -625,24 +593,6 @@ export function useAiIdentifierSuggestions({
       setAiStateByTable((current) => omitKey(current, tableId));
     },
     [abortTableRuns]
-  );
-
-  const setColumnDescription = useCallback(
-    (tableId, columnKey, description) => {
-      const normalized = String(description || "").trim();
-      if ((aiStateRef.current[tableId]?.descriptions[columnKey] || "") === normalized) {
-        return;
-      }
-      bumpColumnVersion(tableId, columnKey);
-      updateTableState(tableId, (previous) => ({
-        ...previous,
-        descriptions: normalized
-          ? { ...previous.descriptions, [columnKey]: normalized }
-          : omitKey(previous.descriptions, columnKey),
-        suggestions: omitKey(previous.suggestions, columnKey),
-      }));
-    },
-    [bumpColumnVersion, updateTableState]
   );
 
   const reviewSuggestion = useCallback(
@@ -689,7 +639,6 @@ export function useAiIdentifierSuggestions({
     handleColumnRenamed,
     handleColumnDeleted,
     handleTableRemoved,
-    setColumnDescription,
     reviewSuggestion,
     handleManualExclusionChange,
   };

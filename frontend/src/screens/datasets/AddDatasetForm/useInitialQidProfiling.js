@@ -6,19 +6,9 @@ import { getInitialAiScreening } from "./useAiIdentifierSuggestions";
 import { applyAiExclusionDecisionsToColumns } from "./useDatasetSchemaEditor";
 import { markQidStage, recordQidStage } from "./qidPipelineTimings";
 
-const DEFAULT_AI_SCREENING_TIMEOUT_MS = 30000;
-
-/**
- * Maximum time a prepared table waits for AI column screening before its
- * initial subset profiling runs with the exclusions known so far. Override
- * with REACT_APP_QID_AI_SCREENING_TIMEOUT_MS (milliseconds).
- */
-export const AI_SCREENING_TIMEOUT_MS = (() => {
-  const configured = Number(process.env.REACT_APP_QID_AI_SCREENING_TIMEOUT_MS);
-  return Number.isFinite(configured) && configured >= 0
-    ? configured
-    : DEFAULT_AI_SCREENING_TIMEOUT_MS;
-})();
+// Maximum time a prepared table waits for AI column screening before its
+// initial subset profiling runs with the exclusions known so far.
+const AI_SCREENING_TIMEOUT_MS = 30000;
 
 /**
  * Starts each uploaded table's initial subset profiling exactly once, after
@@ -31,7 +21,8 @@ export const AI_SCREENING_TIMEOUT_MS = (() => {
  * batch and the profiling run uses that metadata, so combinations are only
  * computed for the initially eligible attributes. On timeout, the columns
  * still being classified are profiled as they are, and their late AI results
- * are shown without being applied automatically.
+ * are shown without being applied automatically; a late identifier result
+ * then requires review before submission.
  */
 export function useInitialQidProfiling({
   tables,

@@ -5,17 +5,11 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.0.1
     container_name: keycloak-rea
-    # Start in dev mode and import the realm configuration on startup
+    # Development mode: embedded storage inside the container, relaxed
+    # hostname checks. Production uses docker-compose.prod.yml instead.
     command: ["start-dev", "--import-realm"]
     restart: unless-stopped
     environment:
-      # Connect Keycloak to the Postgres Service
-      - DB_VENDOR=postgres
-      - DB_ADDR=postgres
-      - DB_DATABASE=${POSTGRES_DB_NAME}
-      - DB_USER=${POSTGRES_USER}
-      - DB_PASSWORD=${POSTGRES_PASSWORD}
-
       # Create the initial Admin User
       - KC_BOOTSTRAP_ADMIN_USERNAME=${KEYCLOAK_ADMIN_USER}
       - KC_BOOTSTRAP_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
@@ -85,9 +79,11 @@ services:
       - SPRING_PROFILES_ACTIVE=container
       - NO_PROXY=${NO_PROXY}
       - no_proxy=${NO_PROXY}
-      # Used to download approved AI model files behind a proxy
+      # AI model downloads: proxy, and optionally a mirror (see backend/README.md)
       - HTTPS_PROXY=${HTTPS_PROXY}
       - HTTP_PROXY=${HTTP_PROXY}
+      - AI_MODELS_SOURCE_URL=${AI_MODELS_SOURCE_URL:-https://huggingface.co}
+      - AI_MODELS_REDIRECT_HOSTS=${AI_MODELS_REDIRECT_HOSTS:-huggingface.co,hf.co}
 
       # Inject Database Connection Details
       - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
@@ -95,8 +91,8 @@ services:
       # Construct JDBC URL dynamically using the Service Name 'postgres'
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${POSTGRES_DB_NAME}
 
-      # Database Schema Management (Update vs Create-Drop)
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=${SPRING_JPA_HIBERNATE_DDL_AUTO}
+      # Schema management (update keeps data; see backend/README.md)
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
 
       # Keycloak OIDC Settings
       - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENT_ID=${REA_BACKEND_CLIENT_ID}
@@ -114,10 +110,8 @@ services:
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI=http://keycloak:8080/auth/realms/${KEYCLOAK_REALM_NAME}/protocol/openid-connect/certs
       - KEYCLOAK_AUTH_SERVER_URL=http://keycloak:8080/auth
 
-      # Application Logic (Sample Data Loading)
-      - APP_SETUP_LOAD_SAMPLE_DATA=${APP_SETUP_LOAD_SAMPLE_DATA}
-      - APP_SETUP_UPDATE_THRESHOLDS=${APP_SETUP_UPDATE_THRESHOLDS}
-      - APP_SETUP_UPDATE_QUESTIONS=${APP_SETUP_UPDATE_QUESTIONS}
+      # Optional demo records (essential configurations are always seeded)
+      - APP_SETUP_LOAD_SAMPLE_DATA=${APP_SETUP_LOAD_SAMPLE_DATA:-false}
 
     volumes:
       # Installed AI model files (persist across restarts and redeployments)

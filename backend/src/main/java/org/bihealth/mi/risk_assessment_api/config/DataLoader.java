@@ -39,19 +39,25 @@ import java.util.*;
 import static java.util.Map.entry;
 
 /**
- * Creates the demo dataset, recipient profiles, framework-specific assessments,
- * and predefined {@link DataSharingActivity} examples used by the application.
+ * Optional demo data (app.setup.load-sample-data, default false): the LEOSS
+ * demo dataset with precomputed profiling evidence, recipient profiles,
+ * framework-specific assessments and {@link DataSharingActivity} examples.
  *
- * <p>This loader runs after {@link ConfigLoader}. It assumes that the bundled
- * risk configurations are already persisted and then creates sample data that
- * exercises those configurations without changing the risk formula itself.</p>
+ * <p>Runs after the essential seeders: {@link ConfigLoader} (risk frameworks),
+ * {@link AttributeScoringSystemSeeder} and {@link QidDiscoveryConfigurationSeeder}.
+ * The demo data is created once, in one transaction: if any demo dataset or
+ * recipient already exists, nothing is created or changed, so restarts never
+ * duplicate demo records or overwrite edits to them.</p>
  */
 @Order(3)
 @Component
 public class DataLoader implements CommandLineRunner {
 
-    // Allows deployments and tests to opt out of creating demo records.
-    @Value("${app.setup.load-sample-data:true}")
+    private static final String LEOSS_DATASET_NAME = "LEOSS Public Use File";
+    private static final List<String> DEMO_RECIPIENT_NAMES = List.of(
+            "Academic Research Institute", "Commercial Partner", "Public Open Data Portal");
+
+    @Value("${app.setup.load-sample-data:false}")
     private boolean loadSampleData;
 
     // Repositories are injected separately because this loader creates several
@@ -68,6 +74,7 @@ public class DataLoader implements CommandLineRunner {
     private final DataSharingActivityRepository dataSharingActivityRepository;
     private final RiskConfigurationRepository configRepo;
     private final AttributeScoringSystemService attributeScoringSystemService;
+    private final DemoDatasetEvidenceSeeder demoDatasetEvidenceSeeder;
 
     public DataLoader(
             QuestionRepository questionRepo,
@@ -81,7 +88,8 @@ public class DataLoader implements CommandLineRunner {
             RecipientAssessmentRepository recipientAssessmentRepository,
             DataSharingActivityRepository dataSharingActivityRepository,
             RiskConfigurationRepository configRepo,
-            AttributeScoringSystemService attributeScoringSystemService
+            AttributeScoringSystemService attributeScoringSystemService,
+            DemoDatasetEvidenceSeeder demoDatasetEvidenceSeeder
     ) {
         this.questionRepo = questionRepo;
         this.answerRepo = answerRepo;
@@ -95,19 +103,13 @@ public class DataLoader implements CommandLineRunner {
         this.dataSharingActivityRepository = dataSharingActivityRepository;
         this.configRepo = configRepo;
         this.attributeScoringSystemService = attributeScoringSystemService;
+        this.demoDatasetEvidenceSeeder = demoDatasetEvidenceSeeder;
     }
 
     @Override
     @Transactional
     public void run(String... args) throws Exception {
-        // The loader is intentionally optional and idempotent. If the canonical
-        // demo dataset already exists, the rest of the sample graph is assumed to
-        // have been created in a previous startup.
-        if (!loadSampleData) return;
-        String leossDatasetName = EntityNameNormalizer.normalizeForComparison("LEOSS Public Use File");
-        boolean datasetExists = datasetRepo.findAll().stream()
-                .anyMatch(d -> leossDatasetName.equals(EntityNameNormalizer.normalizeForComparison(d.getName())));
-        if (datasetExists) return;
+        if (!loadSampleData || demoDataExists()) return;
 
         // Fetch the two seeded frameworks. The exact names are part of the
         // bundled JSON seed data and keep the following assessments tied to the
@@ -128,6 +130,7 @@ public class DataLoader implements CommandLineRunner {
         // framework. The dataset stays the same; only the question set and
         // scoring configuration differ.
         Dataset leossDataset = createLeossDataset();
+        demoDatasetEvidenceSeeder.apply(leossDataset);
 
         DatasetAssessment elEmamDatasetAssessment = createElEmamDatasetAssessment(leossDataset, elEmamConfig);
         DatasetAssessment sphnDatasetAssessment = createSphnDatasetAssessment(leossDataset, sphnConfig);
@@ -150,6 +153,17 @@ public class DataLoader implements CommandLineRunner {
         );
     }
 
+    private boolean demoDataExists() {
+        String datasetName = EntityNameNormalizer.normalizeForComparison(LEOSS_DATASET_NAME);
+        Set<String> recipientNames = new HashSet<>();
+        DEMO_RECIPIENT_NAMES.forEach(name -> recipientNames.add(EntityNameNormalizer.normalizeForComparison(name)));
+        return datasetRepo.findAll().stream()
+                .anyMatch(dataset -> datasetName.equals(EntityNameNormalizer.normalizeForComparison(dataset.getName())))
+                || recipientRepository.findAll().stream()
+                .anyMatch(recipient -> recipientNames.contains(
+                        EntityNameNormalizer.normalizeForComparison(recipient.getName())));
+    }
+
     /**
      * Creates a small LEOSS-inspired tabular dataset used by every sample
      * scenario.
@@ -161,7 +175,7 @@ public class DataLoader implements CommandLineRunner {
     private Dataset createLeossDataset() {
         Dataset leoss = new Dataset();
         leoss.setCreatorUsername("user");
-        leoss.setName("LEOSS Public Use File");
+        leoss.setName(LEOSS_DATASET_NAME);
         leoss.setDescription("Lean European Open Survey on SARS-CoV-2-Infected Patients (anonymized PUF)");
         leoss.setSharedUsernames(new HashSet<>(Set.of("anna.mueller", "max.mustermann", "sophie.becker")));
         leoss = datasetRepo.save(leoss);

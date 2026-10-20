@@ -161,12 +161,11 @@ const surfaceSx = (colors) => ({
 });
 
 /**
- * Status icon(s) next to the Excluded checkbox, plus an amber review icon
- * for an automatic exclusion that still awaits confirmation. Hover or
- * keyboard focus shows the screening details; click/tap opens them in a
- * popover that also holds the review confirmation when one is required.
- * Opening either never records a review; the checkbox stays the control for
- * including or excluding the attribute.
+ * Status icon next to the Excluded checkbox. Hover or keyboard focus shows
+ * the screening details; click/tap opens them in a popover that also holds
+ * the confirmation when a review is required (or, optionally, for an
+ * automatic exclusion). Opening either never records a review; the checkbox
+ * stays the control for including or excluding the attribute.
  */
 export function AiColumnAssessmentInfo({ screening, attributeName, excluded, onConfirm }) {
   const { t } = useTranslation();
@@ -181,11 +180,9 @@ export function AiColumnAssessmentInfo({ screening, attributeName, excluded, onC
   }, []);
   const handlePopoverClose = useCallback(() => setAnchorEl(null), []);
   const { status } = screening;
-  const reviewRequired = screening.review === REVIEW_STATE.REQUIRED;
-  const confirmationPending = status === SCREENING_STATUS.AUTO_EXCLUDED && reviewRequired;
-  const label = confirmationPending
-    ? `${t(key(`status.${status}`))}, ${t(key("status.reviewNeeded"))}`
-    : t(key(`status.${status}`));
+  const canConfirm =
+    screening.review === REVIEW_STATE.REQUIRED || status === SCREENING_STATUS.AUTO_EXCLUDED;
+  const label = t(key(`status.${status}`));
   const action = excluded ? "confirmExclusion" : "keepIncluded";
   const popoverOpen = Boolean(anchorEl);
 
@@ -233,16 +230,12 @@ export function AiColumnAssessmentInfo({ screening, attributeName, excluded, onC
           sx={{
             display: "inline-flex",
             alignItems: "center",
-            gap: 0.25,
             p: 0.5,
             borderRadius: 1,
             "&:focus-visible": { outline: "2px solid", outlineColor: "info.main" },
           }}
         >
           <StatusIcon status={status} colors={colors} />
-          {confirmationPending && (
-            <StatusIcon status={SCREENING_STATUS.REVIEW_NEEDED} colors={colors} />
-          )}
         </ButtonBase>
       </Tooltip>
       <Popover
@@ -259,7 +252,7 @@ export function AiColumnAssessmentInfo({ screening, attributeName, excluded, onC
         }}
       >
         <ScreeningDetails screening={screening} colors={colors} />
-        {reviewRequired && (
+        {canConfirm && (
           <RABox display="flex" justifyContent="flex-end" mt={1}>
             <Button
               size="small"

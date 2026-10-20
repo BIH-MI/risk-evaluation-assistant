@@ -71,7 +71,10 @@
       "loadQidConfigurationsFailed": "Failed to load QID discovery configurations.",
       "qidConfigurationRequiredForProfiling": "Select an active QID Discovery Configuration before profiling.",
       "qidConfigurationRequiredForSubmit": "Select an active QID Discovery Configuration before creating a dataset.",
-      "qidConfigurationInvalid": "The selected QID Discovery Configuration is incomplete or invalid. Please contact an administrator."
+      "qidConfigurationInvalid": "The selected QID Discovery Configuration is incomplete or invalid. Please contact an administrator.",
+      "screeningInProgress": "Please wait until AI screening of all tables has finished.",
+      "unresolvedScreening": "Review these attributes before creating the dataset: {{attributes}}. Exclude each one, or open its screening icon and choose “Keep included”.",
+      "unresolvedMore": "{{count}} more"
     },
     "form": {
       "editDataset": "Edit Dataset",
@@ -192,14 +195,14 @@
           "autoExcludedByNameAndModel": "The column name and the AI model both indicate a potential direct identifier, so the attribute was automatically excluded from profiling.",
           "autoExcludedByValuePattern": "The values match a direct-identifier pattern, so the attribute was automatically excluded from profiling.",
           "included": "No exclusion was suggested. The attribute may still identify individuals in combination with others, so it is profiled as a quasi-identifier candidate.",
-          "uncertain": "The screening could not reliably classify this attribute. Please review whether it contains a direct identifier.",
+          "uncertain": "The AI could not classify this attribute reliably, and nothing else suggests a direct identifier. It stays included and is profiled as a quasi-identifier candidate.",
           "identifierNotExcluded": "The screening suggests a potential direct identifier, but the attribute was not excluded automatically. Please review it.",
           "valuePatternReview": "Some values look like a direct identifier. Please review the attribute.",
           "reviewedExcluded": "You decided to exclude this attribute from QID profiling.",
           "reviewedIncluded": "You decided to keep this attribute included in QID profiling.",
           "pending": "The column name is being classified. You can keep editing.",
           "provisionalIdentifier": "The AI suggests a potential direct identifier, but the selected model is not approved for automatic exclusion. Please review it.",
-          "modelNotEvaluated": "The selected model has not been evaluated in this configuration, so its result cannot rule out a direct identifier. Please review it.",
+          "modelNotEvaluated": "The selected model has not been evaluated in this configuration, so its result cannot rule out a direct identifier. Nothing else suggests one; the attribute stays included and is profiled as a quasi-identifier candidate.",
           "nameReview": "The column name often holds a direct identifier, such as a name or a possibly pseudonymous record key. Please review it.",
           "nameContext": "The AI suggests a direct identifier, but the column name suggests information about one, or a quasi-identifier. Please review it.",
           "evidenceConflict": "The column name looks like a direct identifier, but the AI model confidently disagrees. Please review it.",
@@ -209,8 +212,10 @@
             "modelUnavailable": "No AI model is available in this deployment, so the result is unavailable. Check this attribute for direct identifiers manually.",
             "loadFailed": "The AI model could not be loaded. Check this attribute for direct identifiers manually.",
             "failed": "AI screening failed for this attribute. Check it for direct identifiers manually.",
-            "notRun": "AI screening did not run for this attribute (for example, it was cancelled). Check it for direct identifiers manually."
-          }
+            "notRun": "AI screening did not run for this attribute (for example, it was cancelled). Check it for direct identifiers manually.",
+            "timedOut": "AI screening timed out. Check this attribute for direct identifiers manually."
+          },
+          "possibleIdentifier": "The AI leans towards a direct identifier, but not confidently. Please review it."
         }
       },
       "categories": {
@@ -236,7 +241,8 @@
           "modelUnavailable": "no AI model available",
           "loadFailed": "the AI model could not be loaded",
           "failed": "AI screening failed",
-          "notRun": "AI screening did not run"
+          "notRun": "AI screening did not run",
+          "timedOut": "AI screening timed out"
         }
       },
       "progress": {

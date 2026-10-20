@@ -28,11 +28,20 @@ import {
  *   version and normalized input. Each Add Dataset form creates its own
  *   session and disposes it on unmount, so classification histories are
  *   never shared between datasets.
+ * - A worker that sends nothing for WORKER_INACTIVITY_TIMEOUT_MS while
+ *   requests are pending (e.g. a stalled model download) is terminated and
+ *   its requests fail with AI_ERROR_CODES.TIMEOUT, so screening reports what
+ *   was not screened instead of running forever.
  */
+
+// Model download progress and per-column results arrive far more often.
+const WORKER_INACTIVITY_TIMEOUT_MS = 120000;
 
 let classifierWorker = null;
 let nextRequestId = 0;
 const pendingRequests = new Map();
+let lastWorkerActivity = 0;
+let watchdogTimer = null;
 
 export class ColumnClassifierError extends Error {
   constructor(code, message) {
@@ -44,6 +53,29 @@ export class ColumnClassifierError extends Error {
 function rejectAllPending(error) {
   pendingRequests.forEach(({ reject }) => reject(error));
   pendingRequests.clear();
+}
+
+// Drops the worker (and the model loaded in it); the next request starts a
+// fresh one.
+function failWorker(error) {
+  rejectAllPending(error);
+  classifierWorker?.terminate();
+  classifierWorker = null;
+}
+
+function markWorkerActive() {
+  lastWorkerActivity = Date.now();
+  if (watchdogTimer) return;
+  watchdogTimer = setInterval(() => {
+    if (!pendingRequests.size) {
+      clearInterval(watchdogTimer);
+      watchdogTimer = null;
+    } else if (Date.now() - lastWorkerActivity > WORKER_INACTIVITY_TIMEOUT_MS) {
+      failWorker(
+        new ColumnClassifierError(AI_ERROR_CODES.TIMEOUT, "AI screening timed out.")
+      );
+    }
+  }, 5000);
 }
 
 function getClassifierWorker() {
@@ -67,6 +99,7 @@ function getClassifierWorker() {
   }
 
   classifierWorker.onmessage = ({ data }) => {
+    markWorkerActive();
     const { requestId, type, ok, payload, error, progress } = data || {};
     const pending = pendingRequests.get(requestId);
     if (!pending) return;
@@ -89,18 +122,15 @@ function getClassifierWorker() {
     }
   };
 
-  // A crashed worker (e.g. out of memory while loading the model) is dropped
-  // so the next request starts a fresh one.
+  // A crashed worker (e.g. out of memory while loading the model).
   classifierWorker.onerror = (event) => {
     event?.preventDefault?.();
-    rejectAllPending(
+    failWorker(
       new ColumnClassifierError(
         AI_ERROR_CODES.MODEL_LOAD_FAILED,
         event?.message || "AI worker failed."
       )
     );
-    classifierWorker?.terminate();
-    classifierWorker = null;
   };
 
   return classifierWorker;
@@ -147,6 +177,7 @@ function postClassifyRequest(inputs, { model, onProgress, signal }) {
     });
     signal?.addEventListener("abort", abort, { once: true });
 
+    markWorkerActive();
     worker.postMessage({
       requestId,
       type: "CLASSIFY_COLUMNS",
@@ -188,6 +219,7 @@ export function preloadColumnClassifier(modelId) {
       resolve: (payload) => resolve(payload),
       reject: () => resolve({ loaded: false }),
     });
+    markWorkerActive();
     worker.postMessage({
       requestId,
       type: "PRELOAD_MODEL",
@@ -220,7 +252,7 @@ export function createColumnClassifierSession() {
   const cacheKeyFor = (model, input) => `${model.version}|${input.cacheKey}`;
 
   async function classifyColumns(columns = [], options = {}) {
-    // null: no model is available (see describeAiModelConfiguration).
+    // null: no model is available (see resolveAiScreeningModels).
     if (options.modelId === null) {
       throw new ColumnClassifierError(
         AI_ERROR_CODES.NO_MODEL_AVAILABLE,

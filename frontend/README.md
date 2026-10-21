@@ -125,6 +125,8 @@ When adding a data type, update the frontend type list, detector, table cell ico
 
 ### AI-Assisted Direct-Identifier Screening
 
+The user-facing behaviour (configuration, review rules, profiling) is described in the [QID Discovery Configuration Guide](../docs/qid-discovery/README.md). This section covers the implementation.
+
 Code lives in `frontend/src/qidDiscovery/aiSuggestions/` (classification) and `frontend/src/screens/datasets/AddDatasetForm/` (Add Dataset integration):
 
 - `modelRegistry.json`: the single model registry, also packaged into the backend. Each entry pins a Hugging Face repository and commit, quantisation, the SHA-256 hash of every file, a prompt profile, a threshold profile and validation records.

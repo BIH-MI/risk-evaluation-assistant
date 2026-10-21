@@ -96,24 +96,25 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.
 
 ### 4. AI-Assisted Direct-Identifier Screening
 
-When a CSV is uploaded in **Add Dataset**, REA screens each attribute for potential direct identifiers (names, email addresses, insurance numbers, ...) before quasi-identifier profiling. REA combines three complementary sources of evidence to support attribute-level screening:
+During dataset creation, REA supports the identification of potential direct identifiers before quasi-identifier profiling. The screening combines three complementary sources of evidence:
 
-- **AI model:** a small zero-shot language model classifies the column name (and an optional researcher-written description). It runs in the researcher's browser; data values are never given to it, and nothing is sent to external services.
-- **Column-name rules:** unambiguous names such as `email_address` are excluded automatically, independent of the model.
-- **Value patterns:** the observed values are checked separately, locally in the browser, with regular expressions (for example email or IP address formats).
+- **AI-assisted classification:** a pretrained zero-shot language model analyses column names locally in the browser. Raw data values are not provided to the model.
+- **Column-name rules:** rule-based detection identifies attributes with names commonly associated with direct identifiers, such as `email_address` or `insurance_number`.
+- **Value-pattern analysis:** regular expressions analyse observed values locally to detect potential identifiers, such as email addresses or IP addresses.
 
-Column-name rules, value-pattern checks, manual exclusions and profiling also work when AI screening is disabled.
+The combined evidence helps researchers distinguish potential direct identifiers from attributes that should remain available for quasi-identifier assessment.
 
-**Administrators** manage AI screening per QID Discovery configuration (**Configuration > QID Discovery > Edit Configuration > AI-Assisted Direct-Identifier Detection**): enable or disable it, choose the available models and the default, and install models. Installation downloads pinned, hash-verified files to the backend, which serves them to browsers.
+**Administrators** manage the screening under **Configuration → QID Discovery**, where they can enable or disable AI screening, install supported models, choose which models researchers may use and specify the default model.
 
-**Researchers** use the configured model automatically, or choose one when several are available (the default is preselected). Attributes with an unresolved potential identifier finding are marked for review and must be excluded or explicitly kept before the dataset can be created. Every automatic exclusion can be reverted.
+**Researchers** select a QID Discovery configuration during dataset creation. When AI screening is enabled, the configured default model is used automatically unless several models are available, in which case the researcher can choose among them. Potential identifiers are flagged for review, and automatic exclusion decisions can be overridden, except where the observed values clearly match an identifier pattern.
 
-**Limitations.** AI classification uses column names and optional researcher-provided descriptions. Predictions may be incorrect, and model scores are neither calibrated probabilities nor estimates of re-identification risk. A model may exclude attributes on its own only if its exact configuration has been evaluated and approved for that; currently no model is approved. DeBERTaV3-XSmall has been evaluated; MobileBERT-MNLI and DistilBERT-MNLI have not. The researcher remains responsible for the final decision.
+The feature provides decision support rather than definitive identification. AI predictions may be inaccurate and should not be interpreted as calibrated probabilities or re-identification risk estimates.
 
-Model management, adding models and deployment details: [frontend guide](./frontend/README.md#ai-assisted-direct-identifier-screening) and [backend guide](./backend/README.md#ai-model-installation).
+For details, see the [QID Discovery Configuration Guide](./docs/qid-discovery/README.md).
 
 ## Developer Guides
 
+- [QID Discovery Configuration Guide](./docs/qid-discovery/README.md) (users and administrators)
 - [Frontend guide](./frontend/README.md)
 - [Backend guide](./backend/README.md)
 

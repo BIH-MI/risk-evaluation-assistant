@@ -47,6 +47,11 @@ public class DatasetResponseDTO {
     private String aiScreeningThresholdsVersion;
     private String aiScreeningValidationStatus;
 
+    // Dataset type chosen by the researcher, and the AI model's suggestion.
+    private String datasetType;
+    private String aiSuggestedDatasetType;
+    private Double aiSuggestedDatasetTypeScore;
+
     // Full table schema returned with the dataset.
     private List<DatasetTableResponseDTO> tables;
 
@@ -78,6 +83,11 @@ public class DatasetResponseDTO {
         this.aiScreeningPromptVersion = entity.getAiScreeningPromptVersion();
         this.aiScreeningThresholdsVersion = entity.getAiScreeningThresholdsVersion();
         this.aiScreeningValidationStatus = entity.getAiScreeningValidationStatus();
+        this.datasetType = entity.getDatasetType() == null ? null : entity.getDatasetType().name();
+        this.aiSuggestedDatasetType = entity.getAiSuggestedDatasetType() == null
+                ? null
+                : entity.getAiSuggestedDatasetType().name();
+        this.aiSuggestedDatasetTypeScore = entity.getAiSuggestedDatasetTypeScore();
         this.tables = entity.getTables().stream()
                 .map(DatasetTableResponseDTO::new)
                 .collect(Collectors.toList());

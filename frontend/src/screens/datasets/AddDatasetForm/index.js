@@ -2,6 +2,12 @@ import { hasCompleteProfiling } from "features/qidDiscovery/profiling/profilingO
 import { useDatasetDiscovery } from "./hooks/useDatasetDiscovery";
 import { useDatasetSubmission } from "./hooks/useDatasetSubmission";
 import { DiscoveryConfigurationFields } from "features/qidDiscovery/components/DiscoveryConfigurationFields";
+import { DatasetTypeField } from "features/qidDiscovery/components/DatasetTypeField";
+import { SHOW_DATASET_TYPE_FIELD } from "features/qidDiscovery/ai/datasetTypes";
+import {
+  DATASET_TYPE_SUGGESTION_STATUS,
+  useDatasetTypeSuggestion,
+} from "features/qidDiscovery/hooks/useDatasetTypeSuggestion";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "react-oidc-context";
 import { useTranslation } from "react-i18next";
@@ -67,6 +73,24 @@ export default function AddDatasetForm() {
     locked: tables.length > 0,
   });
 
+  // The AI model's suggestion fills the dataset type until the researcher
+  // chooses one.
+  const datasetTypeSuggestion = useDatasetTypeSuggestion({
+    tables,
+    modelId: selectedAiModelId,
+    enabled: aiScreeningEnabled,
+  });
+  const [datasetType, setDatasetType] = useState("");
+  const [datasetTypeChosen, setDatasetTypeChosen] = useState(false);
+  const suggestedDatasetType = datasetTypeSuggestion.suggestion?.type || "";
+  useEffect(() => {
+    if (!datasetTypeChosen) setDatasetType(suggestedDatasetType);
+  }, [datasetTypeChosen, suggestedDatasetType]);
+  const handleDatasetTypeChange = useCallback((value) => {
+    setDatasetType(value);
+    setDatasetTypeChosen(true);
+  }, []);
+
   const directIdentifierValidation = useMemo(
     () => validateDirectIdentifierExclusions(tables),
     [tables]
@@ -90,7 +114,6 @@ export default function AddDatasetForm() {
     renameAttribute,
     changeAttributeDataType,
     handleExcludedChange,
-    handleConfirmScreening,
   } = useDatasetDiscovery({
     tables,
     setTables,
@@ -187,6 +210,9 @@ export default function AddDatasetForm() {
     selectedAiModelId,
     aiStateByTable,
     aiScreeningEnabled,
+    // Only a type the researcher could see counts as chosen.
+    datasetType: SHOW_DATASET_TYPE_FIELD ? datasetType : null,
+    datasetTypeSuggestion: datasetTypeSuggestion.suggestion,
     directIdentifierValidation,
     directIdentifierSubmissionMessage,
     token,
@@ -213,9 +239,8 @@ export default function AddDatasetForm() {
           display: "flex",
           flexDirection: "column",
           gap: 2,
-          // Form fields keep a readable width; preview tables use the full
-          // available width.
-          "& > :not([data-preview-table]):not(button)": {
+          // Form fields and preview tables share one fixed, readable width.
+          "& > :not(button)": {
             width: "100%",
             maxWidth: 1000,
             alignSelf: "center",
@@ -244,6 +269,23 @@ export default function AddDatasetForm() {
           multiline
           rows={3}
         />
+
+        {SHOW_DATASET_TYPE_FIELD && (
+          <DatasetTypeField
+            value={datasetType}
+            onChange={handleDatasetTypeChange}
+            suggestion={datasetTypeSuggestion.suggestion}
+            classifying={
+              datasetTypeSuggestion.status ===
+              DATASET_TYPE_SUGGESTION_STATUS.CLASSIFYING
+            }
+            hint={
+              aiScreeningEnabled && !tables.length
+                ? t("datasets.datasetType.suggestedAfterUpload")
+                : ""
+            }
+          />
+        )}
 
         <RAUserAutocomplete
           multiple
@@ -332,7 +374,6 @@ export default function AddDatasetForm() {
             onColumnNameChange={renameAttribute}
             onDataTypeChange={changeAttributeDataType}
             onExcludedChange={handleExcludedChange}
-            onConfirmScreening={handleConfirmScreening}
             onAddColumn={addAttribute}
             onDeleteColumn={deleteAttribute}
             aiState={getTableAiState(aiStateByTable, table._localTableId)}

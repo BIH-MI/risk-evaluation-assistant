@@ -8,6 +8,8 @@ import { fetchDatasets } from "store/datasets/datasetsThunks";
 import { fetchRecipients } from "store/recipients/recipientsThunks";
 import { fetchDataSharingActivities } from "store/dataSharingActivities/dataSharingActivitiesThunks";
 import { fetchConfigurations } from "store/configurations/configurationThunks";
+import { sessionState } from "api/httpClient";
+import { useSessionExpired } from "hooks/session/useSessionExpired";
 
 import RABox from "components/layout/RABox";
 import Box from "@mui/material/Box";
@@ -31,6 +33,7 @@ export default function AuthenticationGuard({ children }) {
 
   const [showSpinner, setShowSpinner] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const sessionExpired = useSessionExpired();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) dispatch(resetQidDiscoveryMetadata());
@@ -47,28 +50,17 @@ export default function AuthenticationGuard({ children }) {
 
     if (isAuthenticated && user?.access_token) {
       setShowSpinner(true);
+      sessionState.reset();
       const token = user.access_token;
+      // Screens report their own fetch failures; only a rejected token is
+      // reported here (see the sessionExpired effect below).
       Promise.all([
         dispatch(fetchDatasets(token)),
         dispatch(fetchRecipients(token)),
         dispatch(fetchDataSharingActivities(token)),
         dispatch(fetchConfigurations(token)),
-      ]).then((results) => {
+      ]).then(() => {
         if (!active) return;
-
-        // Check if any of the 4 fetches failed
-        const hasFailure = results.some(
-          (action) => action.meta && action.meta.requestStatus === "rejected"
-        );
-
-        if (hasFailure) {
-          setErrorMessage(
-            t(
-              "common.sessionExpiredError",
-              "Your session may have expired or an error occurred. Please open the app in a new tab to re-authenticate."
-            )
-          );
-        }
         setShowSpinner(false);
       });
     }
@@ -76,7 +68,17 @@ export default function AuthenticationGuard({ children }) {
     return () => {
       active = false;
     };
-  }, [isAuthenticated, user?.access_token, dispatch, t]);
+  }, [isAuthenticated, user?.access_token, dispatch]);
+
+  useEffect(() => {
+    if (!sessionExpired) return;
+    setErrorMessage(
+      t(
+        "common.sessionExpiredError",
+        "Your session may have expired or an error occurred. Please open the app in a new tab to re-authenticate."
+      )
+    );
+  }, [sessionExpired, t]);
 
   // Timeout protection (8 seconds)
   useEffect(() => {

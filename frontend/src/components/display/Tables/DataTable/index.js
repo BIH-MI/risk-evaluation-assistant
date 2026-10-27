@@ -43,6 +43,7 @@ function DataTable({
   showAllEntries = false,
   tableContainerSx,
   footerSx,
+  rowHeight,
 }) {
 
   const { t } = useTranslation();
@@ -99,6 +100,7 @@ function DataTable({
     rows,
     page,
     pageOptions,
+    visibleColumns,
     canPreviousPage,
     canNextPage,
     gotoPage,
@@ -106,7 +108,7 @@ function DataTable({
     previousPage,
     setPageSize,
     setFilter,
-    state: { pageIndex },
+    state: { pageIndex, pageSize },
   } = tableInstance;
 
   useEffect(() => {
@@ -180,6 +182,13 @@ function DataTable({
 
   const rowsToRender = showAllEntries ? rows : page;
 
+  // With a fixed row height, a short last page is padded with empty rows so
+  // the table keeps the same height on every page.
+  const fillerRowCount =
+    rowHeight && !showAllEntries && pageOptions.length > 1
+      ? Math.max(pageSize - rowsToRender.length, 0)
+      : 0;
+
   return (
     <TableContainer sx={tableContainerSx}>
       {/* Header: Search and Add Button */}
@@ -243,7 +252,11 @@ function DataTable({
             const combinedRowProps = row.getRowProps(extraRowProps);
 
             return (
-              <TableRow key={i} {...combinedRowProps}>
+              <TableRow
+                key={i}
+                {...combinedRowProps}
+                {...(rowHeight && { sx: { height: rowHeight } })}
+              >
                 {row.cells.map((cell, k) => (
                   <DataTableBodyCell
                     key={k}
@@ -257,6 +270,15 @@ function DataTable({
               </TableRow>
             );
           })}
+          {Array.from({ length: fillerRowCount }, (_, i) => (
+            <TableRow
+              key={`filler-${i}`}
+              aria-hidden="true"
+              sx={{ height: rowHeight }}
+            >
+              <RABox component="td" colSpan={visibleColumns.length} />
+            </TableRow>
+          ))}
         </TableBody>
       </Table>
 
@@ -339,6 +361,7 @@ DataTable.defaultProps = {
   showAllEntries: false,
   tableContainerSx: undefined,
   footerSx: undefined,
+  rowHeight: undefined,
 };
 
 // Typechecking props for the DataTable
@@ -386,6 +409,7 @@ DataTable.propTypes = {
     PropTypes.func,
     PropTypes.array,
   ]),
+  rowHeight: PropTypes.number,
 };
 
 export default DataTable;

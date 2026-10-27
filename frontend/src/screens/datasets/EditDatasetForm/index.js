@@ -38,6 +38,10 @@ import { applyDirectIdentifierEvidenceDefaults,
   buildDirectIdentifierReviewMessage, buildDirectIdentifierSubmissionMessage,
   isDefaultExcludedIdentifierColumn, validateDirectIdentifierExclusions }
   from "features/qidDiscovery/validation/directIdentifierPolicy";
+import { markScreeningSnapshotReviewed } from "features/qidDiscovery/ai/screeningSnapshot";
+import { ScreeningStatusLegend } from "features/qidDiscovery/components/AiColumnAssessmentInfo";
+import { DatasetTypeField } from "features/qidDiscovery/components/DatasetTypeField";
+import { SHOW_DATASET_TYPE_FIELD } from "features/qidDiscovery/ai/datasetTypes";
 
 export default function EditDatasetForm() {
   const dispatch = useDispatch();
@@ -53,6 +57,7 @@ export default function EditDatasetForm() {
   // --- Form State ---
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [datasetType, setDatasetType] = useState("");
   const [tables, setTables] = useState([]);
   const [errors, setErrors] = useState({
     name: "",
@@ -161,6 +166,7 @@ export default function EditDatasetForm() {
 
     setName(dataset.name || "");
     setDescription(dataset.description || "");
+    setDatasetType(dataset.datasetType || "");
     setTables(
       (dataset.tables || []).map((table) => ({
         ...table,
@@ -283,6 +289,11 @@ export default function EditDatasetForm() {
                         directIdentifierExclusionOverridden:
                           !excluded &&
                           isDefaultExcludedIdentifierColumn(currentAttribute),
+                        // A checkbox change is the researcher's decision.
+                        screening: markScreeningSnapshotReviewed(
+                          currentAttribute.screening,
+                          excluded
+                        ),
                       }
                     : currentAttribute
                 ),
@@ -319,6 +330,7 @@ export default function EditDatasetForm() {
       const payload = buildEditDatasetPayload(tables, {
         name,
         description,
+        datasetType,
         sharedUsernames,
         qidDiscoveryConfigurationId: dataset?.qidDiscoveryConfigurationId,
         qidDiscoveryConfigurationVersionId:
@@ -340,6 +352,7 @@ export default function EditDatasetForm() {
       datasetId,
       name,
       description,
+      datasetType,
       sharedUsernames,
       dataset?.qidDiscoveryConfigurationId,
       dataset?.qidDiscoveryConfigurationVersionId,
@@ -398,6 +411,24 @@ export default function EditDatasetForm() {
             fullWidth
             disabled={isReadOnly}
           />
+
+          {/* Hidden for now; the stored type is saved back unchanged. */}
+          {SHOW_DATASET_TYPE_FIELD && (
+            <DatasetTypeField
+              value={datasetType}
+              onChange={setDatasetType}
+              // The suggestion recorded at creation.
+              suggestion={
+                dataset?.aiSuggestedDatasetType
+                  ? {
+                      type: dataset.aiSuggestedDatasetType,
+                      score: dataset.aiSuggestedDatasetTypeScore ?? 0,
+                    }
+                  : null
+              }
+              disabled={isReadOnly}
+            />
+          )}
 
           <RAUserAutocomplete
             multiple
@@ -504,6 +535,12 @@ export default function EditDatasetForm() {
                     <CloseIcon fontSize="small" />
                   </IconButton>
                 </RABox>
+
+                {table.attributes.some((attribute) => attribute.screening) && (
+                  <RABox mb={0.5}>
+                    <ScreeningStatusLegend />
+                  </RABox>
+                )}
 
                 <DataTable
                   table={{

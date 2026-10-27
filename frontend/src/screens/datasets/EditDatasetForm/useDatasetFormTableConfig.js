@@ -2,7 +2,10 @@ import { useCallback, useMemo } from "react";
 import { IconButton } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/DeleteOutline";
 
+import RABox from "../../../components/layout/RABox";
 import RATypography from "../../../components/display/RATypography";
+import { AiColumnAssessmentInfo } from "features/qidDiscovery/components/AiColumnAssessmentInfo";
+import { fromScreeningSnapshot } from "features/qidDiscovery/ai/screeningSnapshot";
 import {
   MemoNameCell,
   MemoDataTypeCell,
@@ -116,6 +119,10 @@ export function useDatasetFormTableConfig({
   const columnsByTable = useMemo(() => {
     const map = {};
     tables.forEach((table) => {
+      // Screening stored at creation (datasets created before it have none).
+      const hasScreening = table.attributes.some(
+        (attribute) => attribute.screening
+      );
       map[table.id] = [
         {
           Header: t("datasets.attributesTable.index"),
@@ -159,13 +166,37 @@ export function useDatasetFormTableConfig({
           accessor: "excluded",
           align: "center",
           width: 100,
-          Cell: ({ row }) => (
-            <MemoCheckboxCell
-              initialValue={row.original.excluded}
-              disabled={disabled}
-              onCommit={(value) => changeExcluded(table, row.original, value)}
-            />
-          ),
+          Cell: ({ row }) => {
+            const checkbox = (
+              <MemoCheckboxCell
+                initialValue={row.original.excluded}
+                disabled={disabled}
+                onCommit={(value) => changeExcluded(table, row.original, value)}
+              />
+            );
+            if (!hasScreening) return checkbox;
+            const screening = fromScreeningSnapshot(row.original.screening);
+            return (
+              <RABox
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                gap={0.5}
+              >
+                {checkbox}
+                {/* Fixed width keeps the checkboxes aligned. */}
+                <RABox sx={{ width: 28, flexShrink: 0, display: "flex" }}>
+                  {screening && (
+                    <AiColumnAssessmentInfo
+                      key={row.original.id}
+                      screening={screening}
+                      attributeName={row.original.name}
+                    />
+                  )}
+                </RABox>
+              </RABox>
+            );
+          },
         },
         {
           Header: t("datasets.attributesTable.delete"),

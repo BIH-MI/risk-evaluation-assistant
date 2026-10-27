@@ -72,9 +72,7 @@
       "qidConfigurationRequiredForProfiling": "Select an active QID Discovery Configuration before profiling.",
       "qidConfigurationRequiredForSubmit": "Select an active QID Discovery Configuration before creating a dataset.",
       "qidConfigurationInvalid": "The selected QID Discovery Configuration is incomplete or invalid. Please contact an administrator.",
-      "screeningInProgress": "Please wait until AI screening of all tables has finished.",
-      "unresolvedScreening": "Review these attributes before creating the dataset: {{attributes}}. Exclude each one, or open its screening icon and choose “Keep included”.",
-      "unresolvedMore": "{{count}} more"
+      "screeningInProgress": "Please wait until AI screening of all tables has finished."
     },
     "form": {
       "editDataset": "Edit Dataset",
@@ -114,7 +112,6 @@
       "parsing": "Parsing {{name}}...",
       "subsetProfilingUpdating": "Profiling Distinguishability evidence...",
       "subsetProfilingSummary": "{{subsetCount}} attribute subsets evaluated across {{attributeCount}} eligible attributes.",
-      "subsetProfilingProvisional": "Provisional until identifier review is complete.",
       "noSubsetProfilingRequired": "No multi-attribute subset profiling was required.",
       "newTable": "New Table",
       "newTableCounter": "New Table ({{counter}})",
@@ -157,6 +154,24 @@
       }
     },
     "longitudinal": {},
+    "datasetType": {
+      "label": "Dataset Type",
+      "none": "Not specified",
+      "helper": "The domain of the dataset's content.",
+      "suggestedAfterUpload": "The AI model suggests a type from the column names once a table is added.",
+      "classifying": "The AI model is suggesting a type from the column names…",
+      "suggested": "AI suggestion from the column names: {{type}} ({{score}}).",
+      "types": {
+        "CLINICAL_HEALTHCARE": "Clinical & Healthcare Data",
+        "FINANCIAL": "Financial Data",
+        "GEOSPATIAL_ENVIRONMENTAL": "Geospatial & Environmental Data",
+        "ECOMMERCE_RETAIL": "E-commerce & Retail Data",
+        "SOCIAL_DEMOGRAPHIC": "Social & Demographic Data",
+        "EDUCATION": "Education Data",
+        "EMPLOYMENT_HR": "Employment & HR Data",
+        "OTHER": "Other"
+      }
+    },
     "aiSuggestions": {
       "status": {
         "reviewNeeded": "Review needed",
@@ -170,18 +185,13 @@
       "legend": {
         "title": "Screening status"
       },
-      "actions": {
-        "confirmExclusion": "Confirm exclusion",
-        "keepIncluded": "Keep included",
-        "confirmExclusionFor": "Confirm exclusion of {{name}}",
-        "keepIncludedFor": "Keep {{name}} included"
-      },
       "tooltip": {
         "title": "Direct-identifier screening",
         "categoryLabel": "Predicted category",
         "evidenceLabel": "Evidence",
         "categoryUncertain": "Uncertain",
         "uncertainPrediction": "{{category}} (uncertain)",
+        "screenedAs": "Screened under the name “{{name}}”.",
         "sources": {
           "columnName": "column-name rule",
           "model": "AI model",

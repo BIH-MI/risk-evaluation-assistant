@@ -25,11 +25,17 @@ import {
 } from "features/qidDiscovery/ai/screeningStatus";
 
 // Narrower cell padding than the shared table default, so the columns fit
-// without horizontal scrolling on desktop. Scoped to this table.
+// without horizontal scrolling on desktop. The fixed layout keeps column
+// widths from following each page's content. Scoped to this table.
 const previewTableContainerSx = {
+  "& table": { tableLayout: "fixed", minWidth: 900 },
   "& thead th, & tbody td": { px: 1.5 },
   "& tbody td": { verticalAlign: "middle" },
 };
+
+// Height of a row with inputs; also used to pad the last page, so the table
+// has the same size on every page.
+const PREVIEW_ROW_HEIGHT = 70;
 
 // Longer names do not fit the name input; they are shown in full on hover.
 const NAME_TOOLTIP_MIN_LENGTH = 24;
@@ -108,7 +114,6 @@ export const DatasetPreviewTable = React.memo(function DatasetPreviewTable({
   onExcludedChange,
   onAddColumn,
   onDeleteColumn,
-  onConfirmScreening,
   aiState,
   aiEnabled,
 }) {
@@ -164,7 +169,7 @@ export const DatasetPreviewTable = React.memo(function DatasetPreviewTable({
     {
       Header: t("datasets.attributesTable.index"),
       id: "rowIndex",
-      width: 40,
+      width: 48,
       align: "center",
       Cell: ({ row }) => (
         <RATypography variant="caption">
@@ -175,32 +180,30 @@ export const DatasetPreviewTable = React.memo(function DatasetPreviewTable({
     {
       Header: t("datasets.attributesTable.name"),
       accessor: "field",
+      width: "30%",
       align: "center",
       Cell: ({ row }) => (
-        // Keeps the input readable: auto table layout otherwise lets the
-        // name column shrink to make room for the examples.
-        <RABox sx={{ minWidth: { xs: 200, md: 260, xl: 340 } }}>
-          <MemoNameCell
-            initialValue={row.original.field}
-            tooltip={
-              row.original.field.length >= NAME_TOOLTIP_MIN_LENGTH
-                ? row.original.field
-                : ""
-            }
-            onCommit={(newValue) =>
-              onColumnNameChange(
-                file._localTableId,
-                row.original.columnKey,
-                newValue
-              )
-            }
-          />
-        </RABox>
+        <MemoNameCell
+          initialValue={row.original.field}
+          tooltip={
+            row.original.field.length >= NAME_TOOLTIP_MIN_LENGTH
+              ? row.original.field
+              : ""
+          }
+          onCommit={(newValue) =>
+            onColumnNameChange(
+              file._localTableId,
+              row.original.columnKey,
+              newValue
+            )
+          }
+        />
       ),
     },
     {
       Header: t("datasets.attributesTable.dataType"),
       accessor: "dataType",
+      width: 190,
       align: "center",
       Cell: ({ row }) => (
         <MemoDataTypeCell
@@ -219,8 +222,9 @@ export const DatasetPreviewTable = React.memo(function DatasetPreviewTable({
       Header: t("datasets.add.examples"),
       accessor: "examples",
       align: "left",
-      // Takes the width the other columns leave.
-      width: "100%",
+      // Takes the width the other columns leave (react-table would otherwise
+      // default it to 150).
+      width: "auto",
       Cell: ({ row }) => {
         const examples = (topValuesMap[row.original.field] || []).join(", ");
         if (!examples) {
@@ -258,6 +262,7 @@ export const DatasetPreviewTable = React.memo(function DatasetPreviewTable({
     {
       Header: t("datasets.attributesTable.excluded"),
       accessor: "excluded",
+      width: 100,
       align: "center",
       Cell: ({ row }) => (
         <RABox
@@ -279,15 +284,11 @@ export const DatasetPreviewTable = React.memo(function DatasetPreviewTable({
           {/* Fixed width keeps the checkboxes aligned. */}
           <RABox sx={{ width: 28, flexShrink: 0, display: "flex" }}>
             <AiColumnAssessmentInfo
-              // Per column, so an open popover never moves to another row
+              // Per column, so an open tooltip never moves to another row
               // when the page changes.
               key={row.original.columnKey}
               screening={row.original.screening}
               attributeName={row.original.field}
-              excluded={row.original.excluded}
-              onConfirm={() =>
-                onConfirmScreening(file._localTableId, row.original.columnKey)
-              }
             />
           </RABox>
         </RABox>
@@ -296,7 +297,7 @@ export const DatasetPreviewTable = React.memo(function DatasetPreviewTable({
     {
       Header: t("datasets.attributesTable.delete"),
       id: "delete",
-      width: 48,
+      width: 64,
       align: "center",
       Cell: ({ row }) => (
         <IconButton
@@ -322,17 +323,11 @@ export const DatasetPreviewTable = React.memo(function DatasetPreviewTable({
       screening,
     })
   );
-  // Included potential direct identifiers awaiting review are profiled as
-  // QID candidates until the researcher decides, so profiling is provisional.
-  // Counts are hidden while classification runs (they are still changing).
+  // Included potential direct identifiers flagged for review are profiled as
+  // QID candidates unless the researcher excludes them. Counts are hidden
+  // while classification runs (they are still changing).
   const reviewSummary = getTableReviewSummary(rows);
   const reviewCount = isAiRunning ? 0 : reviewSummary.required;
-  const profilingStatus =
-    subsetProfilingStatus && reviewCount > 0 && !file.isProfiling
-      ? `${subsetProfilingStatus} ${t(
-          "datasets.add.subsetProfilingProvisional"
-        )}`
-      : subsetProfilingStatus;
   // The progress line already says when AI screening is unavailable.
   const showNotScreened =
     !isAiRunning &&
@@ -341,7 +336,7 @@ export const DatasetPreviewTable = React.memo(function DatasetPreviewTable({
   const reviewKey = (name) => `datasets.aiSuggestions.review.${name}`;
 
   return (
-    <RABox mt={2} p={2} data-preview-table>
+    <RABox mt={2} p={2}>
       <RABox
         display="flex"
         alignItems="center"
@@ -398,9 +393,9 @@ export const DatasetPreviewTable = React.memo(function DatasetPreviewTable({
         </RATypography>
       ))}
 
-      {profilingStatus && (
+      {subsetProfilingStatus && (
         <RATypography variant="caption" display="block" color="text" mb={1}>
-          {profilingStatus}
+          {subsetProfilingStatus}
         </RATypography>
       )}
 
@@ -419,6 +414,7 @@ export const DatasetPreviewTable = React.memo(function DatasetPreviewTable({
         onAddClick={() => onAddColumn(file._localTableId)}
         addButtonPosition="bottom-right"
         tableContainerSx={previewTableContainerSx}
+        rowHeight={PREVIEW_ROW_HEIGHT}
       />
     </RABox>
   );

@@ -21,6 +21,7 @@ export function buildEditDatasetPayload(
   {
     name,
     description,
+    datasetType,
     sharedUsernames,
     qidDiscoveryConfigurationId,
     qidDiscoveryConfigurationVersionId,
@@ -29,6 +30,7 @@ export function buildEditDatasetPayload(
   return {
     name: name.trim(),
     description: description.trim(),
+    datasetType: datasetType || null,
     qidDiscoveryConfigurationId,
     qidDiscoveryConfigurationVersionId,
     sharedUsernames,

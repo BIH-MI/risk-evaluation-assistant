@@ -18,6 +18,7 @@ import {
 } from "store/datasetAssessments/datasetAssessmentsThunks";
 
 import { useLockTracker } from "hooks/locks/useLockTracker";
+import { useSessionExpired } from "hooks/session/useSessionExpired";
 
 export default function DatasetAssessments() {
   const { datasetId: rawId } = useParams();
@@ -26,6 +27,7 @@ export default function DatasetAssessments() {
   const dispatch = useDispatch();
   const { user } = useAuth();
   const { t } = useTranslation();
+  const sessionExpired = useSessionExpired();
   const token = user?.access_token;
   const me = user?.profile?.preferred_username;
 
@@ -172,7 +174,7 @@ export default function DatasetAssessments() {
             color: "error",
             // Prints the actual backend error when present.
             message:
-              status === "failed"
+              status === "failed" && !sessionExpired
                 ? typeof errorMsg === "string"
                   ? errorMsg
                   : t("datasetAssessments.list.error")

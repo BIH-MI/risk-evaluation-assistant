@@ -75,9 +75,7 @@
       "qidConfigurationRequiredForProfiling": "Wählen Sie vor dem Profiling eine aktive QID-Discovery-Konfiguration aus.",
       "qidConfigurationRequiredForSubmit": "Wählen Sie vor dem Erstellen eines Datensatzes eine aktive QID-Discovery-Konfiguration aus.",
       "qidConfigurationInvalid": "Die ausgewählte QID-Discovery-Konfiguration ist unvollständig oder ungültig. Bitte wenden Sie sich an einen Administrator.",
-      "screeningInProgress": "Bitte warten Sie, bis die KI-Prüfung aller Tabellen abgeschlossen ist.",
-      "unresolvedScreening": "Prüfen Sie diese Attribute, bevor Sie den Datensatz anlegen: {{attributes}}. Schließen Sie jedes aus, oder öffnen Sie sein Prüfsymbol und wählen Sie „Einbezogen lassen“.",
-      "unresolvedMore": "{{count}} weitere"
+      "screeningInProgress": "Bitte warten Sie, bis die KI-Prüfung aller Tabellen abgeschlossen ist."
     },
     "form": {
       "editDataset": "Datensatz bearbeiten",
@@ -117,7 +115,6 @@
       "parsing": "Analysiere {{name}}...",
       "subsetProfilingUpdating": "Unterscheidbarkeits-Evidenz wird profiliert...",
       "subsetProfilingSummary": "{{subsetCount}} Attribut-Teilmengen über {{attributeCount}} geeignete Attribute ausgewertet.",
-      "subsetProfilingProvisional": "Vorläufig, bis die Identifikator-Prüfung abgeschlossen ist.",
       "noSubsetProfilingRequired": "Es war keine Multi-Attribut-Teilmengenprofilierung erforderlich.",
       "newTable": "Neue Tabelle",
       "newTableCounter": "Neue Tabelle ({{counter}})",
@@ -160,6 +157,24 @@
       }
     },
     "longitudinal": {},
+    "datasetType": {
+      "label": "Datensatztyp",
+      "none": "Nicht angegeben",
+      "helper": "Der Themenbereich der Inhalte des Datensatzes.",
+      "suggestedAfterUpload": "Das KI-Modell schlägt einen Typ anhand der Spaltennamen vor, sobald eine Tabelle hinzugefügt wurde.",
+      "classifying": "Das KI-Modell schlägt einen Typ anhand der Spaltennamen vor…",
+      "suggested": "KI-Vorschlag anhand der Spaltennamen: {{type}} ({{score}}).",
+      "types": {
+        "CLINICAL_HEALTHCARE": "Klinische & Gesundheitsdaten",
+        "FINANCIAL": "Finanzdaten",
+        "GEOSPATIAL_ENVIRONMENTAL": "Geo- & Umweltdaten",
+        "ECOMMERCE_RETAIL": "E-Commerce- & Handelsdaten",
+        "SOCIAL_DEMOGRAPHIC": "Sozial- & demografische Daten",
+        "EDUCATION": "Bildungsdaten",
+        "EMPLOYMENT_HR": "Beschäftigungs- & Personaldaten",
+        "OTHER": "Sonstige"
+      }
+    },
     "aiSuggestions": {
       "status": {
         "reviewNeeded": "Prüfung nötig",
@@ -173,18 +188,13 @@
       "legend": {
         "title": "Prüfstatus"
       },
-      "actions": {
-        "confirmExclusion": "Ausschluss bestätigen",
-        "keepIncluded": "Einbezogen lassen",
-        "confirmExclusionFor": "Ausschluss von {{name}} bestätigen",
-        "keepIncludedFor": "{{name}} einbezogen lassen"
-      },
       "tooltip": {
         "title": "Prüfung auf direkte Identifikatoren",
         "categoryLabel": "Vorhergesagte Kategorie",
         "evidenceLabel": "Evidenz",
         "categoryUncertain": "Unsicher",
         "uncertainPrediction": "{{category}} (unsicher)",
+        "screenedAs": "Unter dem Namen „{{name}}“ geprüft.",
         "sources": {
           "columnName": "Spaltennamen-Regel",
           "model": "KI-Modell",

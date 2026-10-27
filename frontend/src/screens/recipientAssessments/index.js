@@ -17,6 +17,7 @@ import {
   deleteRecipientAssessment,
 } from "store/recipientAssessments/recipientAssessmentsThunks";
 import { useLockTracker } from "hooks/locks/useLockTracker";
+import { useSessionExpired } from "hooks/session/useSessionExpired";
 
 export default function RecipientAssessments() {
   const { recipientId: rawId } = useParams();
@@ -30,6 +31,7 @@ export default function RecipientAssessments() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const sessionExpired = useSessionExpired();
 
   // Redux data (Extract error to display backend DB conflicts safely)
   const {
@@ -172,7 +174,7 @@ export default function RecipientAssessments() {
             color: "error",
             // Uses the dynamic DB conflict error string when present.
             message:
-              status === "failed"
+              status === "failed" && !sessionExpired
                 ? typeof errorMsg === "string"
                   ? errorMsg
                   : t("recipientAssessments.list.error")

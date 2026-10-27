@@ -31,6 +31,13 @@ public class DatasetRequestDTO {
     // AI model used for direct-identifier screening (recorded on creation).
     private DatasetAiScreeningRequestDTO aiScreening;
 
+    // DatasetType name chosen by the researcher (null or blank: none).
+    private String datasetType;
+
+    // Dataset type the AI model suggested and its score (recorded on creation).
+    private String aiSuggestedDatasetType;
+    private Double aiSuggestedDatasetTypeScore;
+
     // Additional users who should be able to access the dataset.
     private List<String> sharedUsernames;
 

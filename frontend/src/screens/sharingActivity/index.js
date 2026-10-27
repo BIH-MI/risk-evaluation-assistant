@@ -20,6 +20,7 @@ import { fetchRecipients } from "../../store/recipients/recipientsThunks";
 import { fetchDatasetAssessments } from "../../store/datasetAssessments/datasetAssessmentsThunks";
 import { fetchRecipientAssessments } from "../../store/recipientAssessments/recipientAssessmentsThunks";
 import { useLockTracker } from "hooks/locks/useLockTracker";
+import { useSessionExpired } from "hooks/session/useSessionExpired";
 
 export default function DataSharingActivities() {
   const { user } = useAuth();
@@ -31,6 +32,7 @@ export default function DataSharingActivities() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const sessionExpired = useSessionExpired();
 
   // Local state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -200,7 +202,7 @@ export default function DataSharingActivities() {
             color: "error",
             // Displays the Redux error message for DB conflicts when present.
             message:
-              status === "failed"
+              status === "failed" && !sessionExpired
                 ? typeof error === "string"
                   ? error
                   : t("dataSharingActivities.list.error")

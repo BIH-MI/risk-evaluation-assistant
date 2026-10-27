@@ -89,6 +89,22 @@ public class Dataset extends NamedResourceEntity {
     @Column(name = "ai_screening_validation_status", length = 32)
     private String aiScreeningValidationStatus;
 
+    // Domain of the dataset's content, as chosen by the researcher.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "dataset_type", length = 64)
+    private DatasetType datasetType;
+
+    /**
+     * Dataset type the AI screening model suggested from the column names at
+     * creation, and its score (null: no suggestion was recorded).
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "ai_suggested_dataset_type", length = 64)
+    private DatasetType aiSuggestedDatasetType;
+
+    @Column(name = "ai_suggested_dataset_type_score")
+    private Double aiSuggestedDatasetTypeScore;
+
     // Assessments of this dataset under one or more risk configurations.
     @OneToMany(mappedBy = "dataset", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference

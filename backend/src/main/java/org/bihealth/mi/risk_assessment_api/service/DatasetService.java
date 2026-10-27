@@ -82,6 +82,8 @@ public class DatasetService {
         ds.setName(normalizedName);
         applyQidDiscoveryConfiguration(ds, dto, true);
         applyAiScreeningProvenance(ds, dto.getAiScreening());
+        ds.setDatasetType(DatasetType.fromName(dto.getDatasetType()));
+        applyAiDatasetTypeSuggestion(ds, dto);
         Dataset saved = saveDatasetHandlingDuplicateName(ds, normalizedName);
         return new DatasetResponseDTO(saved);
     }
@@ -122,6 +124,7 @@ public class DatasetService {
     private void updateDatasetMetadata(Dataset dataset, DatasetRequestDTO dto, String normalizedName) {
         dataset.setName(normalizedName);
         dataset.setDescription(dto.getDescription());
+        dataset.setDatasetType(DatasetType.fromName(dto.getDatasetType()));
     }
 
     private void replaceSharedUsers(Dataset dataset, List<String> incomingUsernames) {
@@ -196,6 +199,7 @@ public class DatasetService {
         }
         attributeDTO.applyDirectIdentifierEvidenceSummaryTo(attribute);
         attributeDTO.applySubsetEvidenceTo(attribute);
+        attributeDTO.applyScreeningTo(attribute);
     }
 
     private String requiredDatasetName(String value) {
@@ -287,6 +291,24 @@ public class DatasetService {
         dataset.setAiScreeningPromptVersion(provenance.promptVersion());
         dataset.setAiScreeningThresholdsVersion(provenance.thresholdsVersion());
         dataset.setAiScreeningValidationStatus(provenance.validationStatus());
+    }
+
+    /**
+     * Records the AI model's dataset-type suggestion, once, at creation. It is
+     * kept only together with recorded AI screening provenance, since only
+     * that model can have produced it.
+     */
+    private void applyAiDatasetTypeSuggestion(Dataset dataset, DatasetRequestDTO dto) {
+        DatasetType suggestion = DatasetType.fromName(dto.getAiSuggestedDatasetType());
+        if (suggestion == null || dataset.getAiScreeningModelId() == null) {
+            return;
+        }
+        Double score = dto.getAiSuggestedDatasetTypeScore();
+        if (score == null || score.isNaN() || score < 0 || score > 1) {
+            throw new IllegalArgumentException("Invalid AI dataset type score.");
+        }
+        dataset.setAiSuggestedDatasetType(suggestion);
+        dataset.setAiSuggestedDatasetTypeScore(score);
     }
 
     /**

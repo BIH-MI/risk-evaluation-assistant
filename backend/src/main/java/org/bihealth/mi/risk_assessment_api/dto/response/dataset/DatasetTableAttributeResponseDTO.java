@@ -3,6 +3,7 @@ package org.bihealth.mi.risk_assessment_api.dto.response.dataset;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import org.bihealth.mi.risk_assessment_api.model.dataset.AttributeScreeningSnapshot;
 import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTableAttribute;
 import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTableAttributeSubsetEvidence;
 
@@ -49,6 +50,9 @@ public class DatasetTableAttributeResponseDTO {
 
     private List<DatasetTableAttributeSubsetEvidenceResponseDTO> subsetEvidence;
 
+    // Screening result shown in Add Dataset (null: not recorded).
+    private AttributeScreeningSnapshot screening;
+
     /**
      * Constructor to map a DatasetTableAttribute entity to this DTO.
      *
@@ -59,6 +63,7 @@ public class DatasetTableAttributeResponseDTO {
         mapIndividualStatistics(entity);
         mapDirectIdentifierSummary(entity);
         mapSubsetEvidence(entity);
+        this.screening = entity.getScreening();
     }
 
     private void mapSchema(DatasetTableAttribute entity) {

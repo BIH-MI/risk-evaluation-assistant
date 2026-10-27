@@ -1,12 +1,6 @@
-import React, { useCallback, useState } from "react";
+import React from "react";
 import PropTypes from "prop-types";
-import {
-  Button,
-  ButtonBase,
-  Popover,
-  Tooltip,
-  Typography,
-} from "@mui/material";
+import { Tooltip, Typography } from "@mui/material";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
@@ -150,8 +144,12 @@ LabeledLine.propTypes = {
   value: PropTypes.string.isRequired,
 };
 
-/** Screening details: predicted category, contributing evidence, why. */
-function ScreeningDetails({ screening, colors }) {
+/**
+ * Screening details: predicted category, contributing evidence, why, and the
+ * name it was screened under when the attribute was renamed later (a stored
+ * screening, see screeningSnapshot.js).
+ */
+function ScreeningDetails({ screening, colors, attributeName }) {
   const { t, i18n } = useTranslation();
   const category = getCategoryText(t, screening);
   const sources = new Intl.ListFormat(i18n.language, {
@@ -161,6 +159,10 @@ function ScreeningDetails({ screening, colors }) {
   );
   const evidence =
     sources && sources[0].toLocaleUpperCase(i18n.language) + sources.slice(1);
+  const renamedFrom =
+    screening.screenedName && screening.screenedName !== attributeName
+      ? screening.screenedName
+      : null;
 
   return (
     <RABox
@@ -171,9 +173,11 @@ function ScreeningDetails({ screening, colors }) {
     >
       <Typography
         variant="caption"
+        display="block"
         fontWeight="bold"
         sx={{
           color: colors.primary,
+          textAlign: "center",
           textTransform: "uppercase",
           letterSpacing: 0.4,
         }}
@@ -205,6 +209,19 @@ function ScreeningDetails({ screening, colors }) {
       >
         {t(key(`tooltip.message.${screening.message}`))}
       </Typography>
+      {renamedFrom && (
+        <Typography
+          variant="caption"
+          display="block"
+          sx={{
+            color: colors.secondary,
+            lineHeight: 1.45,
+            fontStyle: "italic",
+          }}
+        >
+          {t(key("tooltip.screenedAs"), { name: renamedFrom })}
+        </Typography>
+      )}
     </RABox>
   );
 }
@@ -212,6 +229,7 @@ function ScreeningDetails({ screening, colors }) {
 ScreeningDetails.propTypes = {
   screening: PropTypes.object.isRequired,
   colors: PropTypes.object.isRequired,
+  attributeName: PropTypes.string.isRequired,
 };
 
 const surfaceSx = (colors) => ({
@@ -226,133 +244,82 @@ const surfaceSx = (colors) => ({
 });
 
 /**
- * Status icon next to the Excluded checkbox. Hover or keyboard focus shows
- * the screening details; click/tap opens them in a popover that also holds
- * the confirmation when a review is required (or, optionally, for an
- * automatic exclusion). Opening either never records a review; the checkbox
- * stays the control for including or excluding the attribute.
+ * Status icon next to the Excluded checkbox. Its tooltip shows the screening
+ * details on hover, keyboard focus or tap. The Excluded checkbox is the only
+ * control: changing it records the researcher's decision.
  */
-export function AiColumnAssessmentInfo({
-  screening,
-  attributeName,
-  excluded,
-  onConfirm,
-}) {
+export function AiColumnAssessmentInfo({ screening, attributeName }) {
   const { t } = useTranslation();
   const colors = useSurfaceColors();
-  const [tooltipOpen, setTooltipOpen] = useState(false);
-  const [anchorEl, setAnchorEl] = useState(null);
-  const handleTooltipOpen = useCallback(() => setTooltipOpen(true), []);
-  const handleTooltipClose = useCallback(() => setTooltipOpen(false), []);
-  const handleClick = useCallback((event) => {
-    setTooltipOpen(false);
-    setAnchorEl(event.currentTarget);
-  }, []);
-  const handlePopoverClose = useCallback(() => setAnchorEl(null), []);
   const { status } = screening;
-  const canConfirm =
-    screening.review === REVIEW_STATE.REQUIRED ||
-    status === SCREENING_STATUS.AUTO_EXCLUDED;
   const label = t(key(`status.${status}`));
-  const action = excluded ? "confirmExclusion" : "keepIncluded";
-  const popoverOpen = Boolean(anchorEl);
 
   return (
-    <>
-      <Tooltip
-        open={tooltipOpen && !popoverOpen}
-        onOpen={handleTooltipOpen}
-        onClose={handleTooltipClose}
-        arrow
-        placement="top"
-        // Keeps the button's own accessible name; the details describe it.
-        describeChild
-        title={<ScreeningDetails screening={screening} colors={colors} />}
-        // Prefer above the indicator; flip and stay inside the viewport
-        // when there is not enough room (e.g. first table rows).
-        PopperProps={{
-          modifiers: [
-            {
-              name: "flip",
-              options: { fallbackPlacements: ["bottom", "left", "right"] },
-            },
-            { name: "preventOverflow", options: { padding: 8 } },
-          ],
-        }}
-        componentsProps={{
-          tooltip: {
-            // The global tooltip override sets opacity 0.7.
-            sx: { ...surfaceSx(colors), opacity: 1 },
+    <Tooltip
+      arrow
+      placement="top"
+      // Keeps the icon's own accessible name; the details describe it.
+      describeChild
+      // A tap opens the details and leaves time to read them.
+      enterTouchDelay={0}
+      leaveTouchDelay={5000}
+      title={
+        <ScreeningDetails
+          screening={screening}
+          colors={colors}
+          attributeName={attributeName}
+        />
+      }
+      // Prefer above the indicator; flip and stay inside the viewport
+      // when there is not enough room (e.g. first table rows).
+      PopperProps={{
+        modifiers: [
+          {
+            name: "flip",
+            options: { fallbackPlacements: ["bottom", "left", "right"] },
           },
-          arrow: {
-            sx: {
-              color: colors.background,
-              "&::before": {
-                backgroundColor: colors.background,
-                border: "1px solid",
-                borderColor: colors.border,
-              },
+          { name: "preventOverflow", options: { padding: 8 } },
+        ],
+      }}
+      componentsProps={{
+        tooltip: {
+          // The global tooltip override sets opacity 0.7.
+          sx: { ...surfaceSx(colors), opacity: 1 },
+        },
+        arrow: {
+          sx: {
+            color: colors.background,
+            "&::before": {
+              backgroundColor: colors.background,
+              border: "1px solid",
+              borderColor: colors.border,
             },
+          },
+        },
+      }}
+    >
+      <RABox
+        component="span"
+        role="img"
+        tabIndex={0}
+        aria-label={t(key("indicatorAriaLabel"), {
+          name: attributeName,
+          status: label,
+        })}
+        sx={{
+          display: "inline-flex",
+          alignItems: "center",
+          p: 0.5,
+          borderRadius: 1,
+          "&:focus-visible": {
+            outline: "2px solid",
+            outlineColor: "info.main",
           },
         }}
       >
-        <ButtonBase
-          onClick={handleClick}
-          aria-label={t(key("indicatorAriaLabel"), {
-            name: attributeName,
-            status: label,
-          })}
-          aria-haspopup="dialog"
-          aria-expanded={popoverOpen}
-          sx={{
-            display: "inline-flex",
-            alignItems: "center",
-            p: 0.5,
-            borderRadius: 1,
-            "&:focus-visible": {
-              outline: "2px solid",
-              outlineColor: "info.main",
-            },
-          }}
-        >
-          <StatusIcon status={status} colors={colors} />
-        </ButtonBase>
-      </Tooltip>
-      <Popover
-        open={popoverOpen}
-        anchorEl={anchorEl}
-        onClose={handlePopoverClose}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-        transformOrigin={{ vertical: "top", horizontal: "center" }}
-        marginThreshold={8}
-        PaperProps={{
-          role: "dialog",
-          "aria-label": t(key("tooltip.title")),
-          sx: surfaceSx(colors),
-        }}
-      >
-        <ScreeningDetails screening={screening} colors={colors} />
-        {canConfirm && (
-          <RABox display="flex" justifyContent="flex-end" mt={1}>
-            <Button
-              size="small"
-              variant="outlined"
-              color="info"
-              onClick={() => {
-                setAnchorEl(null);
-                onConfirm();
-              }}
-              aria-label={t(key(`actions.${action}For`), {
-                name: attributeName,
-              })}
-              sx={{ textTransform: "none" }}
-            >
-              {t(key(`actions.${action}`))}
-            </Button>
-          </RABox>
-        )}
-      </Popover>
-    </>
+        <StatusIcon status={status} colors={colors} />
+      </RABox>
+    </Tooltip>
   );
 }
 
@@ -364,11 +331,10 @@ AiColumnAssessmentInfo.propTypes = {
     message: PropTypes.string.isRequired,
     prediction: PropTypes.object.isRequired,
     evidence: PropTypes.arrayOf(PropTypes.string).isRequired,
+    // Name a stored screening was computed for (screeningSnapshot.js).
+    screenedName: PropTypes.string,
   }).isRequired,
   attributeName: PropTypes.string.isRequired,
-  excluded: PropTypes.bool.isRequired,
-  // Records the researcher's decision for the current exclusion state.
-  onConfirm: PropTypes.func.isRequired,
 };
 
 /** Compact legend of the screening statuses (icon + label). */

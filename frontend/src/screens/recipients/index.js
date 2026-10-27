@@ -18,6 +18,7 @@ import getRecipientsTableData from "./getRecipientsTableData";
 
 import { fetchRecipientAssessments } from "../../store/recipientAssessments/recipientAssessmentsThunks";
 import { useLockTracker } from "hooks/locks/useLockTracker";
+import { useSessionExpired } from "hooks/session/useSessionExpired";
 
 export default function Recipients() {
   const { user } = useAuth();
@@ -29,6 +30,7 @@ export default function Recipients() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const sessionExpired = useSessionExpired();
 
   // Redux state
   const {
@@ -185,7 +187,7 @@ export default function Recipients() {
             color: "error",
             // Displays the Redux error message (e.g. 409 DB conflicts) when present.
             message:
-              status === "failed"
+              status === "failed" && !sessionExpired
                 ? typeof error === "string"
                   ? error
                   : t("recipients.list.error")

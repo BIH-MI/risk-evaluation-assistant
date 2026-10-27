@@ -1,7 +1,8 @@
 // Attribute metadata and selected aggregate statistics are persisted. Local
 // review objects, manualExclusionDecision and aiAutoExcluded are deliberately
-// omitted; the persisted decision is the final excluded flag. Raw rows, observed
-// values, frequency maps, encoded columns, partitions, and cache entries stay
+// omitted; the persisted decision is the final excluded flag. The screening
+// snapshot (screeningSnapshot.js) is display-only. Raw rows, observed values,
+// frequency maps, encoded columns, partitions, and cache entries stay
 // transient in the browser/worker.
 const ATTRIBUTE_STATISTIC_FIELDS = [
   "recordCount",
@@ -135,6 +136,11 @@ export function toDatasetAttributePayload(attribute) {
         payload[field] = attribute[field];
       }
     });
+  }
+
+  // A snapshot from Add Dataset, or the stored one from Edit Dataset.
+  if (attribute.screening) {
+    payload.screening = attribute.screening;
   }
 
   return payload;

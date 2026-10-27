@@ -63,7 +63,6 @@ export function useDatasetDiscovery({
     renameAttribute,
     changeAttributeDataType,
     changeAttributeExclusion,
-    confirmAttributeExclusion,
     applyAiExclusionDecisions,
   } = useDatasetSchemaEditor({
     tables,
@@ -78,7 +77,7 @@ export function useDatasetDiscovery({
     t,
   });
 
-  const { reviewSuggestion, handleManualExclusionChange } =
+  const { handleManualExclusionChange } =
     useAiResearcherReview(updateTableState);
   const { suppressLateAutoExclusions } = useAiExclusionReconciliation({
     tables,
@@ -95,15 +94,11 @@ export function useDatasetDiscovery({
     suppressLateAutoExclusions,
   });
 
-  const { handleExcludedChange, handleConfirmScreening } =
-    useDatasetScreeningReview({
-      tables,
-      aiStateByTable,
-      handleManualExclusionChange,
-      changeAttributeExclusion,
-      reviewSuggestion,
-      confirmAttributeExclusion,
-    });
+  const { handleExcludedChange } = useDatasetScreeningReview({
+    tables,
+    handleManualExclusionChange,
+    changeAttributeExclusion,
+  });
 
   return {
     aiStateByTable,
@@ -119,6 +114,5 @@ export function useDatasetDiscovery({
     renameAttribute,
     changeAttributeDataType,
     handleExcludedChange,
-    handleConfirmScreening,
   };
 }

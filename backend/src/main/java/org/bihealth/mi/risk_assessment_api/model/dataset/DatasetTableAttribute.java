@@ -11,7 +11,10 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -111,6 +114,10 @@ public class DatasetTableAttribute {
     @Column(name = "direct_identifier_confidence")
     private String directIdentifierConfidence;
 
+    // Screening result shown in Add Dataset (null: not recorded).
+    @Embedded
+    private AttributeScreeningSnapshot screening;
+
     /**
      * Required by JPA.
      */
@@ -127,18 +134,32 @@ public class DatasetTableAttribute {
 
     /**
      * Replaces all per-subset-size evidence, linking each entry back to this
-     * attribute. Orphan removal deletes the previous rows.
+     * attribute. A size that is already stored is updated in place: removing
+     * and re-adding it in one flush would insert the new row before orphan
+     * removal deletes the old one (uk_attribute_subset_evidence_size).
      */
     public void replaceSubsetEvidence(List<DatasetTableAttributeSubsetEvidence> evidence) {
-        subsetEvidence.clear();
-        if (evidence == null) {
-            return;
+        Map<Integer, DatasetTableAttributeSubsetEvidence> incomingBySize = new LinkedHashMap<>();
+        if (evidence != null) {
+            evidence.stream()
+                    .filter(Objects::nonNull)
+                    .forEach(entry -> incomingBySize.put(entry.getSubsetSize(), entry));
         }
-        evidence.stream()
-                .filter(Objects::nonNull)
-                .forEach(entry -> {
-                    entry.setAttribute(this);
-                    subsetEvidence.add(entry);
-                });
+        subsetEvidence.removeIf(existing -> !incomingBySize.containsKey(existing.getSubsetSize()));
+        Map<Integer, DatasetTableAttributeSubsetEvidence> existingBySize = new HashMap<>();
+        subsetEvidence.forEach(existing -> existingBySize.put(existing.getSubsetSize(), existing));
+
+        incomingBySize.forEach((size, entry) -> {
+            DatasetTableAttributeSubsetEvidence existing = existingBySize.get(size);
+            if (existing == null) {
+                entry.setAttribute(this);
+                subsetEvidence.add(entry);
+                return;
+            }
+            existing.setEvaluatedSubsetCount(entry.getEvaluatedSubsetCount());
+            existing.setMeanDistinction(entry.getMeanDistinction());
+            existing.setMeanSeparation(entry.getMeanSeparation());
+            existing.setMeanSingletonFraction(entry.getMeanSingletonFraction());
+        });
     }
 }

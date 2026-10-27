@@ -22,13 +22,12 @@ import { AI_TABLE_STATUS } from "./aiSuggestionTableState";
  * - prediction: what the screening detected (category, whether the
  *   prediction itself is uncertain);
  * - evidence: only the sources that produced the result;
- * - review: whether a researcher decision is still required. It is required
- *   only for an included column with a potential direct-identifier finding
- *   (review-level value pattern, or an AI/column-name result for which
- *   needsResearcherReview() is true), and blocks submission until resolved.
- *   Excluded columns need no decision; an automatic exclusion can still be
- *   confirmed. Only an explicit researcher decision (checkbox change or
- *   confirmation, recorded as `manualExclusionDecision`) completes a review;
+ * - review: whether the column is flagged for a researcher's review: an
+ *   included column with a potential direct-identifier finding (review-level
+ *   value pattern, or an AI/column-name result for which
+ *   needsResearcherReview() is true). The flag is advisory and never blocks
+ *   submission; excluded columns are not flagged. Only an explicit checkbox
+ *   change (recorded as `manualExclusionDecision`) completes a review;
  *   finished inference or opening the details never does.
  *
  * `status` is the single primary indicator derived from them.
@@ -378,37 +377,26 @@ export function getTableScreenings({ table, aiState, aiEnabled }) {
 }
 
 /**
- * What still prevents submission: tables whose screening is running, and
- * included attributes with a potential direct-identifier finding that the
- * researcher has not resolved (excluded or confirmed).
+ * Names of the tables whose screening is still running (any column pending),
+ * which prevents submission.
  *
- * @returns {{ screeningTables: string[], unresolved: Array<{ tableName: string,
- *   attributeName: string }> }}
+ * @returns {string[]}
  */
-export function getUnresolvedScreening(
+export function getTablesBeingScreened(
   tables = [],
   aiStateByTable = {},
   aiEnabled = true
 ) {
-  const screeningTables = [];
-  const unresolved = [];
-  tables.forEach((table) => {
-    if (!Array.isArray(table.columnMeta)) return;
-    const aiState = aiStateByTable[table._localTableId];
-    if (!aiState) return;
-    getTableScreenings({ table, aiState, aiEnabled }).forEach(
-      ({ column, screening }) => {
-        if (screening.status === SCREENING_STATUS.PENDING) {
-          if (!screeningTables.includes(table.name))
-            screeningTables.push(table.name);
-        } else if (screening.review === REVIEW_STATE.REQUIRED) {
-          unresolved.push({
-            tableName: table.name,
-            attributeName: column.field,
-          });
-        }
-      }
-    );
-  });
-  return { screeningTables, unresolved };
+  return tables
+    .filter((table) => {
+      const aiState = aiStateByTable[table._localTableId];
+      return (
+        Array.isArray(table.columnMeta) &&
+        aiState &&
+        getTableScreenings({ table, aiState, aiEnabled }).some(
+          ({ screening }) => screening.status === SCREENING_STATUS.PENDING
+        )
+      );
+    })
+    .map((table) => table.name);
 }

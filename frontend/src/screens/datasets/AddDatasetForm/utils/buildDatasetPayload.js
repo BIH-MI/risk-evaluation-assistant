@@ -1,12 +1,27 @@
 import { toDatasetAttributePayload } from "screens/datasets/utils/attributePayload";
 import { getAiScreeningProvenance } from "features/qidDiscovery/ai/columnSuggestions";
+import { getTableAiState } from "features/qidDiscovery/ai/aiSuggestionTableState";
+import { getTableScreenings } from "features/qidDiscovery/ai/screeningStatus";
+import { toScreeningSnapshot } from "features/qidDiscovery/ai/screeningSnapshot";
 
-function buildTablePayload(table) {
+// Each attribute carries a snapshot of its screening as displayed, so Edit
+// Dataset can show the same status and details.
+function buildTablePayload(table, { aiStateByTable, aiScreeningEnabled }) {
   const displayName = table.name || "";
+  const screenings = getTableScreenings({
+    table,
+    aiState: getTableAiState(aiStateByTable, table._localTableId),
+    aiEnabled: aiScreeningEnabled,
+  });
 
   return {
     name: displayName.replace(/\.csv$/i, ""),
-    attributes: (table.columnMeta || []).map(toDatasetAttributePayload),
+    attributes: screenings.map(({ column, screening }) =>
+      toDatasetAttributePayload({
+        ...column,
+        screening: toScreeningSnapshot(screening, column.field),
+      })
+    ),
   };
 }
 
@@ -26,6 +41,11 @@ function buildAiScreeningPayload(modelId) {
  * @param {Object} options.selectedQidDiscoveryConfiguration Must have id/versionId.
  * @param {string|null} [options.aiScreeningModelId=null] Model that actually ran,
  * not merely the selected or preloaded model. The caller determines this.
+ * @param {Object} [options.aiStateByTable={}] AI state per local table id.
+ * @param {boolean} [options.aiScreeningEnabled=true] AI screening was enabled.
+ * @param {string|null} [options.datasetType=null] Type chosen by the researcher.
+ * @param {{type: string, score: number}|null} [options.datasetTypeSuggestion=null]
+ * The AI model's dataset-type suggestion (recorded with the model's provenance).
  * @returns {Object} Existing dataset-create API request, with no worker/UI state.
  */
 export function buildDatasetPayload({
@@ -34,6 +54,10 @@ export function buildDatasetPayload({
   sharedUsers,
   selectedQidDiscoveryConfiguration,
   aiScreeningModelId = null,
+  aiStateByTable = {},
+  aiScreeningEnabled = true,
+  datasetType = null,
+  datasetTypeSuggestion = null,
   tables,
 }) {
   return {
@@ -43,7 +67,16 @@ export function buildDatasetPayload({
     qidDiscoveryConfigurationVersionId:
       selectedQidDiscoveryConfiguration.versionId,
     aiScreening: buildAiScreeningPayload(aiScreeningModelId),
+    datasetType: datasetType || null,
+    aiSuggestedDatasetType: aiScreeningModelId
+      ? datasetTypeSuggestion?.type ?? null
+      : null,
+    aiSuggestedDatasetTypeScore: aiScreeningModelId
+      ? datasetTypeSuggestion?.score ?? null
+      : null,
     sharedUsernames: sharedUsers.map((user) => user.username),
-    tables: tables.map(buildTablePayload),
+    tables: tables.map((table) =>
+      buildTablePayload(table, { aiStateByTable, aiScreeningEnabled })
+    ),
   };
 }

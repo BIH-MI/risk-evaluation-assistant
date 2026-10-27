@@ -16,11 +16,13 @@ import {
   fetchDatasets,
 } from "../../store/datasets/datasetsThunks";
 import { useLockTracker } from "../../hooks/locks/useLockTracker";
+import { useSessionExpired } from "hooks/session/useSessionExpired";
 
 export default function Datasets() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const sessionExpired = useSessionExpired();
   const { user } = useAuth();
   const token = user?.access_token;
   const me = user?.profile?.preferred_username;
@@ -172,7 +174,7 @@ export default function Datasets() {
             id: "failed",
             color: "error",
             message:
-              status === "failed"
+              status === "failed" && !sessionExpired
                 ? typeof errorMsg === "string"
                   ? errorMsg
                   : t(

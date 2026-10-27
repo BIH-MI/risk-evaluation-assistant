@@ -1,14 +1,20 @@
 package org.bihealth.mi.risk_assessment_api.config;
 
 import org.bihealth.mi.risk_assessment_api.enums.DataType;
+import org.bihealth.mi.risk_assessment_api.model.dataset.AttributeScreeningSnapshot;
 import org.bihealth.mi.risk_assessment_api.model.dataset.Dataset;
 import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTable;
 import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTableAttribute;
 import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTableAttributeSubsetEvidence;
+import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetType;
 import org.bihealth.mi.risk_assessment_api.model.qid.QidDiscoveryConfiguration;
 import org.bihealth.mi.risk_assessment_api.model.qid.QidDiscoveryConfigurationVersion;
 import org.bihealth.mi.risk_assessment_api.repository.dataset.DatasetRepository;
 import org.bihealth.mi.risk_assessment_api.repository.qid.QidDiscoveryConfigurationRepository;
+import org.bihealth.mi.risk_assessment_api.service.AiModelRegistry;
+import org.bihealth.mi.risk_assessment_api.service.QidDiscoveryConfigurationService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.Comparator;
@@ -24,23 +30,43 @@ import java.util.Optional;
  * startups, so researcher edits to the demo dataset are kept).
  *
  * <p>This is intentionally not a backend QID profiler. The values below are
- * precomputed sample metadata matching the frontend profiling formulas. No raw
- * LEOSS rows are stored.</p>
+ * what Add Dataset records for LEOSS_dataset_v3 (with these attribute names):
+ * statistics, subset evidence, the value-pattern identifier summary, each
+ * attribute's screening snapshot and the AI screening provenance with its
+ * dataset-type suggestion. No raw LEOSS rows are stored.</p>
  */
 @Component
 public class DemoDatasetEvidenceSeeder {
 
+    private static final Logger log = LoggerFactory.getLogger(DemoDatasetEvidenceSeeder.class);
     private static final String SEED_USER = "user";
+
+    // The Add Dataset screening run that produced the snapshots below: the
+    // browser's model, prompt and thresholds versions (checked against the
+    // registry before they are stored, as for any new dataset).
+    private static final String SCREENING_MODEL_ID = "deberta-v3-xsmall";
+    private static final String SCREENING_PROMPT_VERSION =
+            "column-zero-shot-v2+9d5e08a8;column-name-rules-v2";
+    private static final String SCREENING_THRESHOLDS_VERSION =
+            "zero-shot-abstention-v1+8d4c2add";
+    private static final DatasetType SUGGESTED_DATASET_TYPE = DatasetType.CLINICAL_HEALTHCARE;
+    private static final double SUGGESTED_DATASET_TYPE_SCORE = 0.9708;
 
     private final DatasetRepository datasetRepository;
     private final QidDiscoveryConfigurationRepository qidConfigurationRepository;
+    private final QidDiscoveryConfigurationService qidConfigurationService;
+    private final AiModelRegistry aiModelRegistry;
 
     public DemoDatasetEvidenceSeeder(
             DatasetRepository datasetRepository,
-            QidDiscoveryConfigurationRepository qidConfigurationRepository
+            QidDiscoveryConfigurationRepository qidConfigurationRepository,
+            QidDiscoveryConfigurationService qidConfigurationService,
+            AiModelRegistry aiModelRegistry
     ) {
         this.datasetRepository = datasetRepository;
         this.qidConfigurationRepository = qidConfigurationRepository;
+        this.qidConfigurationService = qidConfigurationService;
+        this.aiModelRegistry = aiModelRegistry;
     }
 
     /**
@@ -83,6 +109,7 @@ public class DemoDatasetEvidenceSeeder {
                 attributesByName(table);
         Map<String, List<SubsetEvidence>> subsetEvidenceByAttribute =
                 leossSubsetEvidence();
+        Map<String, Screening> screeningByAttribute = leossScreening();
         leossAttributes().forEach((name, dataType) -> {
             DatasetTableAttribute attribute = attributesByName.computeIfAbsent(
                     name,
@@ -93,17 +120,76 @@ public class DemoDatasetEvidenceSeeder {
             clearDirectIdentifierEvidence(attribute);
             applyStatistics(attribute, leossStatistics().get(name));
             replaceSubsetEvidence(attribute, subsetEvidenceByAttribute.get(name));
+            attribute.setScreening(toSnapshot(name, screeningByAttribute.get(name)));
         });
 
-        DatasetTableAttribute insuranceNumber =
-                attributesByName(table).get("insurance_number");
-        if (insuranceNumber != null) {
-            insuranceNumber.setDirectIdentifierEvidenceSource("FIELD_NAME");
-            insuranceNumber.setDirectIdentifierConcept(null);
-            insuranceNumber.setDirectIdentifierConfidence("LOW");
+        // Only value patterns produce an identifier summary: the d.m.yyyy
+        // dates match a review-level pattern. insurance_number is recognised
+        // by its name (column-name rule, see its screening), not its values.
+        DatasetTableAttribute dateOfDiagnosis =
+                attributesByName(table).get("date_of_diagnosis");
+        if (dateOfDiagnosis != null) {
+            dateOfDiagnosis.setDirectIdentifierEvidenceSource("VALUE_PATTERN");
+            dateOfDiagnosis.setDirectIdentifierConcept(null);
+            dateOfDiagnosis.setDirectIdentifierConfidence("LOW");
         }
 
+        applyAiScreening(leoss, qidConfigurationVersion);
         datasetRepository.save(leoss);
+    }
+
+    /**
+     * Records the AI screening provenance and its dataset-type suggestion,
+     * subject to the same checks as for a new dataset: the model must be in
+     * the registry and allowed by the linked QID configuration version. If
+     * not (e.g. a changed registry), the dataset is seeded without them.
+     */
+    private void applyAiScreening(Dataset leoss, QidDiscoveryConfigurationVersion version) {
+        Optional<AiModelRegistry.Model> model = aiModelRegistry.find(SCREENING_MODEL_ID);
+        if (model.isEmpty()
+                || version == null
+                || !qidConfigurationService.getEffectiveAiAllowedModelIds(version).contains(SCREENING_MODEL_ID)) {
+            log.warn("Demo dataset seeded without AI screening provenance: model {} is not available.",
+                    SCREENING_MODEL_ID);
+            return;
+        }
+        AiModelRegistry.ScreeningProvenance provenance;
+        try {
+            provenance = aiModelRegistry.verifyScreeningProvenance(
+                    SCREENING_MODEL_ID,
+                    model.get().repository(),
+                    model.get().revision(),
+                    model.get().dtype(),
+                    SCREENING_PROMPT_VERSION,
+                    SCREENING_THRESHOLDS_VERSION,
+                    null
+            );
+        } catch (IllegalArgumentException ex) {
+            log.warn("Demo dataset seeded without AI screening provenance: {}", ex.getMessage());
+            return;
+        }
+        leoss.setAiScreeningModelId(provenance.modelId());
+        leoss.setAiScreeningModelRepository(provenance.repository());
+        leoss.setAiScreeningModelRevision(provenance.revision());
+        leoss.setAiScreeningModelDtype(provenance.dtype());
+        leoss.setAiScreeningPromptVersion(provenance.promptVersion());
+        leoss.setAiScreeningThresholdsVersion(provenance.thresholdsVersion());
+        leoss.setAiScreeningValidationStatus(provenance.validationStatus());
+        leoss.setAiSuggestedDatasetType(SUGGESTED_DATASET_TYPE);
+        leoss.setAiSuggestedDatasetTypeScore(SUGGESTED_DATASET_TYPE_SCORE);
+    }
+
+    private static AttributeScreeningSnapshot toSnapshot(String name, Screening screening) {
+        if (screening == null) return null;
+        AttributeScreeningSnapshot snapshot = new AttributeScreeningSnapshot();
+        snapshot.setStatus(screening.status());
+        snapshot.setMessage(screening.message());
+        snapshot.setCategory(screening.category());
+        snapshot.setPotentialIdentifier(screening.potentialIdentifier());
+        snapshot.setUncertain(screening.uncertain());
+        snapshot.setEvidence(screening.evidence());
+        snapshot.setColumnName(name);
+        return snapshot;
     }
 
     private Optional<DatasetTable> findTable(Dataset dataset, String name) {
@@ -293,12 +379,51 @@ public class DemoDatasetEvidenceSeeder {
         );
     }
 
+    /**
+     * Screening shown by Add Dataset for these attribute names (column-name
+     * rules, AI model, value patterns), before any researcher review.
+     */
+    private static Map<String, Screening> leossScreening() {
+        Map<String, Screening> screening = new LinkedHashMap<>();
+        screening.put("insurance_number", new Screening("autoExcluded", "autoExcludedByName",
+                "HEALTH_INSURANCE_IDENTIFIER", false, false, List.of("columnName", "aiSuggestion")));
+        screening.put("age_at_diagnosis", included("DEMOGRAPHIC"));
+        screening.put("gender", included("DEMOGRAPHIC"));
+        screening.put("date_of_diagnosis", new Screening("reviewNeeded", "valuePatternReview",
+                "CLINICAL", true, false, List.of("aiSuggestion", "valuePattern")));
+        screening.put("uncomplicated_phase", possibleIdentifier());
+        screening.put("complicated_phase", possibleIdentifier());
+        screening.put("critical_phase", possibleIdentifier());
+        List.of(
+                "recovery_phase",
+                "vasopressors_in_complicated_phase",
+                "vasopressors_in_critical_phase",
+                "invasive_ventilation_in_critical_phase",
+                "superinfection_uncomplicated_phase",
+                "superinfection_complicated_phase",
+                "superinfection_critical_phase",
+                "symptoms_in_recovery_phase",
+                "last_known_patient_status"
+        ).forEach(name -> screening.put(name, included("CLINICAL")));
+        return screening;
+    }
+
+    private static Screening included(String category) {
+        return new Screening("noExclusionSuggested", "included", category, false, false,
+                List.of("aiSuggestion"));
+    }
+
+    // The model leans towards an identifier without naming a category.
+    private static Screening possibleIdentifier() {
+        return new Screening("reviewNeeded", "possibleIdentifier", null, false, true, List.of());
+    }
+
     private static Map<String, List<SubsetEvidence>> leossSubsetEvidence() {
         Map<String, List<SubsetEvidence>> evidence = new LinkedHashMap<>();
 
         // Precomputed from LEOSS_dataset_v3 using the current frontend profiling
-        // semantics: insurance_number is excluded as a Direct Identifier, the
-        // remaining 15 attributes are exhaustively profiled for subset sizes 2-4,
+        // semantics: insurance_number is excluded automatically (column-name
+        // rule), the remaining 15 attributes are exhaustively profiled for subset sizes 2-4,
         // and missing values form one equivalence class. Each attribute therefore
         // participates in 14 pairs, 91 triplets, and 364 four-attribute subsets.
         evidence.put("age_at_diagnosis", List.of(
@@ -458,6 +583,16 @@ public class DemoDatasetEvidenceSeeder {
             Long maximumEquivalenceClassSize,
             Double distinction,
             Double separation
+    ) {
+    }
+
+    private record Screening(
+            String status,
+            String message,
+            String category,
+            boolean potentialIdentifier,
+            boolean uncertain,
+            List<String> evidence
     ) {
     }
 

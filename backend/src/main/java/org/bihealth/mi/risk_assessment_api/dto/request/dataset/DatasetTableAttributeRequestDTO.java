@@ -51,6 +51,9 @@ public class DatasetTableAttributeRequestDTO {
 
     private List<DatasetTableAttributeSubsetEvidenceRequestDTO> subsetEvidence;
 
+    // Screening result shown in Add Dataset; null keeps a stored one.
+    private AttributeScreeningRequestDTO screening;
+
     /**
      * Converts this DTO into a new, non-persisted DatasetTableAttribute entity.
      *
@@ -64,6 +67,7 @@ public class DatasetTableAttributeRequestDTO {
         applyStatisticsTo(attr);
         applyDirectIdentifierEvidenceSummaryTo(attr);
         applySubsetEvidenceTo(attr);
+        applyScreeningTo(attr);
         return attr;
     }
 
@@ -111,6 +115,18 @@ public class DatasetTableAttributeRequestDTO {
         attr.setDirectIdentifierEvidenceSource(directIdentifierEvidenceSource);
         attr.setDirectIdentifierConcept(directIdentifierConcept);
         attr.setDirectIdentifierConfidence(directIdentifierConfidence);
+    }
+
+    /**
+     * Replaces the attribute's screening snapshot. A null snapshot means the
+     * client did not send one (e.g. an older client), so a stored one is kept.
+     */
+    public void applyScreeningTo(DatasetTableAttribute attr) {
+        if (screening == null) {
+            return;
+        }
+
+        attr.setScreening(screening.toEmbeddable());
     }
 
     /**

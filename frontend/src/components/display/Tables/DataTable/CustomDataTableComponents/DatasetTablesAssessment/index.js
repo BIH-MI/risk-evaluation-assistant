@@ -88,16 +88,12 @@ function DatasetTablesAssessment({
   attributeEvidenceById = {},
   originalAssessmentValuesByAttributeId = {},
   isReadOnly = false,
-  // Shows only the first `maxRows` attributes of each table, without
-  // pagination. Presentation only; the assessment state is not sliced.
-  maxRows = null,
 }) {
   const { t } = useTranslation();
   const [controller] = useMaterialUIController();
   const { darkMode } = controller;
   const paperScreenshot = usePaperScreenshotMode();
-  const rowLimit =
-    maxRows ?? (paperScreenshot ? PAPER_SCREENSHOT_ROW_COUNT : null);
+  const rowLimit = paperScreenshot ? PAPER_SCREENSHOT_ROW_COUNT : null;
 
   const { columnsByTable, addAttr } = useDatasetAssessmentFormTableConfig(
     tables,

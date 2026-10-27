@@ -12,6 +12,11 @@ import {
   getModelFilesBaseUrl,
   resolveColumnClassifierModel,
 } from "./modelConfig";
+import {
+  DATASET_TYPE_PROMPT,
+  buildDatasetTypePremise,
+  interpretDatasetTypeClassification,
+} from "./datasetTypes";
 
 /*
  * Main-thread wrapper around the AI column classifier worker.
@@ -150,7 +155,12 @@ function getModelLocations(model) {
   };
 }
 
-function postClassifyRequest(inputs, { model, onProgress, signal }) {
+// `prompt`: candidate labels and hypothesis templates; the model's own
+// prompt profile unless another question is asked (dataset type).
+function postClassifyRequest(
+  inputs,
+  { model, prompt = model.prompt, onProgress, signal }
+) {
   const worker = getClassifierWorker();
   const requestId = `ai:${nextRequestId}`;
   nextRequestId += 1;
@@ -189,8 +199,8 @@ function postClassifyRequest(inputs, { model, onProgress, signal }) {
         ...getModelLocations(model),
         modelId: model.id,
         inputs,
-        candidateLabels: model.prompt.candidateLabels,
-        hypothesisTemplates: model.prompt.hypothesisTemplates,
+        candidateLabels: prompt.candidateLabels,
+        hypothesisTemplates: prompt.hypothesisTemplates,
       },
     });
   });
@@ -235,6 +245,34 @@ export function preloadColumnClassifier(modelId) {
       resolve({ loaded: false });
     }
   });
+}
+
+/**
+ * Asks the column classifier model which dataset type (datasetTypes.js) the
+ * column names describe. Only names are sent, never values. Runs in the
+ * shared worker queue, after any column classification already requested.
+ *
+ * @param {string[]} columnNames Column names of all tables of the dataset.
+ * @param {{ modelId: string, signal?: AbortSignal }} options
+ * @returns {Promise<{ type: string, score: number } | null>} null when no
+ *   type scores high enough, or there are no names.
+ */
+export async function classifyDatasetType(columnNames, { modelId, signal }) {
+  const model = resolveColumnClassifierModel(modelId);
+  if (!model) {
+    throw new ColumnClassifierError(
+      AI_ERROR_CODES.NO_MODEL_AVAILABLE,
+      `AI model is not supported: ${modelId}`
+    );
+  }
+  const text = buildDatasetTypePremise(columnNames);
+  if (!text) return null;
+  const { results } = await postClassifyRequest([{ key: "dataset", text }], {
+    model,
+    prompt: DATASET_TYPE_PROMPT,
+    signal,
+  });
+  return results[0] ? interpretDatasetTypeClassification(results[0]) : null;
 }
 
 export function isCancelledClassification(error) {

@@ -14,8 +14,9 @@ import { DIRECT_IDENTIFIER_CONFIDENCE } from "../profiling/directIdentifierRules
  * Only value-pattern evidence and explicit researcher decisions reach this
  * policy. AI and column-name screening (aiSuggestions/) is deliberately kept
  * out and never counts as confirmed identifier evidence: Add Dataset may
- * exclude a column on its own `aiAutoExcluded` flag, and requires a decision
- * for unresolved screening findings before submission (screeningStatus.js).
+ * exclude a column on its own `aiAutoExcluded` flag, and flags unresolved
+ * screening findings for review without blocking submission
+ * (screeningStatus.js).
  */
 
 const formatFallbackLabel = (value) =>

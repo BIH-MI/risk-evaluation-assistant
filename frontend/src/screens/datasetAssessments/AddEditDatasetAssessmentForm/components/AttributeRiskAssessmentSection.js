@@ -8,10 +8,6 @@ import PreviousAssessmentSection from "./PreviousAssessmentSection";
 import { buildAttributeEvidence } from "../evidence/buildAttributeEvidence";
 import { applyPreviousAssessmentValues } from "../evidence/previousAssessmentEvidence";
 
-// The assessment screen shows the first attributes of each table, without
-// pagination.
-const DISPLAYED_ATTRIBUTE_ROWS = 5;
-
 function AttributeRiskAssessmentSection({
   dataset,
   previousAssessments,
@@ -101,7 +97,6 @@ function AttributeRiskAssessmentSection({
         isReadOnly={isReadOnly}
         scoringSystem={scoringSystem}
         attributeEvidenceById={attributeEvidenceById}
-        maxRows={DISPLAYED_ATTRIBUTE_ROWS}
       />
     </RABox>
   );

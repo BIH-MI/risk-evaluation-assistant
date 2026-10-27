@@ -1,30 +1,11 @@
 import { hasCompleteProfiling } from "features/qidDiscovery/profiling/profilingOutcome";
-import { getUnresolvedScreening } from "features/qidDiscovery/ai/screeningStatus";
-
-// Attributes named in the unresolved-review message before "n more".
-const MAX_LISTED_REVIEWS = 8;
-
-function buildUnresolvedReviewMessage(t, unresolved) {
-  const listed = unresolved
-    .slice(0, MAX_LISTED_REVIEWS)
-    .map(({ tableName, attributeName }) => `${tableName}: ${attributeName}`);
-  if (unresolved.length > MAX_LISTED_REVIEWS) {
-    listed.push(
-      t("datasets.alerts.unresolvedMore", {
-        count: unresolved.length - MAX_LISTED_REVIEWS,
-      })
-    );
-  }
-  return t("datasets.alerts.unresolvedScreening", {
-    attributes: listed.join(", "),
-  });
-}
+import { getTablesBeingScreened } from "features/qidDiscovery/ai/screeningStatus";
 
 /**
  * Returns the first blocking table/configuration/screening message, or "".
  * Name validation and backend error handling belong to useDatasetSubmission.
  * HIGH value-pattern identifiers must be excluded even after a manual override;
- * review-level name/value findings can be resolved by an explicit keep decision.
+ * review-level name/value findings are flagged in the preview but never block.
  * Uploaded tables require a successful profile, including valid zero-subset runs.
  */
 export function validateDatasetSubmission({
@@ -55,18 +36,14 @@ export function validateDatasetSubmission({
   if (!directIdentifierValidation.canSubmit) {
     return directIdentifierSubmissionMessage;
   }
-  // Potential direct identifiers that are still included need an explicit
-  // decision (exclude, or confirm "keep included"); results still being
-  // computed could add such findings.
-  const { screeningTables, unresolved } = getUnresolvedScreening(
+  // Screening still running could still exclude attributes automatically.
+  const screeningTables = getTablesBeingScreened(
     tables,
     aiStateByTable,
     aiScreeningEnabled
   );
-  if (screeningTables.length || unresolved.length) {
-    return screeningTables.length
-      ? t("datasets.alerts.screeningInProgress")
-      : buildUnresolvedReviewMessage(t, unresolved);
+  if (screeningTables.length) {
+    return t("datasets.alerts.screeningInProgress");
   }
 
   return "";

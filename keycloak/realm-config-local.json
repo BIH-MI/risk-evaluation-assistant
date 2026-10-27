@@ -16,6 +16,19 @@
     "editUsernameAllowed": false,
     "clients": [
         {
+            "protocolMappers": [
+              {
+                "name": "rea-backend-audience",
+                "protocol": "openid-connect",
+                "protocolMapper": "oidc-audience-mapper",
+                "consentRequired": false,
+                "config": {
+                  "included.client.audience": "rea-backend",
+                  "id.token.claim": "false",
+                  "access.token.claim": "true"
+                }
+              }
+            ],
             "clientId": "rea-frontend",
             "enabled": true,
             "publicClient": true,

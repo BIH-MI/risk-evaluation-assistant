@@ -17,7 +17,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * The browser-local AI model registry (frontend/src/qidDiscovery/aiSuggestions/modelRegistry.json,
+ * The browser-local AI model registry (frontend/src/features/qidDiscovery/ai/modelRegistry.json,
  * copied to the classpath at build time). The backend uses it to install and serve model files (ids,
  * pinned repositories and revisions, SHA-256 hash of every file) and to check the screening
  * provenance that the browser reports for a new dataset against the registry.

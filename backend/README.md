@@ -59,9 +59,9 @@ Common values to update are:
 
 ### AI Model Installation
 
-How administrators manage models and how researchers use them is described in the [QID Discovery Configuration Guide](../docs/qid-discovery/README.md). This section covers the backend implementation.
+How administrators manage models and how researchers use them is described in the [QID Discovery README](../frontend/src/features/qidDiscovery/README.md). This section covers the backend implementation.
 
-The browser-local AI models used for direct-identifier screening are listed in the shared registry `frontend/src/qidDiscovery/aiSuggestions/modelRegistry.json`, which the Maven build copies into the backend (Docker builds from the repository root for this reason).
+The browser-local AI models used for direct-identifier screening are listed in the shared registry `frontend/src/features/qidDiscovery/ai/modelRegistry.json`, which the Maven build copies into the backend (Docker builds from the repository root for this reason).
 
 - `AiModelInstallationService` downloads a model's files from `<source>/<repository>/resolve/<revision>/<file>`, verifies each SHA-256 hash, and moves verified files into `<storage>/<model id>/<revision>/`. A model counts as installed only when all its files are verified; failed or interrupted installations can be retried. The default model is installed on startup.
 - `AiModelController`: `GET /api/ai-models` (installation status, authenticated), `POST /api/ai-models/{id}/install` (administrators only), and `GET /api/ai-models/{id}/files/{revision}/{file}` (public, but only files listed in the registry for an installed model).

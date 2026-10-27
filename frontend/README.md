@@ -125,16 +125,16 @@ When adding a data type, update the frontend type list, detector, table cell ico
 
 ### AI-Assisted Direct-Identifier Screening
 
-The user-facing behaviour (configuration, review rules, profiling) is described in the [QID Discovery Configuration Guide](../docs/qid-discovery/README.md). This section covers the implementation.
+The user-facing behaviour (configuration, review rules, profiling) is described in the [QID Discovery README](src/features/qidDiscovery/README.md). This section covers the implementation.
 
-Code lives in `frontend/src/qidDiscovery/aiSuggestions/` (classification) and `frontend/src/screens/datasets/AddDatasetForm/` (Add Dataset integration):
+Code lives in `frontend/src/features/qidDiscovery/` ([feature guide](src/features/qidDiscovery/README.md)):
 
 - `modelRegistry.json`: the single model registry, also packaged into the backend. Each entry pins a Hugging Face repository and commit, quantisation, the SHA-256 hash of every file, a prompt profile, a threshold profile and validation records.
 - `promptProfiles.js`, `semanticCategories.js`, `thresholds.js`: what a model is asked and how its scores are interpreted. Profiles are versioned by id and fingerprint; add a new profile instead of changing one that a validation record refers to.
 - `columnNameRules.js`: model-independent column-name evidence. Changing the phrases requires bumping `AI_NAME_RULES_VERSION`.
 - `columnSuggestions.js`: combines model output with column-name evidence and decides which results need a researcher decision (`needsResearcherReview`).
 - `worker/`: the Web Worker running Transformers.js with one adapter per inference strategy (currently zero-shot NLI). Requests are queued, only one model is kept in memory, and a worker that stops responding is terminated.
-- `AddDatasetForm/aiSuggestions/screeningStatus.js`: per-attribute status, review count and the submission check for unresolved findings.
+- `ai/screeningStatus.js`: per-attribute status, review count and the submission check for unresolved findings.
 
 The ONNX Runtime WASM files are copied from `node_modules` into `public/ai-assets/` by `scripts/copy-onnx-runtime.js` (runs before `npm start` and `npm run build`, verified against pinned hashes). Model files are not part of the frontend; the backend installs and serves them (see the [backend guide](../backend/README.md#ai-model-installation)).
 

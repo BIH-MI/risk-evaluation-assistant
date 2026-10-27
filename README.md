@@ -110,11 +110,11 @@ The combined evidence helps researchers distinguish potential direct identifiers
 
 The feature provides decision support rather than definitive identification. AI predictions may be inaccurate and should not be interpreted as calibrated probabilities or re-identification risk estimates.
 
-For details, see the [QID Discovery Configuration Guide](./docs/qid-discovery/README.md).
+For details, see the [QID Discovery README](./frontend/src/features/qidDiscovery/README.md).
 
 ## Developer Guides
 
-- [QID Discovery Configuration Guide](./docs/qid-discovery/README.md) (users and administrators)
+- [QID Discovery README](./frontend/src/features/qidDiscovery/README.md)
 - [Frontend guide](./frontend/README.md)
 - [Backend guide](./backend/README.md)
 

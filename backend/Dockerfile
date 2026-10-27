@@ -19,7 +19,7 @@ RUN mvn ${MAVEN_OPTS} dependency:go-offline
     
 # Copy the source code and the AI model registry shared with the frontend
 # (pom.xml reads it from ../frontend)
-COPY frontend/src/qidDiscovery/aiSuggestions/modelRegistry.json /frontend/src/qidDiscovery/aiSuggestions/modelRegistry.json
+COPY frontend/src/features/qidDiscovery/ai/modelRegistry.json /frontend/src/features/qidDiscovery/ai/modelRegistry.json
 COPY backend/src ./src
 
 # Build the JAR file

@@ -11,6 +11,12 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
+import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
@@ -33,6 +39,12 @@ public class WebSecurityConfig {
     @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}")
     private String jwkSetUri;
 
+    @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}")
+    private String issuerUri;
+
+    @Value("${jwt.auth.converter.resource-id}")
+    private String audience;
+
     public WebSecurityConfig(JwtAuthenticationTokenConverter jwtAuthenticationTokenConverter) {
         this.jwtAuthenticationTokenConverter = jwtAuthenticationTokenConverter;
     }
@@ -43,7 +55,16 @@ public class WebSecurityConfig {
      */
     @Bean
     public JwtDecoder jwtDecoder() {
-        return NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();    
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
+        OAuth2TokenValidator<Jwt> audienceValidator = jwt ->
+                jwt.getAudience() != null && jwt.getAudience().contains(audience)
+                        ? OAuth2TokenValidatorResult.success()
+                        : OAuth2TokenValidatorResult.failure(new OAuth2Error(
+                                "invalid_token", "Token is not intended for this API.", null));
+        // Supplying a JWK URL does not itself constrain the token's issuer/audience.
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+                JwtValidators.createDefaultWithIssuer(issuerUri), audienceValidator));
+        return decoder;
     }
 
     /**

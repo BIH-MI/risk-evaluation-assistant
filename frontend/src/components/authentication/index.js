@@ -1,3 +1,4 @@
+import { resetQidDiscoveryMetadata } from "features/qidDiscovery/state/qidDiscoverySlice";
 import React, { useState, useEffect } from "react";
 import { useAuth, hasAuthParams } from "react-oidc-context";
 import { useDispatch } from "react-redux";
@@ -30,6 +31,10 @@ export default function AuthenticationGuard({ children }) {
 
   const [showSpinner, setShowSpinner] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) dispatch(resetQidDiscoveryMetadata());
+  }, [dispatch, isAuthenticated, isLoading]);
 
   // Scroll to top on route change
   useEffect(() => {

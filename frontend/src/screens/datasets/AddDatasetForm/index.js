@@ -1,16 +1,10 @@
-// src/screens/datasets/AddDatasetForm/index.js
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { useNavigate } from "react-router-dom";
-import { useDispatch } from "react-redux";
+import { hasCompleteProfiling } from "features/qidDiscovery/profiling/profilingOutcome";
+import { useDatasetDiscovery } from "./hooks/useDatasetDiscovery";
+import { useDatasetSubmission } from "./hooks/useDatasetSubmission";
+import { DiscoveryConfigurationFields } from "features/qidDiscovery/components/DiscoveryConfigurationFields";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "react-oidc-context";
 import { useTranslation } from "react-i18next";
-import { MenuItem } from "@mui/material";
 
 import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
@@ -18,55 +12,22 @@ import OnBlurRAInput from "components/input/RAInput/OnBlurRAInput";
 import RAUserAutocomplete from "components/input/RAUserAutocomplete";
 import RAButton from "components/input/RAButton";
 import RAFloatingAlertStack from "components/feedback/RAFloatingAlertStack";
-import RAInput from "components/input/RAInput";
 import { CSVDropzone } from "utils/CSVDropzone";
-import { getErrorMessage } from "utils/errors";
-import {
-  AI_REVIEW_DECISIONS,
-  suggestsExclusionReview,
-} from "qidDiscovery/aiSuggestions";
-import { addDataset } from "store/datasets/datasetsThunks";
 import {
   buildDirectIdentifierSubmissionMessage,
   validateDirectIdentifierExclusions,
-} from "qidDiscovery";
-import { PreviewTable } from "./PreviewTable";
-import { buildAddDatasetPayload } from "./buildAddDatasetPayload";
-import { useDatasetSchemaEditor } from "./useDatasetSchemaEditor";
-import { useDatasetTableProfiling } from "./useDatasetTableProfiling";
-import { useQidDiscoveryConfigurationSelection } from "./useQidDiscoveryConfigurationSelection";
-import { useAiIdentifierSuggestions } from "./useAiIdentifierSuggestions";
-import { useAiModelSelection } from "./useAiModelSelection";
+} from "features/qidDiscovery/validation/directIdentifierPolicy";
+import { DatasetPreviewTable } from "./components/DatasetPreviewTable";
+import { useQidDiscoveryConfigurationSelection } from "features/qidDiscovery/hooks/useQidDiscoveryConfigurationSelection";
+import { useAiModelSelection } from "features/qidDiscovery/hooks/useAiModelSelection";
+import { getTableAiState } from "features/qidDiscovery/ai/aiSuggestionTableState";
 import {
-  AI_MODEL_STATUS,
-  getColumnClassifierModel,
-} from "qidDiscovery/aiSuggestions";
-import { useInitialQidProfiling } from "./useInitialQidProfiling";
-import { getTableAiState } from "./aiSuggestions/aiSuggestionTableState";
-import { getUnresolvedScreening } from "./aiSuggestions/screeningStatus";
-import { markQidStage, startQidPipelineTiming } from "./qidPipelineTimings";
+  markQidStage,
+  startQidPipelineTiming,
+} from "features/qidDiscovery/diagnostics/qidPipelineTimings";
 
-const getColumnIdentity = (column = {}) => column.sourceField || column.field;
-
-const DATASET_NAME_ALREADY_EXISTS = "DATASET_NAME_ALREADY_EXISTS";
-// Attributes named in the unresolved-review message before "n more".
-const MAX_LISTED_REVIEWS = 8;
-
-function buildUnresolvedReviewMessage(t, unresolved) {
-  const listed = unresolved
-    .slice(0, MAX_LISTED_REVIEWS)
-    .map(({ tableName, attributeName }) => `${tableName}: ${attributeName}`);
-  if (unresolved.length > MAX_LISTED_REVIEWS) {
-    listed.push(
-      t("datasets.alerts.unresolvedMore", { count: unresolved.length - MAX_LISTED_REVIEWS })
-    );
-  }
-  return t("datasets.alerts.unresolvedScreening", { attributes: listed.join(", ") });
-}
 
 export default function AddDatasetForm() {
-  const navigate = useNavigate();
-  const dispatch = useDispatch();
   const { user } = useAuth();
   const { t } = useTranslation();
   const token = user?.access_token;
@@ -115,39 +76,11 @@ export default function AddDatasetForm() {
     [directIdentifierValidation, t]
   );
 
-  const { prepareTable, runInitialProfile, refreshTable, disposeTableProfile } =
-    useDatasetTableProfiling({
-      tables,
-      setTables,
-      setErrors,
-      t,
-    });
-
-  // The schema editor (created below) applies AI exclusions; the AI hook is
-  // created first because the schema editor needs its rename/delete handlers.
-  const applyAiExclusionDecisionsRef = useRef(null);
-  const handleAiExclusionDecisions = useCallback((tableId, decisions) => {
-    applyAiExclusionDecisionsRef.current?.(tableId, decisions);
-  }, []);
-
   const {
     aiStateByTable,
     classifyFields,
     preloadModel,
-    suppressLateAutoExclusions,
-    handleColumnRenamed,
-    handleColumnDeleted,
-    handleTableRemoved,
-    handleManualExclusionChange,
-    reviewSuggestion,
-  } = useAiIdentifierSuggestions({
-    tables,
-    onAiExclusionDecisions: handleAiExclusionDecisions,
-    modelId: selectedAiModelId,
-    enabled: aiScreeningEnabled,
-  });
-
-  const {
+    prepareUploadedCsv,
     addUploadedTablePlaceholder,
     addManualTable,
     addAttribute,
@@ -156,80 +89,17 @@ export default function AddDatasetForm() {
     renameTable,
     renameAttribute,
     changeAttributeDataType,
-    changeAttributeExclusion,
-    confirmAttributeExclusion,
-    applyAiExclusionDecisions,
-  } = useDatasetSchemaEditor({
+    handleExcludedChange,
+    handleConfirmScreening,
+  } = useDatasetDiscovery({
     tables,
     setTables,
     setErrors,
     setWarnings,
-    refreshTable,
-    disposeTableProfile,
-    onColumnRenamed: handleColumnRenamed,
-    onColumnDeleted: handleColumnDeleted,
-    onTableRemoved: handleTableRemoved,
+    selectedAiModelId,
+    aiScreeningEnabled,
     t,
   });
-
-  applyAiExclusionDecisionsRef.current = applyAiExclusionDecisions;
-
-  // Runs each uploaded table's first subset profiling once, after CSV
-  // preparation and AI screening have both finished (or AI timed out).
-  useInitialQidProfiling({
-    tables,
-    aiStateByTable,
-    runInitialProfile,
-    suppressLateAutoExclusions,
-  });
-
-  const findColumn = useCallback(
-    (tableId, columnKey) =>
-      tables
-        .find((table) => table._localTableId === tableId)
-        ?.columnMeta?.find((column) => getColumnIdentity(column) === columnKey),
-    [tables]
-  );
-
-  /**
-   * Manual checkbox changes go through the existing exclusion workflow
-   * (override warnings + refreshUploadedTableProfile) and also count as the
-   * researcher's decision on any AI suggestion for that column.
-   */
-  const handleExcludedChange = useCallback(
-    (tableId, columnKey, excluded) => {
-      const column = findColumn(tableId, columnKey);
-      handleManualExclusionChange(tableId, columnKey, Boolean(column?.excluded));
-      changeAttributeExclusion(tableId, columnKey, excluded);
-    },
-    [changeAttributeExclusion, findColumn, handleManualExclusionChange]
-  );
-
-  /**
-   * Records the researcher's decision to keep the column's current exclusion
-   * state ("Confirm exclusion" / "Keep included"). The exclusion does not
-   * change, so profiling is not recomputed.
-   */
-  const handleConfirmScreening = useCallback(
-    (tableId, columnKey) => {
-      const column = findColumn(tableId, columnKey);
-      if (!column) return;
-      const excluded = Boolean(column.excluded);
-      const suggestion = aiStateByTable[tableId]?.suggestions?.[columnKey];
-      reviewSuggestion(
-        tableId,
-        columnKey,
-        excluded
-          ? AI_REVIEW_DECISIONS.ACCEPTED
-          : suggestsExclusionReview(suggestion)
-          ? AI_REVIEW_DECISIONS.REJECTED
-          : AI_REVIEW_DECISIONS.ACKNOWLEDGED,
-        excluded
-      );
-      confirmAttributeExclusion(tableId, columnKey);
-    },
-    [aiStateByTable, confirmAttributeExclusion, findColumn, reviewSuggestion]
-  );
 
   useEffect(() => {
     if (!qidConfigurationsLoadFailed) return;
@@ -243,9 +113,7 @@ export default function AddDatasetForm() {
   }, [qidConfigurationsLoadError, qidConfigurationsLoadFailed, t]);
 
   const clearNameError = useCallback(() => {
-    setErrors((current) =>
-      current.name ? { ...current, name: "" } : current
-    );
+    setErrors((current) => (current.name ? { ...current, name: "" } : current));
   }, []);
 
   const handleNameCommit = useCallback(
@@ -295,148 +163,42 @@ export default function AddDatasetForm() {
     (file, tableId) => {
       startQidPipelineTiming(tableId);
       preloadModel(tableId);
-      prepareTable(file, tableId, selectedQidDiscoveryConfiguration, {
+      prepareUploadedCsv(file, tableId, selectedQidDiscoveryConfiguration, {
         onFields: (fields) => {
           markQidStage(tableId, "csvFieldsAvailableAtMs");
           classifyFields(tableId, fields);
         },
       });
     },
-    [classifyFields, preloadModel, prepareTable, selectedQidDiscoveryConfiguration]
-  );
-
-  // The selected model is recorded as provenance only if it actually
-  // classified at least one column (not when AI was skipped or unavailable).
-  const aiScreeningModelUsed = useMemo(
-    () =>
-      Boolean(selectedAiModelId) &&
-      Object.values(aiStateByTable).some((state) =>
-        Object.values(state?.suggestions || {}).some(
-          (suggestion) =>
-            suggestion.model?.registryId === selectedAiModelId &&
-            suggestion.modelStatus !== AI_MODEL_STATUS.UNAVAILABLE
-        )
-      ),
-    [aiStateByTable, selectedAiModelId]
-  );
-
-  /**
-   * Persists aggregate profiling output and reviewed exclusion decisions. Raw
-   * rows, encoded columns, and subset partitions remain browser-local.
-   */
-  const handleSubmit = useCallback(
-    (event) => {
-      event.preventDefault();
-      if (!name.trim()) return;
-      if (!selectedQidDiscoveryConfiguration) {
-        setErrors((current) => ({
-          ...current,
-          tables: t("datasets.alerts.qidConfigurationRequiredForSubmit"),
-        }));
-        return;
-      }
-      if (!tables.length) {
-        setErrors((current) => ({
-          ...current,
-          tables: t("datasets.alerts.noTables"),
-        }));
-        return;
-      }
-      if (tables.some((table) => table.isParsing || table.isProfiling)) {
-        setErrors((current) => ({
-          ...current,
-          tables: t(
-            "datasets.alerts.parsingInProgress",
-            "Please wait until all CSV files finish parsing."
-          ),
-        }));
-        return;
-      }
-      if (!directIdentifierValidation.canSubmit) {
-        setErrors((current) => ({
-          ...current,
-          tables: directIdentifierSubmissionMessage,
-        }));
-        return;
-      }
-      // Potential direct identifiers that are still included need an explicit
-      // decision (exclude, or confirm "keep included"); results still being
-      // computed could add such findings.
-      const { screeningTables, unresolved } = getUnresolvedScreening(
-        tables,
-        aiStateByTable,
-        aiScreeningEnabled
-      );
-      if (screeningTables.length || unresolved.length) {
-        setErrors((current) => ({
-          ...current,
-          tables: screeningTables.length
-            ? t("datasets.alerts.screeningInProgress")
-            : buildUnresolvedReviewMessage(t, unresolved),
-        }));
-        return;
-      }
-
-      dispatch(
-        addDataset({
-          newDataset: buildAddDatasetPayload({
-            name,
-            description,
-            sharedUsers,
-            selectedQidDiscoveryConfiguration,
-            aiScreeningModelId: aiScreeningModelUsed ? selectedAiModelId : null,
-            tables,
-          }),
-          token,
-        })
-      )
-        .unwrap()
-        .then(() => {
-          navigate("/datasets");
-        })
-        .catch((error) => {
-          if (error?.code === DATASET_NAME_ALREADY_EXISTS) {
-            setErrors((current) => ({
-              ...current,
-              name: t("datasets.alerts.duplicateDatasetName"),
-              tables: "",
-            }));
-            return;
-          }
-
-          setErrors((current) => ({
-            ...current,
-            tables: getErrorMessage(
-              error,
-              t("datasets.alerts.submissionFailed")
-            ),
-          }));
-        });
-    },
     [
-      aiScreeningEnabled,
-      aiScreeningModelUsed,
-      aiStateByTable,
-      description,
-      directIdentifierSubmissionMessage,
-      directIdentifierValidation,
-      dispatch,
-      name,
-      navigate,
-      selectedAiModelId,
+      classifyFields,
+      preloadModel,
+      prepareUploadedCsv,
       selectedQidDiscoveryConfiguration,
-      sharedUsers,
-      tables,
-      t,
-      token,
     ]
   );
+
+  const handleSubmit = useDatasetSubmission({
+    name,
+    description,
+    sharedUsers,
+    tables,
+    selectedQidDiscoveryConfiguration,
+    selectedAiModelId,
+    aiStateByTable,
+    aiScreeningEnabled,
+    directIdentifierValidation,
+    directIdentifierSubmissionMessage,
+    token,
+    t,
+    setErrors,
+  });
 
   const disableSubmit =
     !name.trim() ||
     !selectedQidDiscoveryConfiguration ||
     !tables.length ||
-    tables.some((table) => table.isParsing || table.isProfiling) ||
+    tables.some((table) => table.isParsing || table.isProfiling || !hasCompleteProfiling(table)) ||
     !directIdentifierValidation.canSubmit;
   const hasReadyTables = tables.some(
     (table) => !table.isParsing && Array.isArray(table.columnMeta)
@@ -491,119 +253,29 @@ export default function AddDatasetForm() {
           placeholder={t("datasets.form.searchUsersPlaceholder")}
         />
 
-        <RAInput
-          select
-          label={t("datasets.form.qidDiscoveryConfigurationLabel")}
-          value={selectedQidDiscoveryConfigurationId}
-          onChange={(event) =>
-            setSelectedQidDiscoveryConfigurationId(event.target.value)
+        <DiscoveryConfigurationFields
+          t={t}
+          selectedQidDiscoveryConfigurationId={
+            selectedQidDiscoveryConfigurationId
           }
-          fullWidth
-          disabled={qidConfigurationsLoading || tables.length > 0}
-          error={Boolean(selectedQidDiscoveryConfigurationError)}
-          helperText={
+          setSelectedQidDiscoveryConfigurationId={
+            setSelectedQidDiscoveryConfigurationId
+          }
+          qidConfigurationsLoading={qidConfigurationsLoading}
+          tables={tables}
+          selectedQidDiscoveryConfigurationError={
             selectedQidDiscoveryConfigurationError
-              ? t("datasets.alerts.qidConfigurationInvalid")
-              : ""
           }
-        >
-          {qidDiscoveryConfigurations.map((configuration) => (
-            <MenuItem key={configuration.id} value={String(configuration.id)}>
-              <RABox display="flex" flexDirection="column">
-                <RATypography variant="button">
-                  {configuration.name}
-                </RATypography>
-                <RATypography variant="caption" color="text">
-                  {t(
-                    "datasets.form.qidDiscoveryConfigurationSummary",
-                    "Max subset size {{maxSubsetSize}}, limit {{maxEvaluatedSubsets}} subsets",
-                    {
-                      maxSubsetSize:
-                        configuration.profiling?.maxSubsetSize ?? "-",
-                      maxEvaluatedSubsets:
-                        configuration.profiling?.maxEvaluatedSubsets ?? "-",
-                    }
-                  )}
-                </RATypography>
-              </RABox>
-            </MenuItem>
-          ))}
-        </RAInput>
-
-        {aiScreeningEnabled && (
-        <RAInput
-          select
-          label={t("datasets.form.aiModelLabel", "AI Model")}
-          value={selectedAiModelId ?? ""}
-          onChange={(event) => setSelectedAiModelId(event.target.value)}
-          fullWidth
-          // One model per dataset: results of different models are not mixed.
-          // Researchers choose only when more than one model is usable;
-          // otherwise the configured default is used automatically.
-          disabled={
-            aiModelsLoading || !allowAiModelSelection || tables.length > 0
-          }
-          helperText={
-            !aiModelsLoading &&
-            aiModelUnavailableReason &&
-            (!aiModels.length || !selectedAiModelId)
-              ? t(
-                  aiModels.length
-                    ? "datasets.form.aiModelDefaultUnavailable"
-                    : "datasets.form.aiModelUnavailable",
-                  {
-                    model:
-                      getColumnClassifierModel(aiModelUnavailableReason.modelId)
-                        ?.displayName || aiModelUnavailableReason.modelId,
-                    reason: t(
-                      `qidDiscoveryConfiguration.aiScreening.installation.${aiModelUnavailableReason.reason}`,
-                      { detail: aiModelUnavailableReason.detail }
-                    ),
-                  }
-                )
-              : !aiModelsLoading && !aiModels.length
-              ? t(
-                  "datasets.form.aiModelNoneAvailable",
-                  "No AI model is available. Review the attributes manually."
-                )
-              : tables.length > 0
-              ? t(
-                  "datasets.form.aiModelLocked",
-                  "The AI model cannot be changed after tables have been added, so that all tables of this dataset are assessed by the same model. Remove all tables to change it."
-                )
-              : !allowAiModelSelection
-              ? t(
-                  "datasets.form.aiModelFromConfiguration",
-                  "Set by the selected QID Discovery configuration. The model analyses column names locally in your browser."
-                )
-              : t(
-                  "datasets.form.aiModelHelper",
-                  "The model analyses column names locally in your browser. Column names and data values are never sent to external services."
-                )
-          }
-        >
-          {aiModels.map((model) => (
-            <MenuItem key={model.id} value={model.id}>
-              <RABox display="flex" flexDirection="column">
-                <RATypography variant="button">
-                  {model.id === defaultAiModelId
-                    ? t("datasets.form.aiModelDefaultName", "{{name}} (Default)", {
-                        name: model.displayName,
-                      })
-                    : model.displayName}
-                </RATypography>
-                <RATypography variant="caption" color="text">
-                  {model.autoExclusionApproved
-                    ? t("datasets.form.aiModelApproved")
-                    : model.configurationEvaluated
-                    ? t("datasets.form.aiModelEvaluated")
-                    : t("datasets.form.aiModelNotEvaluated")}
-                </RATypography>
-              </RABox>
-            </MenuItem>
-          ))}
-        </RAInput>
-        )}
+          qidDiscoveryConfigurations={qidDiscoveryConfigurations}
+          aiScreeningEnabled={aiScreeningEnabled}
+          selectedAiModelId={selectedAiModelId}
+          setSelectedAiModelId={setSelectedAiModelId}
+          aiModelsLoading={aiModelsLoading}
+          allowAiModelSelection={allowAiModelSelection}
+          aiModelUnavailableReason={aiModelUnavailableReason}
+          aiModels={aiModels}
+          defaultAiModelId={defaultAiModelId}
+        />
 
         <CSVDropzone
           onParse={handleTableParse}
@@ -652,7 +324,7 @@ export default function AddDatasetForm() {
         )}
 
         {tables.map((table) => (
-          <PreviewTable
+          <DatasetPreviewTable
             key={table._localTableId}
             file={table}
             onRemove={removeTable}
@@ -691,8 +363,7 @@ export default function AddDatasetForm() {
             id: "tables",
             color: "error",
             message: errors.tables,
-            onClose: () =>
-              setErrors((current) => ({ ...current, tables: "" })),
+            onClose: () => setErrors((current) => ({ ...current, tables: "" })),
           },
           {
             id: "tableName",

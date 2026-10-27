@@ -39,8 +39,8 @@ import ConfigurationPage from "./screens/configurations";
 import AddEditConfigurationForm from "./screens/configurations/AddEditConfigurationForm";
 import AttributeScoringSystems from "./screens/attributeScoringSystems";
 import AddEditAttributeScoringSystem from "./screens/attributeScoringSystems/AddEditAttributeScoringSystem";
-import QidDiscoveryConfiguration from "./screens/qidDiscoveryConfiguration";
-import AddEditQidDiscoveryConfiguration from "./screens/qidDiscoveryConfiguration/AddEditQidDiscoveryConfiguration";
+import QidDiscoveryConfiguration from "./features/qidDiscovery/screens/QidDiscoveryConfiguration";
+import AddEditQidDiscoveryConfiguration from "./features/qidDiscovery/screens/AddEditQidDiscoveryConfiguration";
 
 const routes = [
   {

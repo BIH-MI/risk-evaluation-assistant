@@ -33,15 +33,11 @@ import {
 } from "../../../store/datasets/datasetsThunks";
 import { useActiveLock } from "../../../hooks/locks/useActiveLock";
 import { getErrorMessage } from "../../../utils/errors";
-import {
-  applyDirectIdentifierEvidenceDefaults,
-  applySchemaDirectIdentifierEvidence,
-  buildDirectIdentifierOverrideWarning,
-  buildDirectIdentifierReviewMessage,
-  buildDirectIdentifierSubmissionMessage,
-  isDefaultExcludedIdentifierColumn,
-  validateDirectIdentifierExclusions,
-} from "qidDiscovery";
+import { applyDirectIdentifierEvidenceDefaults,
+  applySchemaDirectIdentifierEvidence, buildDirectIdentifierOverrideWarning,
+  buildDirectIdentifierReviewMessage, buildDirectIdentifierSubmissionMessage,
+  isDefaultExcludedIdentifierColumn, validateDirectIdentifierExclusions }
+  from "features/qidDiscovery/validation/directIdentifierPolicy";
 
 export default function EditDatasetForm() {
   const dispatch = useDispatch();

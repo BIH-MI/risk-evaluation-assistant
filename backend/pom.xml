@@ -113,7 +113,7 @@
 			</resource>
 			<!-- The AI model registry is shared with the frontend (single source of truth). -->
 			<resource>
-				<directory>${project.basedir}/../frontend/src/qidDiscovery/aiSuggestions</directory>
+				<directory>${project.basedir}/../frontend/src/features/qidDiscovery/ai</directory>
 				<includes>
 					<include>modelRegistry.json</include>
 				</includes>

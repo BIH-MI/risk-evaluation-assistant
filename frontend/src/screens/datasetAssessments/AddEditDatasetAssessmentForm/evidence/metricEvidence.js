@@ -1,4 +1,4 @@
-import { summarizeSubsetEvidence } from "qidDiscovery";
+import { summarizeSubsetEvidence } from "features/qidDiscovery/profiling/subsetEvidenceSummary";
 
 const individualDistinguishabilityFields = [
   "distinction",

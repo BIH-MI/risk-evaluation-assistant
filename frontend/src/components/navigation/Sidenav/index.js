@@ -14,6 +14,7 @@ import sidenavLogoLabel from "components/navigation/Sidenav/styles/sidenav";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "react-oidc-context";
 import { isAdminUser } from "utils/auth";
+import { useSidenavDockable } from "hooks/layout/useSidenavDockable";
 
 import {
   setMiniSidenav,
@@ -48,11 +49,24 @@ function Sidenav({ color, brand, brandName, routes, ...rest }) {
   }
 
   const closeSidenav = () => setMiniSidenav(dispatch, true);
+  // Docked beside the page, or hidden and opened over it (laptops and pages
+  // that need the full width). `miniSidenav` means closed.
+  const dockable = useSidenavDockable();
+
+  // Default per mode: open when docked, closed otherwise. Applied only when
+  // the mode changes, so a researcher's own toggle is kept while navigating.
+  useEffect(() => {
+    setMiniSidenav(dispatch, !dockable);
+  }, [dispatch, dockable]);
+
+  // Opened over the page, the sidebar closes after navigating.
+  useEffect(() => {
+    if (!dockable) setMiniSidenav(dispatch, true);
+  }, [dispatch, dockable, location.pathname]);
 
   useEffect(() => {
-    // A function that sets the mini state of the sidenav.
+    // Transparent and white sidenav styles are not used on small screens.
     function handleMiniSidenav() {
-      setMiniSidenav(dispatch, window.innerWidth < 1200);
       setTransparentSidenav(
         dispatch,
         window.innerWidth < 1200 ? false : transparentSidenav
@@ -146,12 +160,22 @@ function Sidenav({ color, brand, brandName, routes, ...rest }) {
   return (
     <SidenavRoot
       {...rest}
-      variant="permanent"
-      ownerState={{ transparentSidenav, whiteSidenav, miniSidenav, darkMode }}
+      // Over the page it is a temporary drawer: a backdrop, Escape or a
+      // click outside closes it.
+      variant={dockable ? "permanent" : "temporary"}
+      open={!miniSidenav}
+      onClose={closeSidenav}
+      ownerState={{
+        transparentSidenav,
+        whiteSidenav,
+        miniSidenav,
+        darkMode,
+        docked: dockable,
+      }}
     >
       <RABox pt={3} pb={1} px={4} textAlign="center">
         <RABox
-          display={{ xs: "block", xl: "none" }}
+          display={dockable ? "none" : "block"}
           position="absolute"
           top={0}
           right={0}

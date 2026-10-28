@@ -108,13 +108,10 @@ function navbar(theme, ownerState) {
     },
   });
   
-  const navbarMobileMenu = ({ breakpoints }) => ({
+  // Opens and closes the sidebar at every width (see useSidenavDockable).
+  const navbarMobileMenu = () => ({
     display: "inline-block",
     lineHeight: 0,
-  
-    [breakpoints.up("xl")]: {
-      display: "none",
-    },
   });
   
   export { navbar, navbarContainer, navbarIconButton, navbarMobileMenu, navbarRow };

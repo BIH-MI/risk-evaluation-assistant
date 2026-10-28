@@ -2,8 +2,9 @@ import Drawer from "@mui/material/Drawer";
 import { styled } from "@mui/material/styles";
 
 export default styled(Drawer)(({ theme, ownerState }) => {
-  const { palette, boxShadows, transitions, breakpoints, functions } = theme;
-  const { transparentSidenav, whiteSidenav, miniSidenav, darkMode } = ownerState;
+  const { palette, boxShadows, transitions, functions } = theme;
+  const { transparentSidenav, whiteSidenav, miniSidenav, darkMode, docked } =
+    ownerState;
 
   const sidebarWidth = 250;
   const { transparent, gradients, white, background } = palette;
@@ -14,55 +15,37 @@ export default styled(Drawer)(({ theme, ownerState }) => {
     ? background.sidenav
     : linearGradient(gradients.dark.main, gradients.dark.state);
 
-  if (transparentSidenav) {
+  // Over the page, a transparent sidenav would be unreadable.
+  const isTransparent = transparentSidenav && docked;
+  if (isTransparent) {
     backgroundValue = transparent.main;
   } else if (whiteSidenav) {
     backgroundValue = white.main;
   }
 
-  // styles for the sidenav when miniSidenav={false}
+  // Open: docked beside the page or over it (miniSidenav={false}).
   const drawerOpenStyles = () => ({
     background: backgroundValue,
+    width: sidebarWidth,
+    left: "0",
+    boxShadow: isTransparent ? "none" : xxl,
+    marginBottom: isTransparent ? 0 : "inherit",
     transform: "translateX(0)",
     transition: transitions.create("transform", {
       easing: transitions.easing.sharp,
       duration: transitions.duration.shorter,
     }),
-
-    [breakpoints.up("xl")]: {
-      boxShadow: transparentSidenav ? "none" : xxl,
-      marginBottom: transparentSidenav ? 0 : "inherit",
-      left: "0",
-      width: sidebarWidth,
-      transform: "translateX(0)",
-      transition: transitions.create(["width", "background-color"], {
-        easing: transitions.easing.sharp,
-        duration: transitions.duration.enteringScreen,
-      }),
-    },
   });
 
-  // styles for the sidenav when miniSidenav={true}
+  // Closed: moved out of view at every width (miniSidenav={true}).
   const drawerCloseStyles = () => ({
     background: backgroundValue,
+    width: sidebarWidth,
     transform: `translateX(${pxToRem(-320)})`,
     transition: transitions.create("transform", {
       easing: transitions.easing.sharp,
       duration: transitions.duration.shorter,
     }),
-
-    [breakpoints.up("xl")]: {
-      boxShadow: transparentSidenav ? "none" : xxl,
-      marginBottom: transparentSidenav ? 0 : "inherit",
-      left: "0",
-      width: pxToRem(96),
-      overflowX: "hidden",
-      transform: "translateX(0)",
-      transition: transitions.create(["width", "background-color"], {
-        easing: transitions.easing.sharp,
-        duration: transitions.duration.shorter,
-      }),
-    },
   });
 
   return {

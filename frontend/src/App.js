@@ -1,5 +1,5 @@
 // src/App.jsx
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import CssBaseline from "@mui/material/CssBaseline";
@@ -16,7 +16,7 @@ import themeDark from "assets/theme-dark";
 import AuthenticationGuard from "components/authentication";
 import LoginRedirect from "components/authentication/LoginRedirect";
 
-import { setMiniSidenav, useMaterialUIController } from "context";
+import { useMaterialUIController } from "context";
 import routes from "routes.js";
 import { useAuth } from "react-oidc-context";
 import { isAdminUser } from "utils/auth";
@@ -29,14 +29,9 @@ function flattenRoutes(routeItems) {
 }
 
 export default function App() {
-    const [controller, materialDispatch] = useMaterialUIController();
-    const {
-        miniSidenav,
-        sidenavColor,
-        darkMode,
-    } = controller;
+    const [controller] = useMaterialUIController();
+    const { sidenavColor, darkMode } = controller;
 
-    const [onMouseEnter, setOnMouseEnter] = useState(false);
     const { pathname } = useLocation();
     const { user } = useAuth();
     const isAdmin = isAdminUser(user);
@@ -47,20 +42,6 @@ export default function App() {
         document.documentElement.scrollTop = 0;
         document.scrollingElement.scrollTop = 0;
     }, [pathname]);
-
-    // Auto-expand / collapse mini sidenav on hover
-    const handleOnMouseEnter = () => {
-        if (miniSidenav && !onMouseEnter) {
-            setMiniSidenav(materialDispatch, false);
-            setOnMouseEnter(true);
-        }
-    };
-    const handleOnMouseLeave = () => {
-        if (onMouseEnter) {
-            setMiniSidenav(materialDispatch, true);
-            setOnMouseEnter(false);
-        }
-    };
 
     return (
         <ThemeProvider theme={darkMode ? themeDark : theme}>
@@ -76,8 +57,6 @@ export default function App() {
                                 color={sidenavColor}
                                 brand={logo}
                                 brandName="Risk Evaluation Assistant"
-                                onMouseEnter={handleOnMouseEnter}
-                                onMouseLeave={handleOnMouseLeave}
                                 routes={routes}
                             />
                             <Configurator />

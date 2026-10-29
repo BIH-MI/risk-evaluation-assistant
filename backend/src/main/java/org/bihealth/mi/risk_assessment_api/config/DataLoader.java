@@ -55,7 +55,7 @@ import static java.util.Map.entry;
 public class DataLoader implements CommandLineRunner {
 
     private static final String DEMO_CREATOR = "user";
-    private static final String LEOSS_DATASET_NAME = DemoDatasetEvidenceSeeder.LEOSS_DATASET_NAME;
+    private static final String LEOSS_DATASET_NAME = "LEOSS Public Use File";
     private static final String ACADEMIC_RECIPIENT_NAME = "Academic Research Institute";
     private static final String COMMERCIAL_RECIPIENT_NAME = "Commercial Partner";
     private static final String PUBLIC_RECIPIENT_NAME = "Public Open Data Portal";

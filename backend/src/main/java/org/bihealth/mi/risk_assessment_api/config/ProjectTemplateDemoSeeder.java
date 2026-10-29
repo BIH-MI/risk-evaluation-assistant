@@ -82,7 +82,7 @@ public class ProjectTemplateDemoSeeder implements CommandLineRunner {
 
     private static final String DEMO_ADMIN = "admin";
     private static final String DEMO_CREATOR = "user";
-    private static final String LEOSS_DATASET_NAME = DemoDatasetEvidenceSeeder.LEOSS_DATASET_NAME;
+    private static final String LEOSS_DATASET_NAME = "LEOSS Public Use File";
     private static final String LEGACY_LEOSS_PROJECT_NAME = "LEOSS Mitigation Planning Demo";
     private static final String ACADEMIC_RECIPIENT_NAME = "Academic Research Institute";
     private static final String COMMERCIAL_RECIPIENT_NAME = "Commercial Partner";

@@ -68,6 +68,9 @@ public class InMemoryDemoSeed {
         when(scoring.getDefaultActiveVersion()).thenReturn(scoringVersion);
 
         DatasetRepository datasetRepository = store(mock(DatasetRepository.class), datasets, Dataset::setId);
+        evidenceSeeder = new DemoDatasetEvidenceSeeder(datasetRepository, mock(QidDiscoveryConfigurationRepository.class),
+                mock(org.bihealth.mi.risk_assessment_api.service.QidDiscoveryConfigurationService.class),
+                mock(org.bihealth.mi.risk_assessment_api.service.AiModelRegistry.class));
         dataLoader = new DataLoader(
                 mock(QuestionRepository.class),
                 store(mock(AnswerRepository.class), answers, Answer::setId),
@@ -82,15 +85,12 @@ public class InMemoryDemoSeed {
                 store(mock(RecipientAssessmentRepository.class), recipientAssessments, RecipientAssessment::setId),
                 store(mock(DataSharingActivityRepository.class), activities, DataSharingActivity::setId),
                 configurations,
-                scoring);
+                scoring, evidenceSeeder);
         ReflectionTestUtils.setField(dataLoader, "loadSampleData", true);
-        evidenceSeeder = new DemoDatasetEvidenceSeeder(datasetRepository, mock(QidDiscoveryConfigurationRepository.class));
-        ReflectionTestUtils.setField(evidenceSeeder, "loadSampleData", true);
     }
 
     public void run() throws Exception {
         dataLoader.run();
-        evidenceSeeder.run();
     }
 
     public DataSharingActivity activity(String name) {

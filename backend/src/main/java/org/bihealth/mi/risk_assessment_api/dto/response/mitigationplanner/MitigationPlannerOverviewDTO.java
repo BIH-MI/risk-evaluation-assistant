@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.bihealth.mi.risk_assessment_api.dto.request.activity.ActivityRequirementsDTO;
 import org.bihealth.mi.risk_assessment_api.enums.DataType;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationActionType;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationAttributeRole;
@@ -12,10 +13,9 @@ import org.bihealth.mi.risk_assessment_api.enums.MitigationOpportunityStatus;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationParameterCode;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationRecordRetentionEffect;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationResultingDataForm;
-import org.bihealth.mi.risk_assessment_api.enums.MitigationSharingArrangement;
 import org.bihealth.mi.risk_assessment_api.enums.ParameterValueCompatibility;
 import org.bihealth.mi.risk_assessment_api.enums.PlannerAvailability;
-import org.bihealth.mi.risk_assessment_api.enums.ProjectConstraintResult;
+import org.bihealth.mi.risk_assessment_api.enums.RequirementCheckResult;
 import org.bihealth.mi.risk_assessment_api.enums.RiskDriverPriority;
 import org.bihealth.mi.risk_assessment_api.enums.RiskDriverSource;
 import org.bihealth.mi.risk_assessment_api.enums.RiskThresholdSource;
@@ -36,11 +36,10 @@ import lombok.NoArgsConstructor;
 public class MitigationPlannerOverviewDTO {
 
     private ActivitySummary activity;
-    private ProjectSummary project;
     private KnowledgeBaseSummary knowledgeBase;
     private InputAvailability availability = new InputAvailability();
     private BaselineRisk baselineRisk;
-    private List<ProjectConstraint> projectConstraints = new ArrayList<>();
+    private ActivityRequirementsDTO activityRequirements;
     private RiskDriverGroups riskDrivers = new RiskDriverGroups();
     private OpportunitySection<DataOpportunity> dataOpportunities = new OpportunitySection<>();
     private OpportunitySection<ContextOpportunity> contextOpportunities = new OpportunitySection<>();
@@ -51,10 +50,6 @@ public class MitigationPlannerOverviewDTO {
     public static class ActivitySummary {
         private Long activityId;
         private String activityName;
-        // Derived from the Project's sharing-model requirement; null when the Project does not define one.
-        private MitigationSharingArrangement sharingArrangement;
-        // Project access-pattern requirement value (raw option code), null when not defined.
-        private String accessPattern;
         private List<DatasetSummary> datasets = new ArrayList<>();
         private List<RecipientSummary> recipients = new ArrayList<>();
     }
@@ -78,13 +73,6 @@ public class MitigationPlannerOverviewDTO {
         private String frameworkName;
     }
 
-    @Data
-    @NoArgsConstructor
-    public static class ProjectSummary {
-        private Long projectId;
-        private String projectName;
-        private String templateName;
-    }
 
     @Data
     @NoArgsConstructor
@@ -98,7 +86,6 @@ public class MitigationPlannerOverviewDTO {
     @Data
     @NoArgsConstructor
     public static class InputAvailability {
-        private PlannerAvailability project = PlannerAvailability.MISSING;
         private PlannerAvailability datasetAssessment = PlannerAvailability.MISSING;
         private PlannerAvailability recipientAssessment = PlannerAvailability.MISSING;
         private PlannerAvailability riskResult = PlannerAvailability.MISSING;
@@ -120,18 +107,6 @@ public class MitigationPlannerOverviewDTO {
         private Double attackProbability;
         // Required data-risk threshold R_anon; this is a requirement, not a measured q.
         private Double anonymizationThreshold;
-    }
-
-    @Data
-    @NoArgsConstructor
-    public static class ProjectConstraint {
-        private String key;
-        private String label;
-        private String valueType;
-        private String constraintType;
-        // Text form of the stored value; selections are comma separated. Never a default.
-        private String value;
-        private String unit;
     }
 
     @Data
@@ -188,15 +163,15 @@ public class MitigationPlannerOverviewDTO {
     @NoArgsConstructor
     public static class ContextOpportunity extends Opportunity {
         private List<ContextFinding> matchedFindings = new ArrayList<>();
-        // Budget/setup comparison of this single action; null when the Project defines neither.
-        private ProjectFeasibility projectFeasibility;
+        // Budget/setup comparison of this single action; null when the Activity defines neither.
+        private PlanFeasibility planFeasibility;
     }
 
-    /** Operational compatibility of one action with the Project budget and setup-time limits. */
+    /** Operational compatibility of one action with the Activity budget and setup-time limits. */
     @Data
     @NoArgsConstructor
-    public static class ProjectFeasibility {
-        private ProjectConstraintResult result;
+    public static class PlanFeasibility {
+        private RequirementCheckResult result;
         private List<String> reasons = new ArrayList<>();
     }
 
@@ -287,7 +262,7 @@ public class MitigationPlannerOverviewDTO {
         private MitigationParameterCode parameterCode;
         private String description;
         private List<ParameterValue> allowedValues = new ArrayList<>();
-        // Parameter-level relationship to a Project constraint; null when none is explicit.
+        // Parameter-level relationship to an Activity requirement; null when none is explicit.
         private ParameterValueCompatibility compatibility;
         private String compatibilityReason;
     }

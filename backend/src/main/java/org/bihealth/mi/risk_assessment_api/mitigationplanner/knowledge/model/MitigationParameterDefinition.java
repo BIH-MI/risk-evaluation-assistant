@@ -24,7 +24,7 @@ import java.util.List;
 /**
  * Typed description of a parameter a future concrete mitigation plan may need.
  *
- * <p>Values are not selected automatically here. Project-specific compatibility
+ * <p>Values are not selected automatically here. Activity-specific compatibility
  * checks belong to the future candidate-plan generator.</p>
  */
 @Getter

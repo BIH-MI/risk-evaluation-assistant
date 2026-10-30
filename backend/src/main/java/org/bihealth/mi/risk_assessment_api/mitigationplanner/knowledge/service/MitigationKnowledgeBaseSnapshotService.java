@@ -24,8 +24,8 @@ public class MitigationKnowledgeBaseSnapshotService {
 
     /**
      * Loads one exact Knowledge Base version for a planning run. Planning always passes the
-     * Project's pinned version, never "the current version", so later admin edits cannot
-     * change an existing Project's recommendation. The returned JPA objects are read-only.
+     * Activity's pinned version, never "the current version", so later admin edits cannot
+     * change an existing Activity's recommendation. The returned JPA objects are read-only.
      */
     public MitigationKnowledgeBaseSnapshot createSnapshot(MitigationKnowledgeBaseVersion version) {
         List<MitigationAction> actions = actionRepository.findByKnowledgeBaseVersionIdOrderByCodeAsc(version.getId());

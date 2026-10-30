@@ -1,221 +1,99 @@
 import React from "react";
-import { Checkbox, FormControlLabel } from "@mui/material";
 import { useTranslation } from "react-i18next";
 
 import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
-import OnBlurRAInput from "components/input/RAInput/OnBlurRAInput";
-import RASelect from "components/input/RASelect";
-import RAUserAutocomplete from "components/input/RAUserAutocomplete";
 import RAButton from "components/input/RAButton";
 import RAFloatingAlertStack from "components/feedback/RAFloatingAlertStack";
-import DatasetTablesAssessment from "components/display/Tables/DataTable/CustomDataTableComponents/DatasetTablesAssessment";
+import AdministrativeRequirementsSection from "./components/AdministrativeRequirementsSection";
+import AssessmentsSection from "./components/AssessmentsSection";
+import BasicInformationSection from "./components/BasicInformationSection";
+import KnowledgeBaseVersionSelect from "./components/KnowledgeBaseVersionSelect";
+import PurposeSection from "./components/PurposeSection";
+import SharedUsersSelect from "./components/SharedUsersSelect";
+import TableOverridesSection from "./components/TableOverridesSection";
 import { useDataSharingActivityForm } from "./useDataSharingActivityForm";
-
-const selectSx = {
-  "& .MuiOutlinedInput-root": { height: 56 },
-  "& .MuiSelect-select": {
-    display: "flex",
-    alignItems: "center",
-    height: "100%",
-  },
-};
 
 /**
  * Create/Edit Data Sharing Activity screen.
  *
- * The screen binds an existing Dataset Assessment and Recipient Assessment into
- * a sharing scenario. Users may optionally override the dataset's attribute
- * assessment for this specific activity.
+ * An activity combines an assessment of a dataset and an assessment of a recipient into a sharing
+ * scenario, and states the purpose and requirements the mitigation planner checks plans against.
+ * Users may optionally override the dataset's attribute assessment for this specific activity.
  */
 export default function AddEditDataSharingActivity() {
   const { t } = useTranslation();
-  const {
-    isEdit,
-    status,
-    name,
-    description,
-    projectId,
-    datasetAssessmentId,
-    recipientAssessmentId,
-    overrideTables,
-    tables,
-    sharedUsers,
-    errorMessage,
-    lockError,
-    isReadOnly,
-    isSubmitDisabled,
-    selectedScoringSystem,
-    attributeEvidenceById,
-    originalAssessmentValuesByAttributeId,
-    noProjectsAvailable,
-    canSelectAssessments,
-    projectOptions,
-    datasetAssessmentOptions,
-    recipientAssessmentOptions,
-    handleNameCommit,
-    handleDescriptionCommit,
-    handleSharedUsersChange,
-    handleProjectChange,
-    handleDatasetAssessmentChange,
-    handleRecipientAssessmentChange,
-    handleOverrideTablesChange,
-    handleTablesChange,
-    handleCreateProjectClick,
-    handleSubmit,
-    setErrorMessage,
-    setLockError,
-  } = useDataSharingActivityForm();
-
-  const assessmentHelperText = !canSelectAssessments
-    ? t("dataSharingActivities.form.selectProjectFirst")
-    : "";
+  const form = useDataSharingActivityForm();
+  const { values, errors, setValue, isReadOnly } = form;
 
   return (
     <>
       <RABox
         py={8}
         component="form"
-        onSubmit={handleSubmit}
+        onSubmit={form.handleSubmit}
         sx={{
-          maxWidth: "80%",
+          width: { xs: "94%", md: "80%" },
+          "& .MuiSelect-icon": { display: "block" },
+          "& .MuiSelect-select": { paddingRight: "36px !important" },
           mx: "auto",
-          gap: 3,
+          gap: 4,
           display: "flex",
           flexDirection: "column",
         }}
       >
         <RATypography variant="h5" textAlign="center">
-          {isEdit
+          {form.isEdit
             ? t("dataSharingActivities.form.editTitle")
             : t("dataSharingActivities.form.createTitle")}
         </RATypography>
 
-        <RASelect
-          label={t("dataSharingActivities.form.projectLabel")}
-          value={projectId}
-          onChange={handleProjectChange}
-          options={projectOptions}
-          fullWidth
-          required
-          helperText={
-            noProjectsAvailable
-              ? t("dataSharingActivities.form.noProjectsAvailable")
-              : ""
-          }
-          sx={selectSx}
-          disabled={isReadOnly || noProjectsAvailable}
-        />
-
-        {noProjectsAvailable && (
-          <RABox display="flex" alignItems="center" gap={2} flexWrap="wrap">
-            <RATypography variant="body2">
-              {t("dataSharingActivities.form.createProjectPrompt")}
-            </RATypography>
-            <RAButton
-              type="button"
-              variant="outlined"
-              color="info"
-              onClick={handleCreateProjectClick}
-            >
-              {t("dataSharingActivities.form.createProjectButton")}
-            </RAButton>
-          </RABox>
-        )}
-
-        <RASelect
-          label={t("dataSharingActivities.form.datasetAssessmentLabel")}
-          value={canSelectAssessments ? datasetAssessmentId : ""}
-          onChange={handleDatasetAssessmentChange}
-          options={datasetAssessmentOptions}
-          fullWidth
-          required
-          disabled={!canSelectAssessments || isReadOnly || noProjectsAvailable}
-          helperText={assessmentHelperText}
-          sx={selectSx}
-        />
-
-        <RASelect
-          label={t("dataSharingActivities.form.recipientAssessmentLabel")}
-          value={canSelectAssessments ? recipientAssessmentId : ""}
-          onChange={handleRecipientAssessmentChange}
-          options={recipientAssessmentOptions}
-          fullWidth
-          required
-          disabled={!canSelectAssessments || isReadOnly || noProjectsAvailable}
-          helperText={assessmentHelperText}
-          sx={selectSx}
-        />
-
-        <OnBlurRAInput
-          label={t("dataSharingActivities.form.activityNameLabel")}
-          value={name}
-          onCommit={handleNameCommit}
-          fullWidth
-          required
+        <BasicInformationSection
+          name={values.name}
+          description={values.description}
+          onChange={setValue}
           disabled={isReadOnly}
-        />
-
-        <OnBlurRAInput
-          label={t("dataSharingActivities.form.descriptionLabel")}
-          value={description}
-          onCommit={handleDescriptionCommit}
-          fullWidth
-          multiline
-          rows={3}
-          disabled={isReadOnly}
-        />
-
-        <RAUserAutocomplete
-          multiple
-          label={t("dataSharingActivities.form.sharedUsersLabel")}
-          value={sharedUsers}
-          onChange={handleSharedUsersChange}
-          placeholder={t("dataSharingActivities.form.searchUsersPlaceholder")}
-          fullWidth
-          sx={selectSx}
-          disabled={isReadOnly}
-        />
-
-        {canSelectAssessments && datasetAssessmentId && (
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={overrideTables}
-                onChange={handleOverrideTablesChange}
-                disabled={isReadOnly}
-              />
-            }
-            label={t("dataSharingActivities.form.overrideTablesLabel")}
-            sx={{ my: 2 }}
-          />
-        )}
-
-        {canSelectAssessments && overrideTables && (
-          <RABox>
-            <RATypography variant="h6" align="center" mt={2}>
-              {t("dataSharingActivities.form.datasetTablesAssessment")}
-            </RATypography>
-
-            <DatasetTablesAssessment
-              tables={tables}
-              setTables={handleTablesChange}
-              isReadOnly={isReadOnly}
-              scoringSystem={selectedScoringSystem}
-              attributeEvidenceById={attributeEvidenceById}
-              originalAssessmentValuesByAttributeId={
-                originalAssessmentValuesByAttributeId
-              }
-            />
-          </RABox>
-        )}
-
-        <RAButton
-          type="submit"
-          sx={{ alignSelf: "center", mt: 2 }}
-          disabled={isSubmitDisabled}
         >
-          {isEdit
+          <SharedUsersSelect
+            users={form.sharedUsers}
+            onChange={form.changeSharedUsers}
+            disabled={isReadOnly}
+          />
+          <KnowledgeBaseVersionSelect
+            value={values.mitigationKnowledgeBaseVersionId}
+            onChange={(value) => setValue("mitigationKnowledgeBaseVersionId", value)}
+            isEdit={form.isEdit}
+            activity={form.existingActivity}
+            disabled={isReadOnly}
+          />
+        </BasicInformationSection>
+
+        <AssessmentsSection
+          values={values}
+          datasets={form.datasets}
+          recipients={form.recipients}
+          datasetAssessments={form.datasetAssessments}
+          recipientAssessments={form.recipientAssessments}
+          onDatasetChange={form.changeDataset}
+          onRecipientChange={form.changeRecipient}
+          onDatasetAssessmentChange={form.changeDatasetAssessment}
+          onRecipientAssessmentChange={(id) => setValue("recipientAssessmentId", id)}
+          disabled={isReadOnly}
+        />
+
+        <PurposeSection values={values} errors={errors} onChange={setValue} disabled={isReadOnly} />
+
+        <AdministrativeRequirementsSection
+          values={values}
+          errors={errors}
+          onChange={setValue}
+          disabled={isReadOnly}
+        />
+
+        <TableOverridesSection tableOverrides={form.tableOverrides} disabled={isReadOnly} />
+
+        <RAButton type="submit" sx={{ alignSelf: "center" }} disabled={!form.canSubmit}>
+          {form.isEdit
             ? t("dataSharingActivities.form.updateButton")
             : t("dataSharingActivities.form.createButton")}
         </RAButton>
@@ -226,29 +104,26 @@ export default function AddEditDataSharingActivity() {
           {
             id: "lockError",
             color: "error",
-            message: lockError,
-            onClose: () => setLockError(null),
+            message: form.lockError,
+            onClose: form.clearLockError,
           },
           {
             id: "errorMessage",
             color: "error",
-            message: errorMessage,
-            onClose: () => setErrorMessage(""),
+            message: form.errorMessage,
+            onClose: form.clearErrorMessage,
           },
           {
             id: "loading",
             color: "info",
             dismissible: false,
-            message:
-              status === "loading"
-                ? t("dataSharingActivities.alerts.loading")
-                : "",
+            message: form.status === "loading" ? t("dataSharingActivities.alerts.loading") : "",
           },
           {
             id: "statusFailed",
             color: "error",
             message:
-              status === "failed" && !errorMessage
+              form.status === "failed" && !form.errorMessage
                 ? t("dataSharingActivities.alerts.error")
                 : "",
           },

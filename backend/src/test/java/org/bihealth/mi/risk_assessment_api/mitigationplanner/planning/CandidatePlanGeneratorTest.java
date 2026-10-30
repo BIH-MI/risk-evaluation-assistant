@@ -8,10 +8,10 @@ import java.util.List;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.ContextOpportunity;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.DataOpportunity;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.Opportunity;
-import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.ProjectFeasibility;
+import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.PlanFeasibility;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.RiskDriverDTO;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationActionType;
-import org.bihealth.mi.risk_assessment_api.enums.ProjectConstraintResult;
+import org.bihealth.mi.risk_assessment_api.enums.RequirementCheckResult;
 import org.bihealth.mi.risk_assessment_api.enums.RiskDriverPriority;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.inference.InferenceResult;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationAction;
@@ -84,9 +84,9 @@ class CandidatePlanGeneratorTest {
     void hardProjectFailExcludesAction() {
         RiskDriverDTO critical = driver("D-CRIT", RiskDriverPriority.CRITICAL);
         ContextOpportunity failing = context(1L, "A", "D-CRIT");
-        ProjectFeasibility feasibility = new ProjectFeasibility();
-        feasibility.setResult(ProjectConstraintResult.FAIL);
-        failing.setProjectFeasibility(feasibility);
+        PlanFeasibility feasibility = new PlanFeasibility();
+        feasibility.setResult(RequirementCheckResult.FAIL);
+        failing.setPlanFeasibility(feasibility);
 
         assertThat(generator.generate(planningContext(List.of(critical), List.of(failing)))).isEmpty();
     }
@@ -114,7 +114,7 @@ class CandidatePlanGeneratorTest {
         MitigationKnowledgeBaseSnapshot snapshot = new MitigationKnowledgeBaseSnapshot(
                 1L, "KB", 1L, 1, List.of(), List.of(), List.of(), List.of(), List.of(),
                 dependencies, conflicts, null);
-        return new MitigationPlanningContext(null, snapshot, inference, List.of(), null);
+        return new MitigationPlanningContext(null, snapshot, inference);
     }
 
     private RiskDriverDTO driver(String id, RiskDriverPriority priority) {

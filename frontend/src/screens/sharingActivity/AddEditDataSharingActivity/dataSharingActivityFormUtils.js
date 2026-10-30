@@ -1,7 +1,9 @@
 /**
- * Pure mapping and serialization helpers used by the Data Sharing Activity
- * form. Keeping API-shape translation here makes the React lifecycle easier to
- * reason about and allows the mappings to be unit tested independently.
+ * Pure helpers that map the table assessments of a Dataset Assessment, or the
+ * activity-specific overrides of them, to the editable tables of the Data
+ * Sharing Activity form and back. Keeping API-shape translation here makes the
+ * React lifecycle easier to reason about and allows the mappings to be unit
+ * tested independently.
  */
 import {
   ATTRIBUTE_SCALE_FIELDS,
@@ -365,47 +367,26 @@ export function buildOriginalAssessmentValueLookup(datasetAssessment) {
 }
 
 /**
- * Builds the Data Sharing Activity API payload.
- *
- * Table-level overrides are persisted only when override mode is enabled.
- * Excluded attributes are omitted because they do not participate in the
- * activity-level attribute assessment.
+ * Serializes activity-specific table overrides. Excluded attributes are
+ * omitted because they do not participate in the activity-level attribute
+ * assessment.
  */
-export function buildDataSharingActivityPayload({
-  name,
-  description,
-  sharedUsernames,
-  projectId,
-  datasetAssessmentId,
-  recipientAssessmentId,
-  overrideTables,
-  tables,
-}) {
-  return {
-    name: name.trim(),
-    description: description.trim(),
-    sharedUsernames,
-    projectId: projectId ? Number(projectId) : null,
-    datasetAssessmentId: Number(datasetAssessmentId),
-    recipientAssessmentId: Number(recipientAssessmentId),
-    tableAssessments: overrideTables
-      ? tables.map((table) => ({
-          id: table.id,
-          tableId: table.tableAssessmentId || table.tableId,
-          tableName: table.tableName,
-          attributes: table.attributes
-            .filter((attribute) => !attribute.isExcluded)
-            .map((attribute) => ({
-              id: attribute.id,
-              attributeId:
-                attribute.tableAssessmentAttributeId || attribute.attributeId,
-              sensitivity: attribute.sensitivity,
-              replicability: attribute.replicability,
-              availability: attribute.availability,
-              distinguishability: attribute.distinguishability,
-              isDirectIdentifier: attribute.isDirectIdentifier,
-            })),
-        }))
-      : [],
-  };
+export function buildTableOverridesPayload(tables) {
+  return tables.map((table) => ({
+    id: table.id,
+    tableId: table.tableAssessmentId || table.tableId,
+    tableName: table.tableName,
+    attributes: table.attributes
+      .filter((attribute) => !attribute.isExcluded)
+      .map((attribute) => ({
+        id: attribute.id,
+        attributeId:
+          attribute.tableAssessmentAttributeId || attribute.attributeId,
+        sensitivity: attribute.sensitivity,
+        replicability: attribute.replicability,
+        availability: attribute.availability,
+        distinguishability: attribute.distinguishability,
+        isDirectIdentifier: attribute.isDirectIdentifier,
+      })),
+  }));
 }

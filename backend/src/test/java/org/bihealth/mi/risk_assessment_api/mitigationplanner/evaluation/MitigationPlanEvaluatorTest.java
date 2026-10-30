@@ -17,9 +17,12 @@ import org.bihealth.mi.risk_assessment_api.enums.MitigationPlanStrategy;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationRecordRetentionEffect;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationResultingDataForm;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.inference.InferenceResult;
-import org.bihealth.mi.risk_assessment_api.mitigationplanner.inference.compatibility.ProjectConstraintCompatibilityService;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.model.CandidatePlan;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.model.MitigationPlanningContext;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.requirements.ActivityRequirementCompatibilityService;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.requirements.ActivityRequirementEvaluationService;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.workingmemory.MitigationWorkingMemory;
+import org.bihealth.mi.risk_assessment_api.model.activity.DataSharingActivity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -40,7 +43,7 @@ class MitigationPlanEvaluatorTest {
         MitigationPlanEvaluator evaluator = new MitigationPlanEvaluator(
                 contextEvaluator,
                 new MitigationPlanEstimateService(),
-                new ProjectConstraintEvaluationService(new ProjectConstraintCompatibilityService()));
+                new ActivityRequirementEvaluationService(new ActivityRequirementCompatibilityService()));
 
         DataOpportunity coarsenDate = new DataOpportunity();
         coarsenDate.setActionId(1L);
@@ -55,7 +58,9 @@ class MitigationPlanEvaluatorTest {
         BaselineRisk baseline = new BaselineRisk();
         baseline.setAnonymizationThreshold(0.05);
         InferenceResult inference = new InferenceResult(List.of(), List.of(), List.of(coarsenDate), List.of(), List.of());
-        MitigationPlanningContext context = new MitigationPlanningContext(null, null, inference, List.of(), baseline);
+        // An activity without requirements: only the scientific invariant is checked.
+        MitigationWorkingMemory memory = new MitigationWorkingMemory(new DataSharingActivity(), baseline, null, null, List.of());
+        MitigationPlanningContext context = new MitigationPlanningContext(memory, null, inference);
 
         MitigationPlanDraftEvaluationDTO plan = evaluator.evaluate(context, new CandidatePlan(List.of(1L), List.of()));
 

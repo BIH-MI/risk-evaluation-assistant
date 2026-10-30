@@ -4,23 +4,26 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 import org.bihealth.mi.risk_assessment_api.model.NamedResourceConstraints;
 import org.bihealth.mi.risk_assessment_api.model.NamedResourceEntity;
 import org.bihealth.mi.risk_assessment_api.model.assessment.activity.DataSharingActivityTableAssessment;
 import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetAssessment;
 import org.bihealth.mi.risk_assessment_api.model.assessment.recipient.RecipientAssessment;
-import org.bihealth.mi.risk_assessment_api.model.project.Project;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationKnowledgeBaseVersion;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 /**
- * Represents a data-sharing activity that ties together
- * dataset-level, table-level, and recipient-level assessments.
+ * One data-sharing scenario: a dataset assessment combined with a recipient assessment.
  *
- * <p>This is the main entity evaluated by the risk endpoint. It combines one
- * dataset assessment with one recipient assessment and can hold optional
+ * <p>This is the main entity evaluated by the risk endpoint and by the mitigation planner. It
+ * holds everything needed to evaluate the scenario: the sharing purpose, the sharing requirements,
+ * the pinned mitigation Knowledge Base version, who may access the activity, and optional
  * activity-specific overrides for table/attribute risk metadata.</p>
  */
 @Getter
@@ -59,10 +62,19 @@ public class DataSharingActivity extends NamedResourceEntity {
     @OnDelete(action = OnDeleteAction.CASCADE)
     private RecipientAssessment recipientAssessment;
 
-    // Optional project workspace that constrains valid dataset/recipient membership.
+    // Why the data is shared, e.g. the scientific objective of the analysis.
+    @Column(name = "sharing_purpose", length = 4000)
+    private String sharingPurpose;
+
+    // Requirements the mitigation planner checks candidate plans against.
+    @Embedded
+    private ActivityRequirements requirements = new ActivityRequirements();
+
+    // Knowledge Base version the mitigation planner uses, pinned so recommendations stay
+    // reproducible when administrators later edit the Knowledge Base.
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "project_id")
-    private Project project;
+    @JoinColumn(name = "mitigation_knowledge_base_version_id")
+    private MitigationKnowledgeBaseVersion mitigationKnowledgeBaseVersion;
 
     // Optional activity-specific table/attribute overrides.
     @OneToMany(
@@ -72,4 +84,12 @@ public class DataSharingActivity extends NamedResourceEntity {
     )
     @OnDelete(action = OnDeleteAction.CASCADE)
     private List<DataSharingActivityTableAssessment> tableAssessments = new ArrayList<>();
+
+    /** Never null: Hibernate loads an embedded value whose columns are all null as null. */
+    public ActivityRequirements getRequirements() {
+        if (requirements == null) {
+            requirements = new ActivityRequirements();
+        }
+        return requirements;
+    }
 }

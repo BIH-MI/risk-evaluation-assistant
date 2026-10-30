@@ -13,6 +13,7 @@ public class MitigationKnowledgeBaseResponseDTO {
     private boolean active;
     private boolean defaultKnowledgeBase;
     private int currentVersion;
+    private Long currentVersionId;
     private int versionCount;
     private String creatorUsername;
     private LocalDateTime creationDate;
@@ -25,6 +26,7 @@ public class MitigationKnowledgeBaseResponseDTO {
         this.active = knowledgeBase.isActive();
         this.defaultKnowledgeBase = knowledgeBase.isDefaultKnowledgeBase();
         this.currentVersion = knowledgeBase.getCurrentVersion();
+        this.currentVersionId = knowledgeBase.getCurrentVersionEntity().map(version -> version.getId()).orElse(null);
         this.versionCount = knowledgeBase.getVersions() == null ? 0 : knowledgeBase.getVersions().size();
         this.creatorUsername = knowledgeBase.getCreatorUsername();
         this.creationDate = knowledgeBase.getCreationDate();

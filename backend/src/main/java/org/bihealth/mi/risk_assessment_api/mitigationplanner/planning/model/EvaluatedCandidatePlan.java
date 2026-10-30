@@ -10,7 +10,7 @@ public record EvaluatedCandidatePlan(
         MitigationPlanDraftEvaluationDTO evaluation,
         int criticalDriverCoverage,
         int highDriverCoverage,
-        int unresolvedProjectChecks,
+        int unresolvedRequirementChecks,
         BigDecimal knownCostMax,
         Integer knownSetupDaysMax,
         Set<String> addressedRiskDriverIds,

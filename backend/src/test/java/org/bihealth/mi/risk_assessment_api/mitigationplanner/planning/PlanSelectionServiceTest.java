@@ -60,7 +60,7 @@ class PlanSelectionServiceTest {
                 "REJECT_INCOMPATIBLE",
                 "COVER_ACTIONABLE_CRITICAL_DRIVERS",
                 "PREFER_HIGH_DRIVER_COVERAGE",
-                "PREFER_FEWER_UNRESOLVED_PROJECT_CHECKS",
+                "PREFER_FEWER_UNRESOLVED_REQUIREMENT_CHECKS",
                 "PREFER_FEWER_ACTIONS",
                 "PREFER_LOWER_KNOWN_COST",
                 "PREFER_SHORTER_KNOWN_SETUP_TIME",

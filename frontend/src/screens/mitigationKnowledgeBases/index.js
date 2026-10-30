@@ -139,9 +139,9 @@ export default function MitigationKnowledgeBases() {
         confirmText="Archive"
       >
         <RATypography variant="body2">
-          Archive {archiveTarget?.name}? Projects already pinned to one of its
-          versions remain reproducible, but this Knowledge Base will no longer
-          be selectable for new Projects.
+          Archive {archiveTarget?.name}? Data Sharing Activities already pinned
+          to one of its versions remain reproducible, but this Knowledge Base
+          can no longer be selected for an activity.
         </RATypography>
       </RADialog>
 

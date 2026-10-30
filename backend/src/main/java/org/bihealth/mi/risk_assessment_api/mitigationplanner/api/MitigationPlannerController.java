@@ -5,8 +5,7 @@ import org.bihealth.mi.risk_assessment_api.dto.request.mitigationplanner.Mitigat
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationCandidatePlanResponseDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlanDraftEvaluationDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO;
-import org.bihealth.mi.risk_assessment_api.mitigationplanner.evaluation.MitigationPlanDraftService;
-import org.bihealth.mi.risk_assessment_api.mitigationplanner.inference.MitigationOpportunityService;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.MitigationPlannerOverviewService;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.MitigationPlanningService;
 import org.bihealth.mi.risk_assessment_api.security.SecurityUtils;
 import org.springframework.http.ResponseEntity;
@@ -24,24 +23,21 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>Uses the same activity read-access rule as the activity endpoints; the planner is not an
  * admin-only feature. Nothing here persists plans or modifies assessments, and the Knowledge
- * Base used is always the Project's pinned version.</p>
+ * Base used is always the Activity's pinned version.</p>
  */
 @RestController
 @RequestMapping("/api/data-sharing-activities/{id}/mitigation-planner")
 public class MitigationPlannerController {
 
-    private final MitigationOpportunityService opportunityService;
+    private final MitigationPlannerOverviewService overviewService;
     private final MitigationPlanningService planningService;
-    private final MitigationPlanDraftService planDraftService;
 
     public MitigationPlannerController(
-            MitigationOpportunityService opportunityService,
-            MitigationPlanningService planningService,
-            MitigationPlanDraftService planDraftService
+            MitigationPlannerOverviewService overviewService,
+            MitigationPlanningService planningService
     ) {
-        this.opportunityService = opportunityService;
+        this.overviewService = overviewService;
         this.planningService = planningService;
-        this.planDraftService = planDraftService;
     }
 
     /** Baseline risk, Risk Drivers and applicable mitigation opportunities (inference only). */
@@ -51,7 +47,7 @@ public class MitigationPlannerController {
             @RequestParam(required = false) Double manualRiskThreshold,
             JwtAuthenticationToken token
     ) {
-        return ResponseEntity.ok(opportunityService.getOpportunities(
+        return ResponseEntity.ok(overviewService.getOverview(
                 id, SecurityUtils.getUsername(token), SecurityUtils.isAdminRole(token), manualRiskThreshold));
     }
 
@@ -62,8 +58,9 @@ public class MitigationPlannerController {
             @RequestBody(required = false) MitigationCandidatePlanRequestDTO request,
             JwtAuthenticationToken token
     ) {
-        return ResponseEntity.ok(planningService.generate(
-                id, request, SecurityUtils.getUsername(token), SecurityUtils.isAdminRole(token)));
+        Double manualRiskThreshold = request == null ? null : request.getManualRiskThreshold();
+        return ResponseEntity.ok(planningService.generateCandidatePlans(
+                id, manualRiskThreshold, SecurityUtils.getUsername(token), SecurityUtils.isAdminRole(token)));
     }
 
     /** Evaluates one researcher-assembled plan with the same evaluator as generated candidates. */
@@ -73,7 +70,7 @@ public class MitigationPlannerController {
             @RequestBody MitigationPlanDraftRequestDTO request,
             JwtAuthenticationToken token
     ) {
-        return ResponseEntity.ok(planDraftService.evaluate(
+        return ResponseEntity.ok(planningService.evaluateDraft(
                 id, request, SecurityUtils.getUsername(token), SecurityUtils.isAdminRole(token)));
     }
 }

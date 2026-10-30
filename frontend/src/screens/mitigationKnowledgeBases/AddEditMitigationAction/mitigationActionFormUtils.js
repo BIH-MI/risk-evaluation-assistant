@@ -1,5 +1,7 @@
-import { SHARING_MODEL_OPTIONS } from "screens/projectTemplateConfiguration/AddEditProjectTemplate/projectTemplateFormUtils";
-import { formatSharingArrangement } from "utils/projectDisplayLabels";
+import {
+  SHARING_ARRANGEMENT_OPTIONS,
+  formatSharingArrangement,
+} from "utils/sharingArrangementLabels";
 
 export const ACTION_TYPES = [
   { value: "DATA_TRANSFORMATION", label: "Data Transformation" },
@@ -28,7 +30,7 @@ export const DATA_TYPES = [
   { value: "STRING", label: "String" },
 ];
 
-export const SHARING_ARRANGEMENTS = SHARING_MODEL_OPTIONS.map((value) => ({
+export const SHARING_ARRANGEMENTS = SHARING_ARRANGEMENT_OPTIONS.map((value) => ({
   value,
   label:
     value === "CONTROLLED_DATA_TRANSFER"
@@ -40,7 +42,7 @@ export const ESTIMATE_SCOPES = [
   { value: "", label: "Unknown" },
   { value: "SETUP_ONLY", label: "Setup Only" },
   { value: "SINGLE_SHARING_ACTIVITY", label: "Single Sharing Activity" },
-  { value: "WHOLE_PROJECT", label: "Whole Project" },
+  { value: "WHOLE_PROJECT", label: "Whole research project" },
   { value: "ANNUAL_OPERATION", label: "Annual Operation" },
 ];
 
@@ -306,7 +308,7 @@ function normalizeSharingArrangements(values) {
     new Set(
       values
         .map(normalizeSharingArrangement)
-        .filter((value) => SHARING_MODEL_OPTIONS.includes(value))
+        .filter((value) => SHARING_ARRANGEMENT_OPTIONS.includes(value))
     )
   );
 }

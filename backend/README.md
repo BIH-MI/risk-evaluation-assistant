@@ -23,6 +23,12 @@ The local Spring profile reads:
 - `backend/src/main/resources/application.properties`
 - `backend/src/main/resources/application-local.properties`
 
+The `local` profile is the default. It uses its own database, `riskdb_activity`, in the Docker PostgreSQL container instead of the database of the Docker Compose stack (`riskdb` in `.env.local`). Create it once:
+
+```bash
+docker exec postgres-rea createdb -U admin riskdb_activity
+```
+
 ## Useful Commands
 
 ```bash
@@ -80,14 +86,14 @@ For offline deployments, copy the files into `<storage>/<model id>/<revision>/` 
 
 ### Database Initialisation
 
-REA is set up for fresh installations; no manual SQL is required.
+On its first start against an empty database, the backend creates everything it needs; no manual SQL is required.
 
-- On a fresh deployment, PostgreSQL is initialised automatically: the JPA entities under `model/` define the database structure, and Hibernate creates it (`SPRING_JPA_HIBERNATE_DDL_AUTO=update`, the default everywhere, including the local profile).
-- Essential configurations are seeded automatically when missing: the bundled risk frameworks (`ConfigLoader`), the default attribute scoring system (`AttributeScoringSystemSeeder`) and the default QID Discovery configuration with AI screening enabled for DeBERTaV3-XSmall (`QidDiscoveryConfigurationSeeder`). Existing records, including ones edited by administrators, are never overwritten, and restarts create no new versions.
+- Hibernate creates the tables from the JPA entities under `model/` (`SPRING_JPA_HIBERNATE_DDL_AUTO=update`, the default everywhere, including the local profile).
+- Missing default configurations are seeded: the bundled risk frameworks (`ConfigLoader`), the default attribute scoring system (`AttributeScoringSystemSeeder`), the default QID Discovery configuration with AI screening enabled for DeBERTaV3-XSmall (`QidDiscoveryConfigurationSeeder`) and the default mitigation Knowledge Base (`MitigationKnowledgeBaseSeeder`). Existing records, including ones edited by administrators, are never overwritten, and restarts create no new versions, so changes to the bundled defaults reach only new databases.
 - Sample data is controlled by `APP_SETUP_LOAD_SAMPLE_DATA` (default `false`; `true` in `.env.local`).
 - Restarting the application keeps all data. Never use `create` or `create-drop` against a database whose data must be kept.
 
-This strategy is intended for fresh installations. `update` only adds missing tables and columns; it does not migrate data, rename or drop columns, or change constraints, so upgrading an existing database across schema changes needs a reviewed manual migration.
+`update` only adds missing tables and columns; it does not migrate data, rename or drop columns, or change constraints. REA ships no migration scripts, so a database from an earlier version with a different schema, such as one that still contains Projects, can only be reused after a reviewed manual migration. Otherwise back it up and start with an empty database. With Docker Compose, do not simply drop the `POSTGRES_DB_NAME` database: `docker-compose.prod.yml` also stores Keycloak's data there. Create a separate empty database for REA instead and point the backend's `SPRING_DATASOURCE_URL` in `docker-compose.yml` at it.
 
 ### Controllers, Services, DTOs, and Models
 
@@ -151,7 +157,7 @@ Each configuration JSON includes categories, questions, options, risk bands, mat
 
 ### Sample Data Loader
 
-Demo data, including the LEOSS example dataset, profiling evidence, recipients, assessments and data-sharing activities, is initialised by `DataLoader` and `DemoDatasetEvidenceSeeder` when `APP_SETUP_LOAD_SAMPLE_DATA=true`. This option is intended for local demonstrations and is disabled in production.
+Demo data, including the LEOSS example dataset, profiling evidence, recipients, assessments and data-sharing activities, is initialised by `DataLoader` and `DemoDatasetEvidenceSeeder` when `APP_SETUP_LOAD_SAMPLE_DATA=true`. This option is intended for local demonstrations and is disabled in production. The demo activities state a sharing purpose and sharing requirements (`DemoActivityRequirements`) and pin the default mitigation Knowledge Base, so the Mitigation Planner works on them right away.
 
 The demo data is created only if neither the LEOSS dataset nor any demo recipient exists yet; otherwise nothing is created or changed, so restarts do not duplicate demo records or overwrite edits to them.
 
@@ -190,6 +196,22 @@ Risk computation logic lives in:
 - `backend/src/main/java/org/bihealth/mi/risk_assessment_api/service/RiskService.java`
 
 When changing risk formulas, update the corresponding framework JSON, backend computation, report output, and any frontend text that explains the calculation.
+
+### Mitigation Planner and Activity Requirements
+
+The Mitigation Planner suggests mitigation plans for a data-sharing activity. Its code lives under `backend/src/main/java/org/bihealth/mi/risk_assessment_api/mitigationplanner/`:
+
+- `workingmemory/`: the activity, its baseline risk and its pinned Knowledge Base version
+- `inference/`: risk drivers and the Knowledge Base actions that address them
+- `planning/`: candidate plans, the plan-selection policy and the planner overview
+- `evaluation/`: projected context risk, cost and setup-time estimates, and the checks of each plan
+- `requirements/`: comparison of a plan with the activity requirements
+- `explanation/`: explanations of the candidate plans
+- `knowledge/`: Knowledge Base model, versions, validation, API and the default content (`seed/MitigationKnowledgeBaseSeeder.java`)
+
+Unknown estimates and effects must be reported as needing evaluation, never treated as zero or as passed.
+
+Activity requirements are stored on the activity (`model/activity/ActivityRequirements.java`) and exchanged as `dto/request/activity/ActivityRequirementsDTO.java`. `enums/ActivityRequirement.java` defines each requirement's JSON property name, label and fixed constraint type (hard constraint or preference). To add a requirement, update these three files, `ActivityRequirementEvaluationService`, and the frontend activity form and translations.
 
 ### OpenAPI and Swagger
 

@@ -17,8 +17,8 @@ function toTablePlan(plan, key) {
 }
 
 /**
- * Automatic planning workflow. As soon as the planner has its context (activity with a Project),
- * the backend generates, evaluates and ranks candidate plans against the Project's pinned
+ * Automatic planning workflow. As soon as the planner has its context (the activity overview),
+ * the backend generates, evaluates and ranks candidate plans against the activity's pinned
  * Knowledge Base version. The frontend never ranks plans; it shows them in backend order.
  *
  * One request per planning-input signature (activity + manual threshold): a request already in

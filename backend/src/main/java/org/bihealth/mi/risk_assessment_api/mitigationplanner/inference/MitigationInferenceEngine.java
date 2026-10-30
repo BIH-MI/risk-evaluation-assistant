@@ -1,8 +1,5 @@
 package org.bihealth.mi.risk_assessment_api.mitigationplanner.inference;
 
-import static org.bihealth.mi.risk_assessment_api.service.ProjectRequirementStableKeys.REQ_BUDGET;
-import static org.bihealth.mi.risk_assessment_api.service.ProjectRequirementStableKeys.REQ_SETUP_DAYS;
-
 import lombok.RequiredArgsConstructor;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.ContextOpportunity;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.DataOpportunity;
@@ -11,13 +8,10 @@ import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.Mitiga
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.Opportunity;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.ParameterValue;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.PlanParameter;
-import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.ProjectConstraint;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.RiskDriverDTO;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationActionType;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationOpportunityStatus;
-import org.bihealth.mi.risk_assessment_api.enums.MitigationParameterCode;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationSharingArrangement;
-import org.bihealth.mi.risk_assessment_api.mitigationplanner.inference.compatibility.ProjectConstraintCompatibilityService;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.inference.driver.RiskDriverExtractorService;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.inference.matcher.ContextMitigationOpportunityMatcher;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.inference.matcher.DataMitigationOpportunityMatcher;
@@ -25,11 +19,12 @@ import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.Mit
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationParameterDefinition;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.service.MitigationKnowledgeBaseSnapshot;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.service.MitigationKnowledgeBaseSnapshotService;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.requirements.ActivityRequirementCompatibilityService;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.workingmemory.MitigationWorkingMemory;
+import org.bihealth.mi.risk_assessment_api.model.activity.ActivityRequirements;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -53,7 +48,7 @@ public class MitigationInferenceEngine {
     private final DataMitigationOpportunityMatcher dataMatcher;
     private final ContextMitigationOpportunityMatcher contextMatcher;
     private final RiskDriverExtractorService riskDriverExtractor;
-    private final ProjectConstraintCompatibilityService compatibilityService;
+    private final ActivityRequirementCompatibilityService compatibilityService;
 
     public InferenceResult infer(MitigationWorkingMemory memory, MitigationKnowledgeBaseSnapshot knowledge) {
         List<String> warnings = new ArrayList<>();
@@ -85,9 +80,8 @@ public class MitigationInferenceEngine {
         return new InferenceResult(
                 drivers.dataDrivers(),
                 drivers.contextDrivers(),
-                buildDataOpportunities(dataActions, dataMatches, drivers.dataDrivers(),
-                        memory.requiredTemporalResolution(), memory.minimumCohortRetention()),
-                buildContextOpportunities(contextMatches, drivers.contextDrivers(), memory.projectConstraints()),
+                buildDataOpportunities(dataActions, dataMatches, drivers.dataDrivers(), memory.requirements()),
+                buildContextOpportunities(contextMatches, drivers.contextDrivers(), memory.requirements()),
                 warnings
         );
     }
@@ -96,8 +90,7 @@ public class MitigationInferenceEngine {
             List<MitigationAction> actions,
             Map<MitigationAction, List<DataTarget>> matches,
             List<RiskDriverDTO> dataDrivers,
-            String requiredResolution,
-            BigDecimal minimumRetention
+            ActivityRequirements requirements
     ) {
         List<DataOpportunity> opportunities = new ArrayList<>();
         for (MitigationAction action : actions) {
@@ -113,7 +106,7 @@ public class MitigationInferenceEngine {
             opportunity.setRecordRetentionEffect(action.getRecordRetentionEffect());
             opportunity.setMatchedTargets(targets);
             opportunity.setParameters(action.getParameterDefinitions().stream()
-                    .map(definition -> toParameter(definition, requiredResolution, minimumRetention))
+                    .map(definition -> toParameter(definition, requirements))
                     .collect(Collectors.toList()));
             opportunities.add(opportunity);
         }
@@ -123,18 +116,16 @@ public class MitigationInferenceEngine {
     private List<ContextOpportunity> buildContextOpportunities(
             Map<MitigationAction, ContextMitigationOpportunityMatcher.ContextMatch> matches,
             List<RiskDriverDTO> contextDrivers,
-            List<ProjectConstraint> constraints
+            ActivityRequirements requirements
     ) {
-        ProjectConstraint budget = constraint(constraints, REQ_BUDGET);
-        ProjectConstraint setupLimit = constraint(constraints, REQ_SETUP_DAYS);
         List<ContextOpportunity> opportunities = new ArrayList<>();
         matches.forEach((action, match) -> {
             ContextOpportunity opportunity = new ContextOpportunity();
             fillCommon(opportunity, action, match.status());
             opportunity.setAddressedRiskDriverIds(riskDriverIdsForAction(contextDrivers, action.getId()));
             opportunity.setMatchedFindings(match.findings());
-            opportunity.setProjectFeasibility(
-                    compatibilityService.assessOperationalFeasibility(opportunity.getEstimate(), budget, setupLimit));
+            opportunity.setPlanFeasibility(
+                    compatibilityService.assessOperationalFeasibility(opportunity.getEstimate(), requirements));
             opportunities.add(opportunity);
         });
         return opportunities;
@@ -187,13 +178,6 @@ public class MitigationInferenceEngine {
         opportunity.setEstimate(estimate);
     }
 
-    private ProjectConstraint constraint(List<ProjectConstraint> constraints, String key) {
-        return constraints.stream()
-                .filter(constraint -> key.equals(constraint.getKey()))
-                .findFirst()
-                .orElse(null);
-    }
-
     private List<String> riskDriverIdsForAction(List<RiskDriverDTO> drivers, Long actionId) {
         return drivers.stream()
                 .filter(driver -> driver.getMatchedMitigationActionIds().contains(actionId))
@@ -202,11 +186,7 @@ public class MitigationInferenceEngine {
                 .collect(Collectors.toList());
     }
 
-    private PlanParameter toParameter(
-            MitigationParameterDefinition definition,
-            String requiredResolution,
-            BigDecimal minimumRetention
-    ) {
+    private PlanParameter toParameter(MitigationParameterDefinition definition, ActivityRequirements requirements) {
         PlanParameter parameter = new PlanParameter();
         parameter.setParameterCode(definition.getParameterCode());
         parameter.setDescription(definition.getDescription());
@@ -215,7 +195,7 @@ public class MitigationInferenceEngine {
             parameterValue.setValue(value);
             return parameterValue;
         }).collect(Collectors.toList()));
-        compatibilityService.annotate(parameter, requiredResolution, minimumRetention);
+        compatibilityService.annotate(parameter, requirements);
         return parameter;
     }
 }

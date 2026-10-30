@@ -40,7 +40,6 @@ import org.bihealth.mi.risk_assessment_api.model.configuration.RiskCategory;
 import org.bihealth.mi.risk_assessment_api.model.configuration.RiskMatrix;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationAction;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Answer;
-import org.bihealth.mi.risk_assessment_api.model.questionnaire.Question;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.QuestionOption;
 import org.bihealth.mi.risk_assessment_api.service.RiskService;
 import org.bihealth.mi.risk_assessment_api.utils.RiskResultBands;
@@ -90,9 +89,6 @@ public class CounterfactualContextEvaluator {
         DataSharingActivity activity = memory.activity();
         RecipientAssessment assessment = memory.recipientAssessment();
         Double manualRiskThreshold = memory.manualRiskThreshold();
-        if (memory.project() == null) {
-            throw new IllegalArgumentException("A Project is required before mitigation planning can be performed.");
-        }
         if (assessment == null || memory.datasetAssessment() == null) {
             throw new IllegalArgumentException(
                     "Dataset and Recipient Assessments are required to evaluate context controls.");
@@ -130,7 +126,40 @@ public class CounterfactualContextEvaluator {
             }
         }
 
-        // question id -> projected option id -> change. Two options for one question conflict.
+        Map<Long, Map<Long, ProjectedChange>> changesByQuestion = collectProjectedChanges(matches, result, warnings);
+        if (recordQuestionChanges(changesByQuestion, result)) {
+            result.setStatus(CounterfactualContextResultDTO.Status.INVALID);
+            result.setInvalidReason("Selected controls project conflicting answers for the same question.");
+            result.getAppliedQuestionChanges().clear();
+            return result;
+        }
+        if (changesByQuestion.isEmpty()) {
+            result.setStatus(CounterfactualContextResultDTO.Status.INVALID);
+            result.setInvalidReason("None of the selected controls can be applied to the current Recipient Assessment.");
+            return result;
+        }
+
+        List<Answer> hypotheticalAnswers = hypotheticalAnswers(actualAnswers, changesByQuestion);
+        GenericRiskResponseDTO projected = riskService.calculateRisk(activity, hypotheticalAnswers, manualRiskThreshold);
+        result.setProjected(toState(projected));
+        result.setActionsApplied(!result.getAppliedQuestionChanges().isEmpty());
+        result.setRiskChanged(contextRiskChanged(result));
+        if (!Objects.equals(baseline.getThreshold(), projected.getThreshold())) {
+            warnings.add("The target threshold T differs between baseline and what-if; only context should change.");
+        }
+        explainCategoryOutcomes(result, assessment, actualAnswers, hypotheticalAnswers, baseline, projected);
+        return result;
+    }
+
+    /**
+     * Groups the questionnaire changes the matched actions project, by question id and projected
+     * option id. Two projected options for one question are a conflict.
+     */
+    private Map<Long, Map<Long, ProjectedChange>> collectProjectedChanges(
+            Map<MitigationAction, ContextMitigationOpportunityMatcher.ContextMatch> matches,
+            CounterfactualContextResultDTO result,
+            List<String> warnings
+    ) {
         Map<Long, Map<Long, ProjectedChange>> changesByQuestion = new LinkedHashMap<>();
         matches.forEach((action, match) -> match.triggers().forEach(trigger -> {
             Answer answer = trigger.answer();
@@ -156,64 +185,79 @@ public class CounterfactualContextEvaluator {
                 result.getAppliedActions().add(applied);
             }
         }));
+        return changesByQuestion;
+    }
 
+    /**
+     * Records each projected change, or the conflict when actions project different options for
+     * one question.
+     *
+     * @return whether any question has conflicting projections
+     */
+    private boolean recordQuestionChanges(
+            Map<Long, Map<Long, ProjectedChange>> changesByQuestion,
+            CounterfactualContextResultDTO result
+    ) {
         boolean conflict = false;
         for (Map<Long, ProjectedChange> options : changesByQuestion.values()) {
             if (options.size() > 1) {
                 conflict = true;
-                ProjectedChange first = options.values().iterator().next();
-                ConflictingQuestionMapping conflicting = new ConflictingQuestionMapping();
-                conflicting.setFrameworkName(first.frameworkName());
-                conflicting.setQuestionText(first.answer().getQuestion().getText());
-                conflicting.setCurrentOptionText(first.answer().getSelectedOption().getText());
-                options.values().forEach(change -> {
-                    ConflictingProjection projection = new ConflictingProjection();
-                    projection.setActionNames(new ArrayList<>(change.actionNames()));
-                    projection.setProjectedOptionText(change.projectedOption().getText());
-                    conflicting.getProjections().add(projection);
-                });
-                result.getConflictingQuestionMappings().add(conflicting);
+                result.getConflictingQuestionMappings().add(toConflict(options.values()));
             } else {
-                ProjectedChange change = options.values().iterator().next();
-                AppliedQuestionChange applied = new AppliedQuestionChange();
-                applied.setActionNames(new ArrayList<>(change.actionNames()));
-                applied.setFrameworkName(change.frameworkName());
-                applied.setQuestionCode(change.answer().getQuestion().getCode());
-                applied.setQuestionText(change.answer().getQuestion().getText());
-                QuestionOption current = change.answer().getSelectedOption();
-                QuestionOption projectedOption = change.projectedOption();
-                applied.setCurrentOptionText(current.getText());
-                applied.setCurrentOptionImpact(current.getImpact());
-                applied.setCurrentOptionHighRiskTrigger(current.isHighRiskTrigger());
-                applied.setProjectedOptionText(projectedOption.getText());
-                applied.setProjectedOptionImpact(projectedOption.getImpact());
-                applied.setProjectedOptionHighRiskTrigger(projectedOption.isHighRiskTrigger());
-                applied.setHighRiskTriggerRemoved(current.isHighRiskTrigger() && !projectedOption.isHighRiskTrigger());
-                applied.setNegativeFindingAddressed(!current.isHighRiskTrigger()
-                        && NEGATIVE.equalsIgnoreCase(current.getImpact())
-                        && !NEGATIVE.equalsIgnoreCase(projectedOption.getImpact()));
-                result.getAppliedQuestionChanges().add(applied);
+                result.getAppliedQuestionChanges().add(toAppliedChange(options.values().iterator().next()));
             }
         }
+        return conflict;
+    }
 
-        if (conflict) {
-            result.setStatus(CounterfactualContextResultDTO.Status.INVALID);
-            result.setInvalidReason("Selected controls project conflicting answers for the same question.");
-            result.getAppliedQuestionChanges().clear();
-            return result;
-        }
-        if (changesByQuestion.isEmpty()) {
-            result.setStatus(CounterfactualContextResultDTO.Status.INVALID);
-            result.setInvalidReason("None of the selected controls can be applied to the current Recipient Assessment.");
-            return result;
-        }
+    private ConflictingQuestionMapping toConflict(Collection<ProjectedChange> options) {
+        ProjectedChange first = options.iterator().next();
+        ConflictingQuestionMapping conflicting = new ConflictingQuestionMapping();
+        conflicting.setFrameworkName(first.frameworkName());
+        conflicting.setQuestionText(first.answer().getQuestion().getText());
+        conflicting.setCurrentOptionText(first.answer().getSelectedOption().getText());
+        options.forEach(change -> {
+            ConflictingProjection projection = new ConflictingProjection();
+            projection.setActionNames(new ArrayList<>(change.actionNames()));
+            projection.setProjectedOptionText(change.projectedOption().getText());
+            conflicting.getProjections().add(projection);
+        });
+        return conflicting;
+    }
 
-        // Projected recipient answers are evaluated in memory only; the persisted Recipient
-        // Assessment always represents the verified current state. The copies have no owning
-        // assessment, so they cannot be cascaded into it or saved. Replacing a high-risk trigger
-        // option removes that trigger from the in-memory answer set, and RiskComputationService
-        // recalculates the category normally.
-        List<Answer> hypotheticalAnswers = actualAnswers.stream()
+    private AppliedQuestionChange toAppliedChange(ProjectedChange change) {
+        AppliedQuestionChange applied = new AppliedQuestionChange();
+        applied.setActionNames(new ArrayList<>(change.actionNames()));
+        applied.setFrameworkName(change.frameworkName());
+        applied.setQuestionCode(change.answer().getQuestion().getCode());
+        applied.setQuestionText(change.answer().getQuestion().getText());
+        QuestionOption current = change.answer().getSelectedOption();
+        QuestionOption projectedOption = change.projectedOption();
+        applied.setCurrentOptionText(current.getText());
+        applied.setCurrentOptionImpact(current.getImpact());
+        applied.setCurrentOptionHighRiskTrigger(current.isHighRiskTrigger());
+        applied.setProjectedOptionText(projectedOption.getText());
+        applied.setProjectedOptionImpact(projectedOption.getImpact());
+        applied.setProjectedOptionHighRiskTrigger(projectedOption.isHighRiskTrigger());
+        applied.setHighRiskTriggerRemoved(current.isHighRiskTrigger() && !projectedOption.isHighRiskTrigger());
+        applied.setNegativeFindingAddressed(!current.isHighRiskTrigger()
+                && NEGATIVE.equalsIgnoreCase(current.getImpact())
+                && !NEGATIVE.equalsIgnoreCase(projectedOption.getImpact()));
+        return applied;
+    }
+
+    /**
+     * Projected recipient answers are evaluated in memory only; the persisted Recipient Assessment
+     * always represents the verified current state. The copies have no owning assessment, so they
+     * cannot be cascaded into it or saved. Replacing a high-risk trigger option removes that
+     * trigger from the in-memory answer set, and RiskComputationService recalculates the category
+     * normally.
+     */
+    private List<Answer> hypotheticalAnswers(
+            List<Answer> actualAnswers,
+            Map<Long, Map<Long, ProjectedChange>> changesByQuestion
+    ) {
+        return actualAnswers.stream()
                 .map(answer -> {
                     Map<Long, ProjectedChange> options = changesByQuestion.get(answer.getQuestion().getId());
                     if (options == null) {
@@ -222,16 +266,6 @@ public class CounterfactualContextEvaluator {
                     return new Answer(null, answer.getQuestion(), options.values().iterator().next().projectedOption());
                 })
                 .collect(Collectors.toList());
-
-        GenericRiskResponseDTO projected = riskService.calculateRisk(activity, hypotheticalAnswers, manualRiskThreshold);
-        result.setProjected(toState(projected));
-        result.setActionsApplied(!result.getAppliedQuestionChanges().isEmpty());
-        result.setRiskChanged(contextRiskChanged(result));
-        if (!Objects.equals(baseline.getThreshold(), projected.getThreshold())) {
-            warnings.add("The target threshold T differs between baseline and what-if; only context should change.");
-        }
-        explainCategoryOutcomes(result, assessment, actualAnswers, hypotheticalAnswers, baseline, projected);
-        return result;
     }
 
     /**

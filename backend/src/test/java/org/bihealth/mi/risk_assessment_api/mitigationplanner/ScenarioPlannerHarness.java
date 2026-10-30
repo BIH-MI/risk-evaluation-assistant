@@ -8,29 +8,23 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.bihealth.mi.risk_assessment_api.config.InMemoryDemoSeed;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationCandidatePlanResponseDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.BaselineRisk;
-import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.ProjectConstraint;
 import org.bihealth.mi.risk_assessment_api.dto.response.report.GenericRiskResponseDTO;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationActionType;
-import org.bihealth.mi.risk_assessment_api.enums.MitigationSharingArrangement;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.evaluation.CounterfactualContextEvaluator;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.evaluation.MitigationPlanEstimateService;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.evaluation.MitigationPlanEvaluator;
-import org.bihealth.mi.risk_assessment_api.mitigationplanner.evaluation.ProjectConstraintEvaluationService;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.explanation.CandidatePlanExplanationBuilder;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.inference.InferenceResult;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.inference.MitigationInferenceEngine;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.inference.classification.DatasetAttributeRiskClassifier;
-import org.bihealth.mi.risk_assessment_api.mitigationplanner.inference.compatibility.ProjectConstraintCompatibilityService;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.inference.driver.RiskDriverExtractorService;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.inference.matcher.ContextMitigationOpportunityMatcher;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.inference.matcher.DataMitigationOpportunityMatcher;
@@ -50,10 +44,11 @@ import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.Mitigation
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.generator.CandidatePlanGenerator;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.model.MitigationPlanningContext;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.policy.PlanSelectionService;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.requirements.ActivityRequirementCompatibilityService;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.requirements.ActivityRequirementEvaluationService;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.workingmemory.MitigationWorkingMemory;
 import org.bihealth.mi.risk_assessment_api.model.activity.DataSharingActivity;
 import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
-import org.bihealth.mi.risk_assessment_api.model.project.Project;
 import org.bihealth.mi.risk_assessment_api.repository.activity.DataSharingActivityRepository;
 import org.bihealth.mi.risk_assessment_api.repository.activity.DataSharingActivityTableAssessmentAttributeRepository;
 import org.bihealth.mi.risk_assessment_api.repository.assessment.dataset.DatasetTableAssessmentAttributeRepository;
@@ -105,27 +100,22 @@ final class ScenarioPlannerHarness {
                         new DatasetAttributeRiskClassifier()),
                 contextMatcher,
                 new RiskDriverExtractorService(answers, mappingMatcher),
-                new ProjectConstraintCompatibilityService());
+                new ActivityRequirementCompatibilityService());
         evaluator = new MitigationPlanEvaluator(
                 new CounterfactualContextEvaluator(riskService, contextMatcher, inference),
                 new MitigationPlanEstimateService(),
-                new ProjectConstraintEvaluationService(new ProjectConstraintCompatibilityService()));
+                new ActivityRequirementEvaluationService(new ActivityRequirementCompatibilityService()));
     }
 
-    /** Inference result and planning context of one activity, as the planning service builds them. */
-    MitigationPlanningContext context(
-            DataSharingActivity activity,
-            MitigationSharingArrangement arrangement,
-            List<ProjectConstraint> constraints,
-            String requiredTemporalResolution,
-            BigDecimal minimumCohortRetention
-    ) {
-        MitigationWorkingMemory memory = new MitigationWorkingMemory(activity, new Project(),
-                activity.getDatasetAssessment(), activity.getRecipientAssessment(), Map.of(), constraints,
-                arrangement, "ONE_TIME", baseline(activity), null, requiredTemporalResolution,
-                minimumCohortRetention, null, new ArrayList<>());
+    /**
+     * Inference result and planning context of one activity, as the planning service builds them.
+     * The activity's own requirements apply; a test changes them on the activity beforehand.
+     */
+    MitigationPlanningContext context(DataSharingActivity activity) {
+        MitigationWorkingMemory memory =
+                new MitigationWorkingMemory(activity, baseline(activity), null, null, new ArrayList<>());
         InferenceResult inferred = inference.infer(memory, snapshot);
-        return new MitigationPlanningContext(memory, snapshot, inferred, constraints, memory.baselineRisk());
+        return new MitigationPlanningContext(memory, snapshot, inferred);
     }
 
     MitigationCandidatePlanResponseDTO plan(MitigationPlanningContext context) {
@@ -133,7 +123,7 @@ final class ScenarioPlannerHarness {
         when(contextFactory.create(anyLong(), anyString(), anyBoolean(), any())).thenReturn(context);
         return new MitigationPlanningService(contextFactory, new CandidatePlanGenerator(), evaluator,
                 new PlanSelectionService(), new CandidatePlanExplanationBuilder())
-                .generate(context.workingMemory().activity().getId(), null, "user", false);
+                .generateCandidatePlans(context.workingMemory().activity().getId(), null, "user", false);
     }
 
     Long actionId(String code) {
@@ -164,15 +154,5 @@ final class ScenarioPlannerHarness {
         AtomicLong ids = new AtomicLong(1);
         version.getActions().forEach(action -> action.setId(ids.getAndIncrement()));
         return version;
-    }
-
-    static ProjectConstraint constraint(String key, String type, String value, String unit) {
-        ProjectConstraint constraint = new ProjectConstraint();
-        constraint.setKey(key);
-        constraint.setLabel(key);
-        constraint.setConstraintType(type);
-        constraint.setValue(value);
-        constraint.setUnit(unit);
-        return constraint;
     }
 }

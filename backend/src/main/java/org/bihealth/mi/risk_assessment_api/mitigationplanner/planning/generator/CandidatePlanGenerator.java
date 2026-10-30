@@ -8,7 +8,7 @@ import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.Mitiga
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.RiskDriverDTO;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationActionType;
 import org.bihealth.mi.risk_assessment_api.enums.ParameterValueCompatibility;
-import org.bihealth.mi.risk_assessment_api.enums.ProjectConstraintResult;
+import org.bihealth.mi.risk_assessment_api.enums.RequirementCheckResult;
 import org.bihealth.mi.risk_assessment_api.enums.RiskDriverPriority;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationActionConflict;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationActionDependency;
@@ -31,7 +31,7 @@ import java.util.stream.Stream;
 
 /**
  * Combines applicable mitigation actions into feasible candidate plans under
- * configured dependencies, conflicts and Project constraints.
+ * configured dependencies, conflicts and activity requirements.
  *
  * <p>Feasibility does not imply proven mitigation effectiveness.</p>
  *
@@ -41,11 +41,11 @@ import java.util.stream.Stream;
  * actions that structurally cover the target: every chosen action covers at
  * least one target driver that no other chosen action covers. Dependencies are
  * closed transitively from the Knowledge Base snapshot, conflicting pairs are
- * rejected, and actions with a hard Project FAIL or only incompatible parameter
+ * rejected, and actions with a failed hard requirement or only incompatible parameter
  * values are excluded. Actionable Critical drivers must always be covered.</p>
  *
  * <p>Automatic generation is deliberately conservative: an action whose every parameter value
- * contradicts a Project requirement (hard or preference) is not proposed. A researcher can
+ * contradicts an activity requirement (hard or preference) is not proposed. A researcher can
  * still add it to a Custom Plan, where an unmet preference is reported as a trade-off.</p>
  */
 @Service
@@ -225,8 +225,8 @@ public class CandidatePlanGenerator {
     /** PASS and NEEDS_EVALUATION stay feasible; FAIL or only-incompatible parameters are infeasible. */
     private boolean hardFails(Opportunity opportunity) {
         if (opportunity instanceof ContextOpportunity contextOpportunity
-                && contextOpportunity.getProjectFeasibility() != null
-                && contextOpportunity.getProjectFeasibility().getResult() == ProjectConstraintResult.FAIL) {
+                && contextOpportunity.getPlanFeasibility() != null
+                && contextOpportunity.getPlanFeasibility().getResult() == RequirementCheckResult.FAIL) {
             return true;
         }
         if (opportunity instanceof DataOpportunity dataOpportunity) {
@@ -314,7 +314,7 @@ public class CandidatePlanGenerator {
         return left < right ? left + ":" + right : right + ":" + left;
     }
 
-    /** Pre-selects a parameter value only when the Project makes it known-compatible; otherwise it stays unresolved. */
+    /** Pre-selects a parameter value only when the activity requirements make it known-compatible; otherwise it stays unresolved. */
     private List<ParameterSelection> selectKnownCompatibleParameters(
             Set<Long> selected,
             Map<Long, Opportunity> opportunities

@@ -11,7 +11,9 @@ import org.bihealth.mi.risk_assessment_api.enums.MitigationPlanStrategy;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationRecordRetentionEffect;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationResultingDataForm;
 import org.bihealth.mi.risk_assessment_api.enums.ParameterValueCompatibility;
-import org.bihealth.mi.risk_assessment_api.enums.ProjectConstraintResult;
+import org.bihealth.mi.risk_assessment_api.enums.ActivityRequirement;
+import org.bihealth.mi.risk_assessment_api.enums.RequirementCheckResult;
+import org.bihealth.mi.risk_assessment_api.enums.RequirementConstraintType;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -27,8 +29,8 @@ public class MitigationPlanDraftEvaluationDTO {
     private MitigationPlanStrategy strategy;
     // Internal status; researcher-facing guidance is carried by nextStep.
     private MitigationPlanStatus status;
-    // Plan-level summary of all Project constraint checks.
-    private ProjectConstraintResult projectConstraintResult;
+    // Plan-level summary of all activity requirement checks.
+    private RequirementCheckResult requirementCheckResult;
     // Researcher-facing next action, e.g. "Evaluate transformed data". Never "approved" or "safe".
     private String nextStep;
     private boolean dataRiskEvaluationRequired;
@@ -52,7 +54,7 @@ public class MitigationPlanDraftEvaluationDTO {
     private Double baselineRequiredDataRiskThreshold;
     private CostEstimate costEstimate = new CostEstimate();
     private SetupEstimate setupEstimate = new SetupEstimate();
-    private List<ProjectCheck> projectChecks = new ArrayList<>();
+    private List<RequirementCheck> requirementChecks = new ArrayList<>();
 
     // Baseline versus projected context risk. Null for DATA plans: no Context Control is
     // included, so Controls, Likelihood and P_attack are not re-evaluated.
@@ -122,15 +124,17 @@ public class MitigationPlanDraftEvaluationDTO {
         private String note;
     }
 
+    /** Outcome of checking the plan against one activity requirement. */
     @Data
     @NoArgsConstructor
-    public static class ProjectCheck {
-        private String key;
-        private String label;
+    public static class RequirementCheck {
+        private ActivityRequirement requirement;
+        private RequirementConstraintType constraintType;
+        // What the activity requires, e.g. "EUR 5000".
         private String required;
-        private String constraintType;
+        // What the plan offers, e.g. the aggregated cost estimate.
         private String planEvidence;
-        private ProjectConstraintResult status;
+        private RequirementCheckResult status;
         private String note;
     }
 

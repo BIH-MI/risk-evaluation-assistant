@@ -1,7 +1,7 @@
 import {
   formatAttributeRole,
-  formatOptionValue,
   formatParameterLabel,
+  humanizeCode,
 } from "./mitigationPlannerFormatters";
 
 // Risk factor priority explains why a current assessment answer or evidence item is shown here.
@@ -53,7 +53,7 @@ function dedupeValues(values = []) {
 }
 
 /**
- * "Preferred" is only a local, Project-compatible parameter choice (the first, i.e. least
+ * "Preferred" is only a local, Activity-compatible parameter choice (the first, i.e. least
  * coarsened, compatible value). It makes no claim of global optimality.
  */
 export function preferredValue(parameter) {
@@ -151,7 +151,7 @@ export function planActionParameters(action) {
   return (action.parameters || []).map((parameter) => ({
     label: formatParameterLabel(parameter.parameterCode),
     value: parameter.resolved
-      ? formatOptionValue(parameter.value)
+      ? humanizeCode(parameter.value)
       : "To be determined during transformation evaluation",
   }));
 }
@@ -165,7 +165,7 @@ export function resolvedPlanActionParameters(action) {
     .filter((parameter) => parameter.resolved)
     .map((parameter) => ({
       label: formatParameterLabel(parameter.parameterCode),
-      value: formatOptionValue(parameter.value),
+      value: humanizeCode(parameter.value),
     }));
 }
 

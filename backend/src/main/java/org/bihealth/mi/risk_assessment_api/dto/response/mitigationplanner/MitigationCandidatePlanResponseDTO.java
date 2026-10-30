@@ -41,7 +41,7 @@ public class MitigationCandidatePlanResponseDTO {
         private List<String> selectedActionCodes = new ArrayList<>();
         private int criticalDriverCoverage;
         private int highDriverCoverage;
-        private int unresolvedProjectChecks;
+        private int unresolvedRequirementChecks;
         private String stableActionCodeKey;
         private List<String> planSummary = new ArrayList<>();
         private List<ActionRationale> actionRationales = new ArrayList<>();

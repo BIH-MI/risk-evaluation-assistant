@@ -15,7 +15,7 @@ import RABox from "components/layout/RABox";
 import RATypography from "components/display/RATypography";
 import { EstimateText } from "./PlannerPrimitives";
 import PlanStatusChip from "./PlanStatusChip";
-import ProjectConstraintChip from "./ProjectConstraintChip";
+import ActivityRequirementChip from "./ActivityRequirementChip";
 import { formatPlanCost, formatPlanSetup, formatStrategy } from "../utils/mitigationPlannerFormatters";
 
 /**
@@ -36,7 +36,7 @@ export default function CandidatePlanTable({ plans, selectedPlanKey, onSelect })
             <TableCell>{t("mitigationPlanner.plans.strategy", "Strategy")}</TableCell>
             <TableCell>{t("mitigationPlanner.plans.cost", "Estimated cost")}</TableCell>
             <TableCell>{t("mitigationPlanner.plans.time", "Estimated setup")}</TableCell>
-            <TableCell>{t("mitigationPlanner.plans.projectConstraints", "Project Constraints")}</TableCell>
+            <TableCell>{t("mitigationPlanner.plans.activityRequirements", "Sharing Requirements")}</TableCell>
             <TableCell>{t("mitigationPlanner.plans.status", "Status")}</TableCell>
             <TableCell padding="checkbox">{t("mitigationPlanner.plans.select", "Select")}</TableCell>
           </TableRow>
@@ -58,7 +58,7 @@ export default function CandidatePlanTable({ plans, selectedPlanKey, onSelect })
               <TableCell><EstimateText text={formatPlanCost(evaluation.costEstimate)} /></TableCell>
               <TableCell><EstimateText text={formatPlanSetup(evaluation.setupEstimate)} /></TableCell>
               <TableCell>
-                <ProjectConstraintChip result={evaluation.projectConstraintResult} />
+                <ActivityRequirementChip result={evaluation.requirementCheckResult} />
               </TableCell>
               <TableCell>
                 <PlanStatusChip status={evaluation.status} />

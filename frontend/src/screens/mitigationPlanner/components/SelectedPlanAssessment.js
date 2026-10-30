@@ -4,7 +4,7 @@ import { Divider } from "@mui/material";
 
 import RABox from "components/layout/RABox";
 import ContextPlanAssessment from "./ContextPlanAssessment";
-import ProjectConstraintChecks from "./ProjectConstraintChecks";
+import ActivityRequirementChecks from "./ActivityRequirementChecks";
 import SelectedSafeguardItem from "./SelectedSafeguardItem";
 import { SectionLabel } from "./PlannerPrimitives";
 
@@ -81,7 +81,7 @@ SelectedActions.propTypes = {
 
 // Detailed view of the plan selected in the Candidate Mitigation Plans table (generated or
 // Custom): its actions and the Risk Drivers they address, the projected context where relevant and
-// the Project checks. Cost and setup are compared in the table.
+// the Activity checks. Cost and setup are compared in the table.
 export default function SelectedPlanAssessment({ plan, driversById }) {
   const { evaluation, label } = plan;
   // Context and hybrid plans show the counterfactual context comparison. Data-only plans have none:
@@ -98,7 +98,7 @@ export default function SelectedPlanAssessment({ plan, driversById }) {
           <Divider />
         </>
       )}
-      <ProjectConstraintChecks checks={evaluation.projectChecks || []} />
+      <ActivityRequirementChecks checks={evaluation.requirementChecks || []} />
     </RABox>
   );
 }

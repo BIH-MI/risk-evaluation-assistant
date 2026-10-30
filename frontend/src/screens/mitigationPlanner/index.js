@@ -13,7 +13,7 @@ import CustomPlanBar from "./components/CustomPlanBar";
 import MitigationPlannerHeader from "./components/MitigationPlannerHeader";
 import MitigationPlanning from "./components/MitigationPlanning";
 import PlannerSection from "./components/PlannerSection";
-import ProjectRequirementSummary from "./components/ProjectRequirementSummary";
+import ActivityRequirementsSummary from "./components/ActivityRequirementsSummary";
 import SelectedPlanAssessment from "./components/SelectedPlanAssessment";
 import useMitigationPlanBuilder, { CUSTOM_PLAN_KEY } from "./useMitigationPlanBuilder";
 import useMitigationPlanner from "./useMitigationPlanner";
@@ -48,7 +48,7 @@ export default function MitigationPlannerPage() {
     activityId,
     token,
     manualRiskThreshold,
-    ready: Boolean(overview?.project),
+    ready: Boolean(overview?.activity),
   });
   const builder = useMitigationPlanBuilder({ activityId, token, manualRiskThreshold, overview });
   const { result, generating } = recommendation;
@@ -106,8 +106,8 @@ export default function MitigationPlannerPage() {
               </RABox>
             )}
 
-            <PlannerSection id="requirements" title={t("mitigationPlanner.sections.requirements", "Project Requirements")}>
-              <ProjectRequirementSummary requirements={overview.projectConstraints || []} />
+            <PlannerSection id="requirements" title={t("mitigationPlanner.sections.requirements", "Sharing Requirements")}>
+              <ActivityRequirementsSummary requirements={overview.activityRequirements} />
             </PlannerSection>
 
             <PlannerSection id="risk" framed={false} title={t("mitigationPlanner.sections.baseline", "Baseline Risk Assessment")}>
@@ -120,7 +120,7 @@ export default function MitigationPlannerPage() {
               title={t("mitigationPlanner.sections.planning", "Mitigation Planning")}
               description={t(
                 "mitigationPlanner.sections.planningDescription",
-                "Risk factors from the current assessment are matched to mitigation options configured in the Knowledge Base. An option is listed because it applies to the finding; that does not show it will be effective. Project requirements are used to identify compatible choices and unresolved constraints."
+                "Risk factors from the current assessment are matched to mitigation options configured in the Knowledge Base. An option is listed because it applies to the finding; that does not show it will be effective. Sharing requirements are used to identify compatible choices and unresolved constraints."
               )}
             >
               <RABox display="flex" flexDirection="column" gap={3}>
@@ -136,7 +136,7 @@ export default function MitigationPlannerPage() {
               </RABox>
             </PlannerSection>
 
-            {overview.project && (
+            {overview.activity && (
               <PlannerSection
                 id="plans"
                 framed={false}
@@ -160,7 +160,7 @@ export default function MitigationPlannerPage() {
                     <Notice>
                       {t(
                         "mitigationPlanner.plans.noFeasiblePlan",
-                        "No feasible mitigation plan could be generated under the current Knowledge Base and Project constraints."
+                        "No feasible mitigation plan could be generated under the current Knowledge Base and sharing requirements."
                       )}
                     </Notice>
                   )}

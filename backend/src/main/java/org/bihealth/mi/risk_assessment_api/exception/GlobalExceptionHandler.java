@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -108,6 +109,16 @@ public class GlobalExceptionHandler {
             );
         }
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", "Database error: " + ex.getMessage()));
+    }
+
+    /**
+     * Keeps the status a controller chose with ResponseStatusException, for example 404 or 409.
+     * Without this handler the catch-all below would turn it into 500.
+     */
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
+        String message = ex.getReason() != null ? ex.getReason() : ex.getStatusCode().toString();
+        return ResponseEntity.status(ex.getStatusCode()).body(Map.of("message", message));
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)

@@ -13,8 +13,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Builds the shared context of one planning run: working memory, the pinned
- * Knowledge Base snapshot and the inference result. It is built once and then
- * reused for generating, evaluating and selecting all candidate plans.
+ * Knowledge Base snapshot and the inference result (Risk Drivers and applicable
+ * actions). It is built once and then reused for the overview and for generating,
+ * evaluating and selecting all candidate plans.
  */
 @Service
 @Transactional(readOnly = true)
@@ -32,11 +33,8 @@ public class MitigationPlanningContextFactory {
             Double manualRiskThreshold
     ) {
         MitigationWorkingMemory memory = workingMemoryFactory.create(activityId, username, isAdmin, manualRiskThreshold);
-        if (memory.project() == null) {
-            throw new IllegalArgumentException("A Project is required before mitigation planning can be performed.");
-        }
         MitigationKnowledgeBaseSnapshot knowledge = snapshotService.createSnapshot(memory.knowledgeBaseVersion());
         InferenceResult inference = inferenceEngine.infer(memory, knowledge);
-        return new MitigationPlanningContext(memory, knowledge, inference, memory.projectConstraints(), memory.baselineRisk());
+        return new MitigationPlanningContext(memory, knowledge, inference);
     }
 }

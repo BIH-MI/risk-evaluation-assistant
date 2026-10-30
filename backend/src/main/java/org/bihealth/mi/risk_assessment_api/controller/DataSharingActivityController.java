@@ -9,17 +9,17 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 
-import jakarta.persistence.EntityNotFoundException;
 import java.util.List;
 
 /**
  * REST controller for managing the central DataSharingActivity resource.
  *
- * A DataSharingActivity links dataset assessments with recipient assessments
- * from the same risk configuration. The linked activity is the unit passed to
- * the risk calculation endpoint when the UI asks for an overall risk report.
+ * A DataSharingActivity links a dataset assessment with a recipient assessment
+ * and holds the sharing purpose, requirements and pinned mitigation Knowledge
+ * Base version. It is the unit passed to the risk calculation endpoint and the
+ * mitigation planner. Missing activities are answered with 404 by the
+ * {@code GlobalExceptionHandler}.
  */
 @RestController
 @RequestMapping("/api/data-sharing-activities")
@@ -69,12 +69,7 @@ public class DataSharingActivityController {
         String username = SecurityUtils.getUsername(token);
         boolean isAdmin = SecurityUtils.isAdminRole(token);
 
-        try {
-            DataSharingActivityResponseDTO dto = sharingService.getById(id, username, isAdmin);
-            return ResponseEntity.ok(dto);
-        } catch (EntityNotFoundException ex) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());
-        }
+        return ResponseEntity.ok(sharingService.getById(id, username, isAdmin));
     }
 
     /**
@@ -120,12 +115,7 @@ public class DataSharingActivityController {
         String username = SecurityUtils.getUsername(token);
         boolean isAdmin = SecurityUtils.isAdminRole(token);
 
-        try {
-            DataSharingActivityResponseDTO updated = sharingService.update(id, dto, username, isAdmin);
-            return ResponseEntity.ok(updated);
-        } catch (EntityNotFoundException ex) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());
-        }
+        return ResponseEntity.ok(sharingService.update(id, dto, username, isAdmin));
     }
 
     /**
@@ -143,11 +133,7 @@ public class DataSharingActivityController {
         String username = SecurityUtils.getUsername(token);
         boolean isAdmin = SecurityUtils.isAdminRole(token);
 
-        try {
-            sharingService.delete(id, username, isAdmin);
-            return ResponseEntity.noContent().build();
-        } catch (EntityNotFoundException ex) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage());
-        }
+        sharingService.delete(id, username, isAdmin);
+        return ResponseEntity.noContent().build();
     }
 }

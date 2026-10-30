@@ -1,12 +1,10 @@
 package org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.model;
 
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.BaselineRisk;
-import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.ProjectConstraint;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.inference.InferenceResult;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.service.MitigationKnowledgeBaseSnapshot;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.workingmemory.MitigationWorkingMemory;
-
-import java.util.List;
+import org.bihealth.mi.risk_assessment_api.model.activity.ActivityRequirements;
 
 /**
  * Everything one planning run needs, computed once: case facts, the pinned
@@ -16,8 +14,14 @@ import java.util.List;
 public record MitigationPlanningContext(
         MitigationWorkingMemory workingMemory,
         MitigationKnowledgeBaseSnapshot knowledge,
-        InferenceResult inference,
-        List<ProjectConstraint> projectConstraints,
-        BaselineRisk baselineRisk
+        InferenceResult inference
 ) {
+
+    public ActivityRequirements requirements() {
+        return workingMemory.requirements();
+    }
+
+    public BaselineRisk baselineRisk() {
+        return workingMemory.baselineRisk();
+    }
 }

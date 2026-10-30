@@ -122,11 +122,11 @@ public class MitigationKnowledgeBaseService {
         MitigationKnowledgeBase knowledgeBase = knowledgeBaseRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Mitigation Knowledge Base not found: " + id));
         if (knowledgeBase.isDefaultKnowledgeBase()) {
-            // New Projects pin the default; archiving it would leave no default to resolve.
+            // New activities pin the default; archiving it would leave no default to resolve.
             throw new IllegalArgumentException(
                     "The default mitigation Knowledge Base cannot be archived. Set another Knowledge Base as default first.");
         }
-        // Archiving never deletes versions: Projects already pinned to one keep planning against it.
+        // Archiving never deletes versions: activities already pinned to one keep planning against it.
         knowledgeBase.setActive(false);
         return knowledgeBaseRepository.save(knowledgeBase);
     }

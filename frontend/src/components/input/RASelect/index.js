@@ -32,7 +32,8 @@ export default function RASelect({
 
 RASelect.propTypes = {
     label: PropTypes.node.isRequired,
-    value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    // An array for a multiple select (SelectProps={{ multiple: true }}).
+    value: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.array]),
     onChange: PropTypes.func.isRequired,
     options: PropTypes.arrayOf(
         PropTypes.shape({ value: PropTypes.any.isRequired, label: PropTypes.node.isRequired })

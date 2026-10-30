@@ -24,7 +24,7 @@ function ValueOption({ option, preferred }) {
           {preferred ? (
             <CompatibilityChip
               compatibility="COMPATIBLE"
-              label={t("mitigationPlanner.actions.preferred", "Preferred under Project requirement")}
+              label={t("mitigationPlanner.actions.preferred", "Preferred under the sharing requirements")}
             />
           ) : (
             option.compatibility && <CompatibilityChip compatibility={option.compatibility} />
@@ -47,7 +47,7 @@ ValueOption.propTypes = {
   preferred: PropTypes.bool.isRequired,
 };
 
-// A value is pre-selected only when it is the single Project-compatible one; otherwise the researcher
+// A value is pre-selected only when it is the single Activity-compatible one; otherwise the researcher
 // must choose. Incompatible values are disabled, so an incompatible parameter is never chosen.
 export default function ActionParameterChooser({ parameters, choices, onChoose }) {
   const { t } = useTranslation();

@@ -299,7 +299,7 @@ public class MitigationKnowledgeBaseVersionService {
                         PlanSelectionCriterion.REJECT_INCOMPATIBLE,
                         PlanSelectionCriterion.COVER_ACTIONABLE_CRITICAL_DRIVERS,
                         PlanSelectionCriterion.PREFER_HIGH_DRIVER_COVERAGE,
-                        PlanSelectionCriterion.PREFER_FEWER_UNRESOLVED_PROJECT_CHECKS,
+                        PlanSelectionCriterion.PREFER_FEWER_UNRESOLVED_REQUIREMENT_CHECKS,
                         PlanSelectionCriterion.PREFER_FEWER_ACTIONS,
                         PlanSelectionCriterion.PREFER_LOWER_KNOWN_COST,
                         PlanSelectionCriterion.PREFER_SHORTER_KNOWN_SETUP_TIME,

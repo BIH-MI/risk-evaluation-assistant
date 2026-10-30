@@ -85,7 +85,9 @@ public class InMemoryDemoSeed {
                 store(mock(RecipientAssessmentRepository.class), recipientAssessments, RecipientAssessment::setId),
                 store(mock(DataSharingActivityRepository.class), activities, DataSharingActivity::setId),
                 configurations,
-                scoring, evidenceSeeder);
+                scoring, evidenceSeeder,
+                mock(org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.service.MitigationKnowledgeBaseService.class),
+                mock(org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.service.MitigationKnowledgeBaseVersionService.class));
         ReflectionTestUtils.setField(dataLoader, "loadSampleData", true);
     }
 

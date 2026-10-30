@@ -9,6 +9,8 @@ REA performs a **qualitative attribute-level review**, classifying variables by 
 
 Together, these outputs allow users to configure anonymization engines by specifying exactly which variables require protection and defining the appropriate risk parameters.
 
+For each data-sharing activity, the **Mitigation Planner** suggests measures that would lower the risk: context controls such as a data-sharing agreement or secure remote analysis, and data transformations such as coarsening dates. It checks each plan against the activity's requirements (budget, setup time, data needs), shows how the probability of attack and the anonymization threshold would change, and lists what still needs evaluation. The plans support a human decision; they do not certify that sharing is safe.
+
 ## Main Workflow
 
 This video provides a comprehensive walkthrough of the REA main workflow.
@@ -50,7 +52,7 @@ REA uses two application roles:
 On a fresh PostgreSQL database, the backend creates the schema and the essential configurations automatically; no SQL scripts are needed, and restarts keep all data:
 
 1. **Risk frameworks**: complete risk configurations imported from the JSON files in `backend/src/main/resources/data/` (categories, questions, options, risk bands, risk matrix, re-identification thresholds).
-2. **Default attribute scoring system** and **default QID Discovery configuration** (including AI screening settings).
+2. **Default attribute scoring system**, **default QID Discovery configuration** (including AI screening settings) and **default Mitigation Knowledge Base**.
 3. **Demo data** (optional, `APP_SETUP_LOAD_SAMPLE_DATA`): a sample dataset with recipients, assessments and data-sharing activities.
 
 Existing configurations are never overwritten. This initialisation is intended for fresh installations, not for upgrading existing databases across schema changes; see [Database Initialisation](./backend/README.md#database-initialisation).

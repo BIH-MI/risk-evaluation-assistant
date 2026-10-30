@@ -23,11 +23,25 @@ export const sessionState = {
   reset: () => setSessionExpired(false),
 };
 
+// Bean validation errors arrive as a map of field names to messages, e.g.
+// {"requirements.budgetCurrency": "Enter the currency of the available budget."}.
+function validationMessages(errorData) {
+  if (!errorData || typeof errorData !== "object" || Array.isArray(errorData)) {
+    return "";
+  }
+
+  const messages = Object.entries(errorData)
+    .filter(([key, value]) => key !== "code" && typeof value === "string" && value.trim())
+    .map(([, value]) => value.trim());
+  return [...new Set(messages)].join(" ");
+}
+
 /**
  * Extracts the backend's actual error message from a failed response and
  * throws it as a standard Error. Spring's exception handlers return either a
- * JSON body ({message}/{error}) or plain text depending on which handler
- * matched, so both are tried before falling back to defaultMsg.
+ * JSON body ({message}/{error} or a field-to-message map for validation
+ * errors) or plain text depending on which handler matched, so all are tried
+ * before falling back to defaultMsg.
  */
 export async function handleApiError(res, defaultMsg) {
   if (res.status === 401) setSessionExpired(true);
@@ -45,6 +59,8 @@ export async function handleApiError(res, defaultMsg) {
       message = errorData.message;
     } else if (typeof errorData?.error === "string") {
       message = errorData.error;
+    } else {
+      message = validationMessages(errorData) || defaultMsg;
     }
   } catch {
     try {

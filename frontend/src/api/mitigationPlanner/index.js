@@ -52,7 +52,7 @@ export async function evaluateMitigationPlanDraftApi(activityId, payload, token)
 
 /**
  * POST /api/data-sharing-activities/{id}/mitigation-planner/candidate-plans
- * Generates, evaluates and ranks candidate plans against the Project's pinned Knowledge Base
+ * Generates, evaluates and ranks candidate plans against the Activity's pinned Knowledge Base
  * version. Read-only: nothing is persisted and no assessment is modified.
  */
 export async function generateMitigationCandidatePlansApi(activityId, payload, token) {

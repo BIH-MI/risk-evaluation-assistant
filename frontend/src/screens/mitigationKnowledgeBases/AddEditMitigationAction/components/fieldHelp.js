@@ -14,7 +14,7 @@ export const FIELD_HELP = {
   setupTime:
     "Optional estimated setup-time range. Leave blank when unknown; blank values do not mean zero days.",
   estimateScope:
-    "Defines what the estimate covers, for example initial setup, this sharing activity, the complete Project, or annual operation. Scope is needed so the future planner can compare estimates with Project constraints correctly.",
+    "Defines what the estimate covers, for example initial setup, a single sharing activity, the whole research project, or annual operation. Scope is needed so the planner can compare estimates with the budget of a Data Sharing Activity correctly.",
   attributeClassification:
     "The assessed attribute classification that makes this data transformation applicable. Use Potential QID for attributes whose Dataset Assessment R+A+D score exceeds the configured identifiability threshold.",
   dataType:

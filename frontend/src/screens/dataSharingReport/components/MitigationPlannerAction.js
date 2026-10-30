@@ -5,7 +5,6 @@ import SecurityIcon from "@mui/icons-material/Security";
 
 import RAButton from "components/input/RAButton";
 import RABox from "components/layout/RABox";
-import RequirementHelpTooltip from "components/display/RequirementHelpTooltip";
 import { getManualRiskThresholdForPayload } from "../reportDataUtils";
 
 /**
@@ -19,7 +18,6 @@ export default function MitigationPlannerAction({
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const hasProject = Boolean(activity?.projectId);
 
   const handleOpen = () => {
     // The effective target threshold is handed over explicitly so the planner baseline matches
@@ -39,7 +37,7 @@ export default function MitigationPlannerAction({
     <RAButton
       variant="outlined"
       startIcon={<SecurityIcon />}
-      disabled={!hasProject}
+      disabled={!activity?.id}
       onClick={handleOpen}
     >
       {t("report.openMitigationPlanner", "Open Mitigation Planner")}
@@ -48,19 +46,7 @@ export default function MitigationPlannerAction({
 
   return (
     <RABox display="flex" justifyContent="center">
-      {hasProject ? (
-        button
-      ) : (
-        <RequirementHelpTooltip
-          title={t(
-            "report.mitigationPlannerNeedsProject",
-            "A Project is required before mitigation planning can be performed."
-          )}
-        >
-          {/* The span keeps the tooltip working while the button is disabled. */}
-          <span>{button}</span>
-        </RequirementHelpTooltip>
-      )}
+      {button}
     </RABox>
   );
 }
@@ -68,7 +54,6 @@ export default function MitigationPlannerAction({
 MitigationPlannerAction.propTypes = {
   activity: PropTypes.shape({
     id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-    projectId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
   }),
   isThresholdOverwritten: PropTypes.bool,
   manualRiskThreshold: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),

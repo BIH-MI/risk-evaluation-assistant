@@ -60,7 +60,7 @@ export function customPlanIssues(actionIds, parameterChoices, actionsById) {
       } else if (!selectedOption) {
         message = `${humanizeCode(selectedValue)} is not an allowed value for ${label.toLowerCase()} of "${action.actionName}".`;
       } else if (selectedOption.compatibility === "INCOMPATIBLE") {
-        message = `${humanizeCode(selectedValue)} is incompatible with the Project requirement for "${action.actionName}".`;
+        message = `${humanizeCode(selectedValue)} is incompatible with the sharing requirements for "${action.actionName}".`;
       }
       if (message) issues.push({ actionId, parameterCode: parameter.parameterCode, message });
     });
@@ -68,7 +68,7 @@ export function customPlanIssues(actionIds, parameterChoices, actionsById) {
   return issues;
 }
 
-/** A value is pre-selected only when it is the single value known to be Project-compatible. */
+/** A value is pre-selected only when it is the single value known to be Activity-compatible. */
 export function defaultParameterChoices(action) {
   const choices = {};
   (action?.parameters || []).forEach((parameter) => {

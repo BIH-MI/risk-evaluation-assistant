@@ -1,104 +1,78 @@
 package org.bihealth.mi.risk_assessment_api.mitigationplanner.workingmemory;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.bihealth.mi.risk_assessment_api.service.ProjectRequirementStableKeys.REQ_SHARING_MODEL;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.same;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
 import org.bihealth.mi.risk_assessment_api.enums.MitigationSharingArrangement;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationKnowledgeBase;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationKnowledgeBaseVersion;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.service.MitigationKnowledgeBaseService;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.service.MitigationKnowledgeBaseVersionService;
-import org.bihealth.mi.risk_assessment_api.model.project.Project;
+import org.bihealth.mi.risk_assessment_api.model.activity.DataSharingActivity;
 import org.bihealth.mi.risk_assessment_api.service.DataSharingActivityService;
-import org.bihealth.mi.risk_assessment_api.service.ProjectRequirementResolver;
-import org.bihealth.mi.risk_assessment_api.service.RiskService;
-import org.bihealth.mi.risk_assessment_api.model.project.ProjectRequirementResponse;
-import org.bihealth.mi.risk_assessment_api.model.project.ProjectTemplateVersion;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.transaction.PlatformTransactionManager;
 
-@ExtendWith(MockitoExtension.class)
 class MitigationWorkingMemoryFactoryTest {
 
-    @Mock
-    private DataSharingActivityService activityService;
-
-    @Mock
-    private RiskService riskService;
-
-    @Mock
-    private MitigationKnowledgeBaseService knowledgeBaseService;
-
-    @Mock
-    private MitigationKnowledgeBaseVersionService knowledgeBaseVersionService;
-
-    @Mock
-    private ProjectRequirementResolver requirementResolver;
-
-    @Mock
-    private PlatformTransactionManager transactionManager;
-
+    private final DataSharingActivityService activityService = mock(DataSharingActivityService.class);
+    private final MitigationKnowledgeBaseService knowledgeBaseService = mock(MitigationKnowledgeBaseService.class);
+    private final MitigationKnowledgeBaseVersionService knowledgeBaseVersionService =
+            mock(MitigationKnowledgeBaseVersionService.class);
+    private final DataSharingActivity activity = new DataSharingActivity();
     private MitigationWorkingMemoryFactory factory;
 
     @BeforeEach
     void setUp() {
-        factory = new MitigationWorkingMemoryFactory(
-                activityService,
-                riskService,
-                requirementResolver,
-                knowledgeBaseService,
-                knowledgeBaseVersionService,
-                transactionManager
-        );
+        when(activityService.getAccessibleActivityEntity(1L, "alice", false)).thenReturn(activity);
+        factory = new MitigationWorkingMemoryFactory(activityService, mock(PlanningBaselineRiskLoader.class),
+                knowledgeBaseService, knowledgeBaseVersionService);
     }
 
     @Test
-    void resolveSharingArrangementUsesProvidedRequirementMap() {
-        Project project = new Project();
-        Map<String, ProjectRequirementResponse> responses = new LinkedHashMap<>();
-        responses.put(REQ_SHARING_MODEL, new ProjectRequirementResponse());
-        List<String> warnings = new ArrayList<>();
+    void usesTheActivitysRequirementsAndPinnedKnowledgeBaseVersion() {
+        MitigationKnowledgeBaseVersion pinned = new MitigationKnowledgeBaseVersion();
+        activity.setMitigationKnowledgeBaseVersion(pinned);
+        activity.getRequirements().setSharingArrangement(MitigationSharingArrangement.SECURE_REMOTE_ANALYSIS);
 
-        when(requirementResolver.firstValue(same(responses), eq(REQ_SHARING_MODEL)))
-                .thenReturn("SECURE_REMOTE_ANALYSIS");
+        MitigationWorkingMemory memory = factory.create(1L, "alice", false, null);
 
-        MitigationSharingArrangement result = factory.resolveSharingArrangement(project, responses, warnings);
-
-        assertThat(result).isEqualTo(MitigationSharingArrangement.SECURE_REMOTE_ANALYSIS);
-        assertThat(warnings).isEmpty();
-        verify(requirementResolver).firstValue(same(responses), eq(REQ_SHARING_MODEL));
-        verify(requirementResolver, never()).responsesByStableKey(any(Project.class));
-        verify(requirementResolver, never()).fixedTemplateValue(any(ProjectTemplateVersion.class), anyString());
+        assertThat(memory.knowledgeBaseVersion()).isSameAs(pinned);
+        assertThat(memory.requirements()).isSameAs(activity.getRequirements());
+        assertThat(memory.sharingArrangement()).isEqualTo(MitigationSharingArrangement.SECURE_REMOTE_ANALYSIS);
+        assertThat(memory.warnings()).isEmpty();
+        verifyNoInteractions(knowledgeBaseService, knowledgeBaseVersionService);
     }
 
     @Test
-    void resolveSharingArrangementKeepsFixedTemplateFallback() {
-        ProjectTemplateVersion version = new ProjectTemplateVersion();
-        Project project = new Project();
-        project.setTemplateVersion(version);
-        Map<String, ProjectRequirementResponse> responses = Map.of();
-        List<String> warnings = new ArrayList<>();
+    void deprecatedSharingArrangementIsReadAsItsCurrentEquivalent() {
+        activity.setMitigationKnowledgeBaseVersion(new MitigationKnowledgeBaseVersion());
+        activity.getRequirements().setSharingArrangement(MitigationSharingArrangement.CONTROLLED_TRANSFER);
 
-        when(requirementResolver.firstValue(same(responses), eq(REQ_SHARING_MODEL))).thenReturn(null);
-        when(requirementResolver.fixedTemplateValue(version, REQ_SHARING_MODEL)).thenReturn("CONTROLLED_TRANSFER");
+        assertThat(factory.create(1L, "alice", false, null).sharingArrangement())
+                .isEqualTo(MitigationSharingArrangement.CONTROLLED_DATA_TRANSFER);
+    }
 
-        MitigationSharingArrangement result = factory.resolveSharingArrangement(project, responses, warnings);
+    @Test
+    void warnsAndFallsBackToTheDefaultKnowledgeBaseWithoutPinOrArrangement() {
+        MitigationKnowledgeBase defaultKnowledgeBase = new MitigationKnowledgeBase();
+        MitigationKnowledgeBaseVersion current = new MitigationKnowledgeBaseVersion();
+        when(knowledgeBaseService.resolveDefaultActiveKnowledgeBase()).thenReturn(defaultKnowledgeBase);
+        when(knowledgeBaseVersionService.getCurrentVersion(defaultKnowledgeBase)).thenReturn(current);
 
-        assertThat(result).isEqualTo(MitigationSharingArrangement.CONTROLLED_DATA_TRANSFER);
-        assertThat(warnings).isEmpty();
+        MitigationWorkingMemory memory = factory.create(1L, "alice", false, null);
+
+        assertThat(memory.knowledgeBaseVersion()).isSameAs(current);
+        assertThat(memory.sharingArrangement()).isNull();
+        assertThat(memory.warnings()).hasSize(2);
+    }
+
+    @Test
+    void rejectsAThresholdOutsideZeroToOne() {
+        assertThatThrownBy(() -> factory.create(1L, "alice", false, 1.5))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }

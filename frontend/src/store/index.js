@@ -6,7 +6,6 @@ import recipientsReducer from "./recipients/recipientsSlice";
 import recipientAssessmentsReducer from "./recipientAssessments/recipientAssessmentsSlice";
 import dataSharingActivitiesReducer from "./dataSharingActivities/dataSharingActivitiesSlice";
 import configurationReducer from "./configurations/configurationSlice";
-import projectsReducer from "./projects/projectsSlice";
 
 import qidDiscoveryReducer from "features/qidDiscovery/state/qidDiscoverySlice";
 import { aiModelInstallationListener } from "features/qidDiscovery/state/aiModelInstallationListener";
@@ -20,7 +19,6 @@ export const store = configureStore({
     datasetAssessments: datasetAssessmentsReducer,
     recipients: recipientsReducer,
     recipientAssessments: recipientAssessmentsReducer,
-    projects: projectsReducer,
     dataSharingActivities: dataSharingActivitiesReducer,
     configurations: configurationReducer,
   },

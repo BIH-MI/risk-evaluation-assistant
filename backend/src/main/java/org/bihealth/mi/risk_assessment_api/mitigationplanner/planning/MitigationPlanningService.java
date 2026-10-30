@@ -1,18 +1,19 @@
 package org.bihealth.mi.risk_assessment_api.mitigationplanner.planning;
 
 import lombok.RequiredArgsConstructor;
-import org.bihealth.mi.risk_assessment_api.dto.request.mitigationplanner.MitigationCandidatePlanRequestDTO;
+import org.bihealth.mi.risk_assessment_api.dto.request.mitigationplanner.MitigationPlanDraftRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationCandidatePlanResponseDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationCandidatePlanResponseDTO.CandidatePlanDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlanDraftEvaluationDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.RiskDriverDTO;
-import org.bihealth.mi.risk_assessment_api.enums.ProjectConstraintResult;
+import org.bihealth.mi.risk_assessment_api.enums.RequirementCheckResult;
 import org.bihealth.mi.risk_assessment_api.enums.RiskDriverPriority;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.evaluation.MitigationPlanEvaluator;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.explanation.CandidatePlanExplanationBuilder;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.PlanSelectionPolicyDefinition;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.generator.CandidatePlanGenerator;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.model.CandidatePlan;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.model.CandidatePlan.ParameterSelection;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.model.EvaluatedCandidatePlan;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.model.MitigationPlanningContext;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.model.PlanRecommendation;
@@ -30,10 +31,13 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * Use-case orchestration for automatic mitigation planning. It contains no matching, evaluation
- * or ranking algorithm itself. One planning run: working memory → Knowledge Base snapshot → inference
- * (once, via {@link MitigationPlanningContextFactory}) → candidate generation →
- * evaluation → deterministic policy selection.
+ * Use cases of the mitigation planner that work with plans. It contains no matching, evaluation
+ * or ranking algorithm itself.
+ *
+ * <p>Automatic planning: planning context (working memory → Knowledge Base snapshot → inference,
+ * via {@link MitigationPlanningContextFactory}) → candidate generation → evaluation →
+ * deterministic policy selection → explanation. A researcher-assembled draft plan goes through the
+ * same evaluator; only the action selection differs.</p>
  */
 @Service
 @Transactional(readOnly = true)
@@ -46,13 +50,17 @@ public class MitigationPlanningService {
     private final PlanSelectionService planSelectionService;
     private final CandidatePlanExplanationBuilder explanationBuilder;
 
-    public MitigationCandidatePlanResponseDTO generate(
+    /**
+     * Generates, evaluates and ranks candidate plans: a recommended plan and up to three alternatives.
+     *
+     * @param manualRiskThreshold target threshold the user set on the report, or null for the configured one
+     */
+    public MitigationCandidatePlanResponseDTO generateCandidatePlans(
             Long activityId,
-            MitigationCandidatePlanRequestDTO request,
+            Double manualRiskThreshold,
             String username,
             boolean isAdmin
     ) {
-        Double manualRiskThreshold = request == null ? null : request.getManualRiskThreshold();
         MitigationPlanningContext context =
                 planningContextFactory.create(activityId, username, isAdmin, manualRiskThreshold);
 
@@ -71,11 +79,30 @@ public class MitigationPlanningService {
         return response;
     }
 
+    /** Evaluates one researcher-assembled plan with the same evaluator as generated candidates. */
+    public MitigationPlanDraftEvaluationDTO evaluateDraft(
+            Long activityId,
+            MitigationPlanDraftRequestDTO request,
+            String username,
+            boolean isAdmin
+    ) {
+        List<ParameterSelection> parameters = request.getSelectedParameters() == null
+                ? List.of()
+                : request.getSelectedParameters().stream()
+                .map(selection -> new ParameterSelection(
+                        selection.getActionId(), selection.getParameterCode(), selection.getValue()))
+                .toList();
+        CandidatePlan draft = new CandidatePlan(request.getSelectedActionIds(), parameters);
+        MitigationPlanningContext context =
+                planningContextFactory.create(activityId, username, isAdmin, request.getManualRiskThreshold());
+        return planEvaluator.evaluate(context, draft);
+    }
+
     private List<String> generationWarnings(MitigationPlanningContext context, List<CandidatePlan> candidates) {
         List<String> warnings = new ArrayList<>();
         for (RiskDriverDTO driver : candidatePlanGenerator.uncoverableCriticalDrivers(context)) {
             warnings.add("No plan was generated: Critical finding \"" + driverTitle(driver) + "\" has configured "
-                    + "mitigation actions, but none of them is feasible under the Project constraints.");
+                    + "mitigation actions, but none of them is feasible under the Activity constraints.");
         }
         if (candidates.size() >= CandidatePlanGenerator.MAX_CANDIDATES) {
             warnings.add("Candidate generation stopped at " + CandidatePlanGenerator.MAX_CANDIDATES
@@ -99,7 +126,7 @@ public class MitigationPlanningService {
                 evaluation,
                 coverage(context, addressed, RiskDriverPriority.CRITICAL),
                 coverage(context, addressed, RiskDriverPriority.HIGH),
-                unresolvedProjectChecks(evaluation),
+                unresolvedRequirementChecks(evaluation),
                 evaluation.getCostEstimate() == null ? null : evaluation.getCostEstimate().getMax(),
                 evaluation.getSetupEstimate() == null ? null : evaluation.getSetupEstimate().getMaxDays(),
                 addressed,
@@ -121,9 +148,9 @@ public class MitigationPlanningService {
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
-    private int unresolvedProjectChecks(MitigationPlanDraftEvaluationDTO evaluation) {
-        return (int) evaluation.getProjectChecks().stream()
-                .filter(check -> check.getStatus() == ProjectConstraintResult.NEEDS_EVALUATION)
+    private int unresolvedRequirementChecks(MitigationPlanDraftEvaluationDTO evaluation) {
+        return (int) evaluation.getRequirementChecks().stream()
+                .filter(check -> check.getStatus() == RequirementCheckResult.NEEDS_EVALUATION)
                 .count();
     }
 
@@ -187,7 +214,7 @@ public class MitigationPlanningService {
         dto.setSelectedActionCodes(plan.candidate().actionIds().stream().map(codes::get).toList());
         dto.setCriticalDriverCoverage(plan.criticalDriverCoverage());
         dto.setHighDriverCoverage(plan.highDriverCoverage());
-        dto.setUnresolvedProjectChecks(plan.unresolvedProjectChecks());
+        dto.setUnresolvedRequirementChecks(plan.unresolvedRequirementChecks());
         dto.setStableActionCodeKey(plan.stableActionCodeKey());
         dto.setPlanSummary(explanationBuilder.summarize(plan,
                 actionableDriverIds(context, RiskDriverPriority.CRITICAL).size(),

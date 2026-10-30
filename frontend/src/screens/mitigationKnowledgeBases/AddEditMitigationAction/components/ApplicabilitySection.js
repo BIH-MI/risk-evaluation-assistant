@@ -37,7 +37,7 @@ export default function ApplicabilitySection({ form, onChange }) {
   return (
     <MitigationActionSection
       title="Applicability"
-      description="Optionally restrict this action to particular sharing arrangements. Leave empty when the action can be considered regardless of the sharing model."
+      description="Optionally restrict this action to particular sharing arrangements. Leave empty when the action can be considered regardless of the sharing arrangement."
     >
       <AdminField
         label="Sharing Arrangements"

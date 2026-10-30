@@ -35,19 +35,11 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * Seeds the default mitigation Knowledge Base and appends a new built-in version when an
- * existing default still contains legacy combination rules. After bootstrap, administrators
- * maintain knowledge through the Knowledge Base API; the seeder is not a runtime configuration
- * source for arbitrary edits.
- *
- * <p>These records describe actions and applicability. They intentionally do
- * not assign risk-reduction percentages. Context controls bind or verify an identified
- * recipient, so they are not applicable to a public release, where the only mitigation
- * options are data transformations. Operational estimates are illustrative placeholders
- * and are labelled as such through their estimate source.
+ * Seeds the default mitigation Knowledge Base once. Existing versions are never
+ * upgraded or rewritten during startup; administrators manage them through the API.
  */
 // Distinct order keeps startup deterministic: after the core and QID seeders (1-4) and before
-// ProjectTemplateDemoSeeder (6), whose Projects pin the default KB.
+// Demo activities run afterward and pin this default version.
 @Order(5)
 @Component
 public class MitigationKnowledgeBaseSeeder implements CommandLineRunner {
@@ -86,7 +78,6 @@ public class MitigationKnowledgeBaseSeeder implements CommandLineRunner {
     public void run(String... args) {
         var existingDefault = knowledgeBaseRepository.findFirstByDefaultKnowledgeBaseTrueAndActiveTrueOrderByIdAsc();
         if (existingDefault.isPresent()) {
-            upgradeDefaultKnowledgeBaseIfNeeded(existingDefault.get());
             return;
         }
         String normalizedDefaultName = EntityNameNormalizer.normalizeForComparison(DEFAULT_KB_NAME);
@@ -114,41 +105,6 @@ public class MitigationKnowledgeBaseSeeder implements CommandLineRunner {
         seedVersion = null;
     }
 
-    private void upgradeDefaultKnowledgeBaseIfNeeded(MitigationKnowledgeBase knowledgeBase) {
-        MitigationKnowledgeBaseVersion current = versionService.getCurrentVersion(knowledgeBase);
-        if (!requiresBuiltInUpgrade(current)) {
-            return;
-        }
-
-        seedVersion = versionService.copyVersion(current, SEED_CREATOR, knowledgeBase.getCurrentVersion() + 1);
-        removeLegacyDataActions(seedVersion);
-        removeDeprecatedAttributeMappings(seedVersion);
-        removeContextAttributeMappings(seedVersion);
-        seedDataActions();
-        seedContextActions();
-        appendValidatedSeedVersion(knowledgeBase, seedVersion);
-        seedVersion = null;
-    }
-
-    private boolean requiresBuiltInUpgrade(MitigationKnowledgeBaseVersion version) {
-        boolean hasCombinationSuppressionAction = version.getActions().stream()
-                .anyMatch(action -> sameCode("SUPPRESS_RARE_QI_COMBINATIONS", action.getCode()));
-        boolean qidDataActionsHaveQuestionTriggers = version.getActions().stream()
-                .filter(action -> Set.of(
-                        "REMOVE_DIRECT_IDENTIFIER",
-                        "COARSEN_DATE",
-                        "GENERALIZE_NUMERIC_QI",
-                        "GENERALIZE_CATEGORICAL_QI",
-                        "GENERALIZE_GEOSPATIAL_QI",
-                        "SUPPRESS_QID_ATTRIBUTE").contains(normalizeCodeOrEmpty(action.getCode())))
-                .anyMatch(action -> !action.getQuestionMappings().isEmpty());
-        boolean hasDeprecatedCombinationMapping = version.getAttributeMappings().stream()
-                // Compatibility enum values can exist in historical rows; current built-in
-                // versions replace them with attribute-level Potential-QID mappings.
-                .anyMatch(mapping -> mapping.getAttributeRole() != null && mapping.getAttributeRole().isCompatibilityOnly());
-        return hasCombinationSuppressionAction || qidDataActionsHaveQuestionTriggers || hasDeprecatedCombinationMapping;
-    }
-
     private void appendValidatedSeedVersion(
             MitigationKnowledgeBase knowledgeBase,
             MitigationKnowledgeBaseVersion version
@@ -165,39 +121,6 @@ public class MitigationKnowledgeBaseSeeder implements CommandLineRunner {
                     : first.getMessage());
         }
         versionService.appendVersion(knowledgeBase, version);
-    }
-
-    private void removeLegacyDataActions(MitigationKnowledgeBaseVersion version) {
-        Set<String> removedCodes = Set.of(
-                "REMOVE_DIRECT_IDENTIFIER",
-                "COARSEN_DATE",
-                "GENERALIZE_NUMERIC_QI",
-                "GENERALIZE_CATEGORICAL_QI",
-                "GENERALIZE_GEOSPATIAL_QI",
-                "SUPPRESS_QID_ATTRIBUTE",
-                "SUPPRESS_RARE_QI_COMBINATIONS");
-        version.getActions().removeIf(action -> removedCodes.contains(normalizeCodeOrEmpty(action.getCode())));
-        version.getDependencies().removeIf(dependency ->
-                dependency.getAction() == null
-                        || dependency.getRequiredAction() == null
-                        || removedCodes.contains(normalizeCodeOrEmpty(dependency.getAction().getCode()))
-                        || removedCodes.contains(normalizeCodeOrEmpty(dependency.getRequiredAction().getCode())));
-        version.getConflicts().removeIf(conflict ->
-                conflict.getActionA() == null
-                        || conflict.getActionB() == null
-                        || removedCodes.contains(normalizeCodeOrEmpty(conflict.getActionA().getCode()))
-                        || removedCodes.contains(normalizeCodeOrEmpty(conflict.getActionB().getCode())));
-    }
-
-    private void removeDeprecatedAttributeMappings(MitigationKnowledgeBaseVersion version) {
-        version.getActions().forEach(action -> action.getAttributeMappings().removeIf(mapping ->
-                mapping.getAttributeRole() != null && mapping.getAttributeRole().isCompatibilityOnly()));
-    }
-
-    private void removeContextAttributeMappings(MitigationKnowledgeBaseVersion version) {
-        version.getActions().stream()
-                .filter(action -> action.getActionType() == MitigationActionType.CONTEXT_CONTROL)
-                .forEach(action -> action.getAttributeMappings().clear());
     }
 
     private void seedDataActions() {
@@ -673,19 +596,6 @@ public class MitigationKnowledgeBaseSeeder implements CommandLineRunner {
                         && sameCode(questionCode, mapping.getQuestionCode())
                         && sameCode(triggerOptionCode, mapping.getTriggerOptionCode())
                         && sameCode(projectedOptionCode, mapping.getProjectedOptionCode()));
-    }
-
-    private String normalizeCode(String value) {
-        if (value == null) {
-            return null;
-        }
-        String normalized = value.trim().toUpperCase(Locale.ROOT);
-        return normalized.isEmpty() ? null : normalized;
-    }
-
-    private String normalizeCodeOrEmpty(String value) {
-        String normalized = normalizeCode(value);
-        return normalized == null ? "" : normalized;
     }
 
     private boolean sameCode(String left, String right) {

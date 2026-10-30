@@ -8,7 +8,7 @@ import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.Mitiga
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlanDraftEvaluationDTO.EstimateAvailability;
 import org.bihealth.mi.risk_assessment_api.enums.DataType;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationAttributeRole;
-import org.bihealth.mi.risk_assessment_api.enums.ProjectConstraintResult;
+import org.bihealth.mi.risk_assessment_api.enums.RequirementCheckResult;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.model.CandidatePlan;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.model.EvaluatedCandidatePlan;
 import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.model.MitigationPlanningContext;
@@ -87,11 +87,11 @@ public class CandidatePlanExplanationBuilder {
             lines.add(unresolvedCritical + " Critical finding(s) are not addressed by this plan and remain part of the "
                     + "risk calculation.");
         }
-        long failed = evaluation.getProjectChecks().stream()
-                .filter(check -> check.getStatus() == ProjectConstraintResult.FAIL).count();
+        long failed = evaluation.getRequirementChecks().stream()
+                .filter(check -> check.getStatus() == RequirementCheckResult.FAIL).count();
         lines.add(failed == 0
-                ? "No known Project requirement fails; " + plan.unresolvedProjectChecks() + " Project check(s) need evaluation."
-                : failed + " Project requirement(s) fail.");
+                ? "No known Activity requirement fails; " + plan.unresolvedRequirementChecks() + " Activity check(s) need evaluation."
+                : failed + " Activity requirement(s) fail.");
         lines.add("Contains " + evaluation.getActions().size() + " mitigation action(s).");
         lines.add("Cost estimate: " + availability(evaluation.getCostEstimate().getAvailability())
                 + "; setup-time estimate: " + availability(evaluation.getSetupEstimate().getAvailability()) + ".");

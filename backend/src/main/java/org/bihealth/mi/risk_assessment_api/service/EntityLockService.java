@@ -7,9 +7,8 @@ import org.bihealth.mi.risk_assessment_api.repository.assessment.dataset.Dataset
 import org.bihealth.mi.risk_assessment_api.repository.assessment.recipient.RecipientAssessmentRepository;
 import org.bihealth.mi.risk_assessment_api.repository.dataset.DatasetRepository;
 import org.bihealth.mi.risk_assessment_api.repository.locks.EntityLockRepository;
-import org.bihealth.mi.risk_assessment_api.repository.project.ProjectRepository;
 import org.bihealth.mi.risk_assessment_api.repository.recipient.RecipientRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -35,11 +34,11 @@ import java.util.Optional;
  * Admins may take over a valid lock held by someone else (intentional override).</p>
  */
 @Service
+@RequiredArgsConstructor
 public class EntityLockService {
 
     /** Entity types that have an edit lock, as sent by the frontend. */
     public enum LockableEntityType {
-        PROJECT,
         DATA_SHARING_ACTIVITY,
         DATASET,
         DATASET_ASSESSMENT,
@@ -57,29 +56,16 @@ public class EntityLockService {
     }
 
     // Repository for the lock table, which has a unique key on entity type + ID.
-    @Autowired
-    private EntityLockRepository repo;
+    private final EntityLockRepository repo;
 
-    @Autowired
-    private ProjectRepository projectRepository;
-    @Autowired
-    private ProjectService projectService;
-    @Autowired
-    private DataSharingActivityRepository activityRepository;
-    @Autowired
-    private DataSharingActivityService activityService;
-    @Autowired
-    private DatasetRepository datasetRepository;
-    @Autowired
-    private DatasetAssessmentRepository datasetAssessmentRepository;
-    @Autowired
-    private DatasetService datasetService;
-    @Autowired
-    private RecipientRepository recipientRepository;
-    @Autowired
-    private RecipientAssessmentRepository recipientAssessmentRepository;
-    @Autowired
-    private RecipientService recipientService;
+    private final DataSharingActivityRepository activityRepository;
+    private final DataSharingActivityService activityService;
+    private final DatasetRepository datasetRepository;
+    private final DatasetAssessmentRepository datasetAssessmentRepository;
+    private final DatasetService datasetService;
+    private final RecipientRepository recipientRepository;
+    private final RecipientAssessmentRepository recipientAssessmentRepository;
+    private final RecipientService recipientService;
 
     // Lock lease duration. Refreshing the same lock extends this window.
     private static final long LOCK_TIMEOUT_MINUTES = 30;
@@ -87,7 +73,7 @@ public class EntityLockService {
     /**
      * Attempts to acquire a lock on a specific entity for a given user.
      *
-     * @param entityType The type of entity being locked (e.g., "DATASET", "PROJECT").
+     * @param entityType The type of entity being locked (e.g., "DATASET", "DATA_SHARING_ACTIVITY").
      * @param entityId   The ID of the entity being locked.
      * @param username   The username of the user acquiring the lock.
      * @param isAdmin    Whether the requesting user has admin privileges.
@@ -229,11 +215,6 @@ public class EntityLockService {
      */
     private boolean canAccess(LockableEntityType type, long id, String username, boolean isAdmin, boolean write) {
         return switch (type) {
-            case PROJECT -> projectRepository.findById(id)
-                    .map(project -> write
-                            ? projectService.canWriteProject(project, username, isAdmin)
-                            : projectService.canReadProject(project, username, isAdmin))
-                    .orElse(false);
             case DATA_SHARING_ACTIVITY -> activityRepository.findById(id)
                     .map(activity -> write
                             ? activityService.canWriteActivity(activity, username, isAdmin)
@@ -261,7 +242,6 @@ public class EntityLockService {
     /** Distinguishes "does not exist" (404) from "not permitted" (403) for single-entity calls. */
     private void requireExists(LockableEntityType type, long id) {
         boolean exists = switch (type) {
-            case PROJECT -> projectRepository.existsById(id);
             case DATA_SHARING_ACTIVITY -> activityRepository.existsById(id);
             case DATASET -> datasetRepository.existsById(id);
             case DATASET_ASSESSMENT -> datasetAssessmentRepository.existsById(id);

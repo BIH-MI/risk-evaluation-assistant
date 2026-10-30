@@ -8,18 +8,22 @@ import java.util.stream.Collectors;
 
 import org.bihealth.mi.risk_assessment_api.config.InMemoryDemoSeed;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationCandidatePlanResponseDTO;
+import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlanDraftEvaluationDTO.RequirementCheck;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlanDraftEvaluationDTO;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.DataOpportunity;
 import org.bihealth.mi.risk_assessment_api.dto.response.mitigationplanner.MitigationPlannerOverviewDTO.DataTarget;
+import org.bihealth.mi.risk_assessment_api.enums.ActivityRequirement;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationAttributeRole;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationPlanStrategy;
 import org.bihealth.mi.risk_assessment_api.enums.MitigationSharingArrangement;
+import org.bihealth.mi.risk_assessment_api.enums.RequirementCheckResult;
 import org.bihealth.mi.risk_assessment_api.enums.RiskDriverSource;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.model.CandidatePlan;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.model.MitigationPlanningContext;
+import org.bihealth.mi.risk_assessment_api.model.activity.ActivityRequirements;
 import org.bihealth.mi.risk_assessment_api.model.activity.DataSharingActivity;
 import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
 import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTableAttribute;
-import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.model.CandidatePlan;
-import org.bihealth.mi.risk_assessment_api.mitigationplanner.planning.model.MitigationPlanningContext;
 import org.bihealth.mi.risk_assessment_api.testsupport.BundledFrameworks;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,9 +49,14 @@ class MitigationPlannerScenarioTest {
         harness = new ScenarioPlannerHarness(frameworks, seed);
     }
 
+    // Only the sharing arrangement is set: these tests are about inference and evaluation, not
+    // about the activity requirements.
     private MitigationPlanningContext context(String activityName) {
         DataSharingActivity activity = seed.activity(activityName);
-        return harness.context(activity, MitigationSharingArrangement.CONTROLLED_DATA_TRANSFER, List.of(), null, null);
+        ActivityRequirements requirements = new ActivityRequirements();
+        requirements.setSharingArrangement(MitigationSharingArrangement.CONTROLLED_DATA_TRANSFER);
+        activity.setRequirements(requirements);
+        return harness.context(activity);
     }
 
     @Test
@@ -103,6 +112,22 @@ class MitigationPlannerScenarioTest {
         assertThat(response.getGeneratedCandidateCount()).isPositive();
         assertThat(response.getRecommendedPlan()).isNotNull();
         assertThat(response.getRecommendedPlan().getSelectedActionCodes()).isNotEmpty();
+    }
+
+    @Test
+    void recommendsAPlanWithinTheSeededActivityRequirements() {
+        // The seeded controlled-transfer requirements: 5000 EUR budget, 30 days setup, month-level
+        // dates, 95% cohort retention, individual-level data and a downloadable dataset.
+        MitigationCandidatePlanResponseDTO response = harness.plan(harness.context(seed.activity(AGREEMENT_PENDING_ACTIVITY)));
+
+        assertThat(response.getRecommendedPlan()).isNotNull();
+        MitigationPlanDraftEvaluationDTO evaluation = response.getRecommendedPlan().getEvaluation();
+        assertThat(evaluation.getRequirementCheckResult()).isNotEqualTo(RequirementCheckResult.FAIL);
+        assertThat(evaluation.getRequirementChecks())
+                .extracting(RequirementCheck::getRequirement)
+                .contains(ActivityRequirement.AVAILABLE_BUDGET, ActivityRequirement.MAXIMUM_SETUP_TIME,
+                        ActivityRequirement.ANALYSIS_DATA_NEEDED, ActivityRequirement.REQUIRED_EXTERNAL_DELIVERABLES,
+                        ActivityRequirement.MINIMUM_COHORT_RETENTION);
     }
 
     @Test

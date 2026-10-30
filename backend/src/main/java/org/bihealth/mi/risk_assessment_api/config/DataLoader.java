@@ -1,6 +1,9 @@
 package org.bihealth.mi.risk_assessment_api.config;
 
 import org.bihealth.mi.risk_assessment_api.enums.DataType;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.service.MitigationKnowledgeBaseService;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.service.MitigationKnowledgeBaseVersionService;
+import org.bihealth.mi.risk_assessment_api.model.activity.ActivityRequirements;
 import org.bihealth.mi.risk_assessment_api.model.activity.DataSharingActivity;
 import org.bihealth.mi.risk_assessment_api.model.assessment.BaseAssessment;
 import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetAssessment;
@@ -10,7 +13,6 @@ import org.bihealth.mi.risk_assessment_api.model.assessment.recipient.RecipientA
 import org.bihealth.mi.risk_assessment_api.model.configuration.Configuration;
 import org.bihealth.mi.risk_assessment_api.model.configuration.ConfigurationVersion;
 import org.bihealth.mi.risk_assessment_api.model.dataset.*;
-import org.bihealth.mi.risk_assessment_api.model.project.Project;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Answer;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.Question;
 import org.bihealth.mi.risk_assessment_api.model.questionnaire.QuestionOption;
@@ -45,12 +47,13 @@ import static java.util.Map.entry;
  * framework-specific assessments and {@link DataSharingActivity} examples.
  *
  * <p>Runs after the essential seeders: {@link ConfigLoader} (risk frameworks),
- * {@link AttributeScoringSystemSeeder} and {@link QidDiscoveryConfigurationSeeder}.
+ * {@link AttributeScoringSystemSeeder}, {@link QidDiscoveryConfigurationSeeder} and the
+ * mitigation Knowledge Base seeder, whose default version the demo activities pin.
  * The demo data is created once, in one transaction: if any demo dataset or
  * recipient already exists, nothing is created or changed, so restarts never
  * duplicate demo records or overwrite edits to them.</p>
  */
-@Order(3)
+@Order(6)
 @Component
 public class DataLoader implements CommandLineRunner {
 
@@ -62,6 +65,7 @@ public class DataLoader implements CommandLineRunner {
     static final String AGREEMENT_PENDING_RECIPIENT_NAME = "Swiss Research Institute";
     static final String AGREEMENT_PENDING_ACTIVITY_NAME = "LEOSS / Swiss Research Institute, DTUA pending (SPHN)";
     static final String SECURE_ENVIRONMENT_ASSESSMENT_NAME = "Academic Research Institute – Secure Environment (SPHN)";
+    static final String SECURE_ANALYSIS_ACTIVITY_NAME = "LEOSS / Secure Analysis Environment (SPHN)";
     private static final String EL_EMAM_DATASET_ASSESSMENT_NAME = "LEOSS Assessment (El Emam)";
     private static final String SPHN_DATASET_ASSESSMENT_NAME = "LEOSS Assessment (SPHN)";
     private static final List<String> DEMO_RECIPIENT_NAMES = List.of(ACADEMIC_RECIPIENT_NAME, COMMERCIAL_RECIPIENT_NAME, PUBLIC_RECIPIENT_NAME);
@@ -84,6 +88,8 @@ public class DataLoader implements CommandLineRunner {
     private final RiskConfigurationRepository configRepo;
     private final AttributeScoringSystemService attributeScoringSystemService;
     private final DemoDatasetEvidenceSeeder demoDatasetEvidenceSeeder;
+    private final MitigationKnowledgeBaseService knowledgeBaseService;
+    private final MitigationKnowledgeBaseVersionService knowledgeBaseVersionService;
 
     public DataLoader(
             QuestionRepository questionRepo,
@@ -98,7 +104,9 @@ public class DataLoader implements CommandLineRunner {
             DataSharingActivityRepository dataSharingActivityRepository,
             RiskConfigurationRepository configRepo,
             AttributeScoringSystemService attributeScoringSystemService,
-            DemoDatasetEvidenceSeeder demoDatasetEvidenceSeeder
+            DemoDatasetEvidenceSeeder demoDatasetEvidenceSeeder,
+            MitigationKnowledgeBaseService knowledgeBaseService,
+            MitigationKnowledgeBaseVersionService knowledgeBaseVersionService
     ) {
         this.questionRepo = questionRepo;
         this.answerRepo = answerRepo;
@@ -113,6 +121,8 @@ public class DataLoader implements CommandLineRunner {
         this.configRepo = configRepo;
         this.attributeScoringSystemService = attributeScoringSystemService;
         this.demoDatasetEvidenceSeeder = demoDatasetEvidenceSeeder;
+        this.knowledgeBaseService = knowledgeBaseService;
+        this.knowledgeBaseVersionService = knowledgeBaseVersionService;
     }
 
     @Override
@@ -162,18 +172,36 @@ public class DataLoader implements CommandLineRunner {
         // assessments to create the examples shown in the UI.
         createDemoDataSharingActivities(
                 elEmamConfig, elEmamDatasetAssessment, elEmamRecipientAssessments,
-                sphnConfig, sphnDatasetAssessment, sphnRecipientAssessment,
-                null
+                sphnConfig, sphnDatasetAssessment, sphnRecipientAssessment
         );
 
         createAgreementPendingScenario(sphnConfig, sphnDatasetAssessment);
-        getOrCreateSecureEnvironmentAssessment(baseRecipients.get(0), sphnConfig);
+        createSecureAnalysisScenario(baseRecipients.get(0), sphnConfig, sphnDatasetAssessment);
+    }
+
+    /**
+     * SPHN scenario in which the academic team analyses a subset of the demo table inside a secure
+     * environment, so only aggregate results leave it.
+     */
+    private void createSecureAnalysisScenario(
+            Recipient academic, Configuration sphnConfig, DatasetAssessment sphnDatasetAssessment
+    ) {
+        ensureDemoDataSharingActivity(
+                SECURE_ANALYSIS_ACTIVITY_NAME,
+                "Academic team analyses a 100-1,000 patient subset of the demo table in a BioMedIT-compliant secure "
+                        + "environment; only aggregates leave it. The data transfer and use agreement is not yet "
+                        + "executed (CIT-01 to CIT-05).",
+                DemoActivityRequirements.SECURE_ANALYSIS_PURPOSE,
+                DemoActivityRequirements.secureAnalysis(),
+                sphnDatasetAssessment,
+                getOrCreateSecureEnvironmentAssessment(academic, sphnConfig),
+                new HashSet<>()
+        );
     }
 
     /**
      * Dedicated SPHN assessment of the academic recipient for the Secure Analysis Environment
-     * activity (created by {@link ProjectTemplateDemoSeeder}); see
-     * {@link DemoAssessmentAnswers#SPHN_SECURE_ENVIRONMENT}.
+     * activity; see {@link DemoAssessmentAnswers#SPHN_SECURE_ENVIRONMENT}.
      */
     private RecipientAssessment getOrCreateSecureEnvironmentAssessment(Recipient academic, Configuration sphnConfig) {
         return findRecipientAssessment(academic, SECURE_ENVIRONMENT_ASSESSMENT_NAME).orElseGet(() -> {
@@ -225,10 +253,11 @@ public class DataLoader implements CommandLineRunner {
                 AGREEMENT_PENDING_ACTIVITY_NAME,
                 "Controlled transfer to a Swiss research institute under SPHN before the DTUA is signed. CIT-01/CIT-02 "
                         + "force Controls to LOW; the planner projects the effect of executing the agreement.",
+                DemoActivityRequirements.CONTROLLED_TRANSFER_PURPOSE,
+                DemoActivityRequirements.controlledTransfer(),
                 sphnDatasetAssessment,
                 assessment,
-                new HashSet<>(Set.of("anna.mueller")),
-                null
+                new HashSet<>(Set.of("anna.mueller"))
         );
     }
 
@@ -258,10 +287,6 @@ public class DataLoader implements CommandLineRunner {
      * so differences in the final recommendation come from framework scoring
      * and recipient context, not from different source data.</p>
      */
-    private Dataset getOrCreateLeossDataset() {
-        return findDatasetByNormalizedName(LEOSS_DATASET_NAME)
-                .orElseGet(this::createLeossDataset);
-    }
 
     private Dataset createLeossDataset() {
         Dataset leoss = new Dataset();
@@ -651,8 +676,7 @@ public class DataLoader implements CommandLineRunner {
      */
     private void createDemoDataSharingActivities(
             Configuration elEmamConfig, DatasetAssessment elEmamDA, List<RecipientAssessment> elEmamRAs,
-            Configuration sphnConfig, DatasetAssessment sphnDA, List<RecipientAssessment> sphnRAs,
-            Project project) {
+            Configuration sphnConfig, DatasetAssessment sphnDA, List<RecipientAssessment> sphnRAs) {
 
         // =========================================================================
         // TRUSTED RECIPIENT SCENARIOS
@@ -664,20 +688,22 @@ public class DataLoader implements CommandLineRunner {
                 "Sharing the demo COVID-19 table with a trusted university lab under the SPHN framework. All contractual and IT "
                         + "controls are in place, yet Likelihood is HIGH because SPHN treats a cohort of more than 5,000 patients "
                         + "(C-03) as a high-risk trigger.",
+                DemoActivityRequirements.CONTROLLED_TRANSFER_PURPOSE,
+                DemoActivityRequirements.controlledTransfer(),
                 sphnDA,
                 sphnRAs.get(0),
-                new HashSet<>(Set.of("anna.mueller")),
-                project
+                new HashSet<>(Set.of("anna.mueller"))
         );
 
         // Scenario 2: Academic evaluated under El Emam
         ensureDemoDataSharingActivity(
                 "LEOSS / Academic Labs (El Emam)",
                 "Direct comparison of the Academic transfer, evaluated under El Emam instead of SPHN.",
+                DemoActivityRequirements.CONTROLLED_TRANSFER_PURPOSE,
+                DemoActivityRequirements.controlledTransfer(),
                 elEmamDA,
                 elEmamRAs.get(0),
-                Collections.emptySet(),
-                project
+                Collections.emptySet()
         );
 
 
@@ -690,10 +716,11 @@ public class DataLoader implements CommandLineRunner {
                 "LEOSS / Open Data Portal (El Emam)",
                 "Public data release evaluated using the El Emam Risk Exposure Model. No recipient-side control can be established "
                         + "for an open download, so only data transformations remain as mitigation options.",
+                DemoActivityRequirements.PUBLIC_RELEASE_PURPOSE,
+                DemoActivityRequirements.publicRelease(),
                 elEmamDA,
                 elEmamRAs.get(2),
-                Collections.emptySet(),
-                project
+                Collections.emptySet()
         );
 
         // Scenario 6: Public Release evaluated under SPHN
@@ -701,10 +728,11 @@ public class DataLoader implements CommandLineRunner {
                 "LEOSS / Open Data Portal (SPHN)",
                 "Open data release evaluated under the SPHN framework. Recipient-oriented control questions are answered \"No\" "
                         + "because no identified recipient exists; only data transformations remain as mitigation options.",
+                DemoActivityRequirements.PUBLIC_RELEASE_PURPOSE,
+                DemoActivityRequirements.publicRelease(),
                 sphnDA,
                 sphnRAs.get(2),
-                Collections.emptySet(),
-                project
+                Collections.emptySet()
         );
 
 
@@ -716,10 +744,11 @@ public class DataLoader implements CommandLineRunner {
         ensureDemoDataSharingActivity(
                 "LEOSS / HealthTech Solutions (El Emam)",
                 "Commercial data sharing agreement. Evaluated using the El Emam Risk Exposure Model for standard re-identification risks.",
+                DemoActivityRequirements.CONTROLLED_TRANSFER_PURPOSE,
+                DemoActivityRequirements.controlledTransfer(),
                 elEmamDA,
                 elEmamRAs.get(1),
-                new HashSet<>(Set.of("max.mustermann", "sophie.becker")),
-                project
+                new HashSet<>(Set.of("max.mustermann", "sophie.becker"))
         );
 
         // Scenario 8: Commercial evaluated under SPHN
@@ -728,47 +757,42 @@ public class DataLoader implements CommandLineRunner {
                 "Commercial transfer under SPHN. Controls are already HIGH and Likelihood is held HIGH by C-03 (cohort size) "
                         + "and C-06 (staff with EHR access), which have no configured mitigation, so adding audit rights does "
                         + "not change P_attack.",
+                DemoActivityRequirements.CONTROLLED_TRANSFER_PURPOSE,
+                DemoActivityRequirements.controlledTransfer(),
                 sphnDA,
                 sphnRAs.get(1),
-                new HashSet<>(Set.of("max.mustermann", "sophie.becker")),
-                project
+                new HashSet<>(Set.of("max.mustermann", "sophie.becker"))
         );
     }
 
-    private DataSharingActivity ensureDemoDataSharingActivity(
+    /**
+     * Creates a demo activity unless one with this name exists. An existing activity is left
+     * unchanged, so restarts never overwrite a user's edits.
+     */
+    private void ensureDemoDataSharingActivity(
             String name,
             String description,
+            String sharingPurpose,
+            ActivityRequirements requirements,
             DatasetAssessment datasetAssessment,
             RecipientAssessment recipientAssessment,
-            Set<String> sharedUsernames,
-            Project project
+            Set<String> sharedUsernames
     ) {
-        DataSharingActivity activity = findActivityByNormalizedName(name)
-                .orElseGet(() -> {
-                    DataSharingActivity created = new DataSharingActivity();
-                    created.setCreatorUsername(DEMO_CREATOR);
-                    created.setName(name);
-                    created.setDescription(description);
-                    created.setDatasetAssessment(datasetAssessment);
-                    created.setRecipientAssessment(recipientAssessment);
-                    created.setSharedUsernames(sharedUsernames);
-                    return created;
-        });
-
-        activity.setProject(project);
-        if (project != null) {
-            addActivityIfMissing(project, activity);
+        if (findActivityByNormalizedName(name).isPresent()) {
+            return;
         }
-        return dataSharingActivityRepository.save(activity);
-    }
-
-    private void addActivityIfMissing(Project project, DataSharingActivity activity) {
-        boolean exists = project.getDataSharingActivities().stream()
-                .anyMatch(existing -> existing == activity
-                        || (existing.getId() != null && Objects.equals(existing.getId(), activity.getId())));
-        if (!exists) {
-            project.getDataSharingActivities().add(activity);
-        }
+        DataSharingActivity activity = new DataSharingActivity();
+        activity.setCreatorUsername(DEMO_CREATOR);
+        activity.setName(name);
+        activity.setDescription(description);
+        activity.setDatasetAssessment(datasetAssessment);
+        activity.setRecipientAssessment(recipientAssessment);
+        activity.setSharedUsernames(sharedUsernames);
+        activity.setSharingPurpose(sharingPurpose);
+        activity.setRequirements(requirements);
+        activity.setMitigationKnowledgeBaseVersion(knowledgeBaseVersionService.getCurrentVersion(
+                knowledgeBaseService.resolveDefaultActiveKnowledgeBase()));
+        dataSharingActivityRepository.save(activity);
     }
 
     private Optional<Dataset> findDatasetByNormalizedName(String name) {

@@ -44,11 +44,11 @@ public class PlanSelectionService {
 
         if (selectable.isEmpty()) {
             return new PlanRecommendation(null, List.of(), evaluated.isEmpty()
-                    ? "No feasible mitigation plan could be generated under the current knowledge and Project "
+                    ? "No feasible mitigation plan could be generated under the current knowledge and Activity "
                             + "constraints. Every actionable Critical Risk Driver must be structurally covered by an "
-                            + "applicable action without conflicts or known hard Project failures."
+                            + "applicable action without conflicts or known hard Activity failures."
                     : "No feasible mitigation plan remained: every generated candidate was invalid or failed a "
-                            + "known hard Project requirement.");
+                            + "known hard Activity requirement.");
         }
 
         EvaluatedCandidatePlan recommended = selectable.get(0);
@@ -107,8 +107,8 @@ public class PlanSelectionService {
                     + left.criticalDriverCoverage() + " vs " + right.criticalDriverCoverage() + ")";
             case PREFER_HIGH_DRIVER_COVERAGE -> "it structurally addresses more actionable High Risk Drivers ("
                     + left.highDriverCoverage() + " vs " + right.highDriverCoverage() + ")";
-            case PREFER_FEWER_UNRESOLVED_PROJECT_CHECKS -> "fewer Project checks still need evaluation ("
-                    + left.unresolvedProjectChecks() + " vs " + right.unresolvedProjectChecks() + ")";
+            case PREFER_FEWER_UNRESOLVED_REQUIREMENT_CHECKS -> "fewer Activity checks still need evaluation ("
+                    + left.unresolvedRequirementChecks() + " vs " + right.unresolvedRequirementChecks() + ")";
             case PREFER_FEWER_ACTIONS -> "it needs fewer actions (" + actionCount(left) + " vs " + actionCount(right) + ")";
             case PREFER_LOWER_KNOWN_COST -> costKnown(left) && costKnown(right)
                     ? "its maximum estimated cost is lower (" + left.knownCostMax().stripTrailingZeros().toPlainString()
@@ -139,8 +139,8 @@ public class PlanSelectionService {
                     Comparator.comparing(EvaluatedCandidatePlan::criticalDriverCoverage).reversed();
             case PREFER_HIGH_DRIVER_COVERAGE ->
                     Comparator.comparing(EvaluatedCandidatePlan::highDriverCoverage).reversed();
-            case PREFER_FEWER_UNRESOLVED_PROJECT_CHECKS ->
-                    Comparator.comparing(EvaluatedCandidatePlan::unresolvedProjectChecks);
+            case PREFER_FEWER_UNRESOLVED_REQUIREMENT_CHECKS ->
+                    Comparator.comparing(EvaluatedCandidatePlan::unresolvedRequirementChecks);
             case PREFER_FEWER_ACTIONS -> Comparator.comparing(this::actionCount);
             case PREFER_LOWER_KNOWN_COST -> this::compareKnownCost;
             case PREFER_SHORTER_KNOWN_SETUP_TIME -> this::compareKnownSetup;

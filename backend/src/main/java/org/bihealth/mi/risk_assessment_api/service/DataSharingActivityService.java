@@ -14,7 +14,13 @@ import org.bihealth.mi.risk_assessment_api.model.assessment.activity.DataSharing
 import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetAssessment;
 import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetTableAssessmentAttribute;
 import org.bihealth.mi.risk_assessment_api.model.assessment.recipient.RecipientAssessment;
-import org.bihealth.mi.risk_assessment_api.model.project.Project;
+import org.bihealth.mi.risk_assessment_api.model.dataset.Dataset;
+import org.bihealth.mi.risk_assessment_api.model.recipient.Recipient;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationKnowledgeBase;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.model.MitigationKnowledgeBaseVersion;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.repository.MitigationKnowledgeBaseVersionRepository;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.service.MitigationKnowledgeBaseService;
+import org.bihealth.mi.risk_assessment_api.mitigationplanner.knowledge.service.MitigationKnowledgeBaseVersionService;
 import org.bihealth.mi.risk_assessment_api.model.scoring.AttributeScoringDimension;
 import org.bihealth.mi.risk_assessment_api.model.scoring.AttributeScoringSystemVersion;
 import org.bihealth.mi.risk_assessment_api.repository.activity.DataSharingActivityRepository;
@@ -53,7 +59,9 @@ public class DataSharingActivityService {
     private final DatasetTableAssessmentAttributeRepository datasetTableAssessmentAttributeRepo;
     private final RecipientAssessmentRepository recipientAssessmentRepo;
     private final AttributeScoringSystemService attributeScoringSystemService;
-    private final ProjectService projectService;
+    private final MitigationKnowledgeBaseService knowledgeBaseService;
+    private final MitigationKnowledgeBaseVersionService knowledgeBaseVersionService;
+    private final MitigationKnowledgeBaseVersionRepository knowledgeBaseVersionRepository;
 
     /**
      * Returns activities visible to a user.
@@ -116,20 +124,6 @@ public class DataSharingActivityService {
     }
 
     /**
-     * Loads an activity for read-only views that also use its Project (Mitigation Planner): the
-     * caller needs read access to the activity and, when the activity belongs to a Project, read
-     * access to that Project. Activity sharing alone does not grant Project information.
-     */
-    @Transactional(readOnly = true)
-    public DataSharingActivity getAccessibleActivityWithProject(Long id, String username, boolean isAdmin) {
-        DataSharingActivity activity = getAccessibleActivityEntity(id, username, isAdmin);
-        if (activity.getProject() != null) {
-            projectService.verifyProjectReadAccess(activity.getProject(), username, isAdmin);
-        }
-        return activity;
-    }
-
-    /**
      * Creates a new activity from existing dataset and recipient assessments.
      *
      * <p>The DTO resolves IDs only; this service loads the actual assessment
@@ -145,14 +139,13 @@ public class DataSharingActivityService {
         RecipientAssessment ra = recipientAssessmentRepo.findById(dto.getRecipientAssessmentId())
                 .orElseThrow(() -> new EntityNotFoundException("Recipient Assessment not found"));
 
-        // Creating an activity adds a member to the project: project write access is required.
-        Project project = resolveProjectForNewMember(dto.getProjectId(), username, isAdmin);
-        projectService.validateActivityMembership(project, da, ra, username, isAdmin);
+        verifyAssessmentAccess(da, ra, username, isAdmin);
 
         DataSharingActivity act = dto.toEntity(
-                username, da, ra, project, datasetTableAssessmentRepo, datasetTableAssessmentAttributeRepo
+                username, da, ra, datasetTableAssessmentRepo, datasetTableAssessmentAttributeRepo
         );
         act.setName(name);
+        pinKnowledgeBaseVersion(act, dto.getMitigationKnowledgeBaseVersionId());
         normalizeActivityAttributeScores(act, ensureAttributeScoringVersion(da));
 
         DataSharingActivity saved = saveActivityHandlingDuplicateName(act, name);
@@ -189,22 +182,18 @@ public class DataSharingActivityService {
                 .flatMap(recipientAssessmentRepo::findById)
                 .orElse(existing.getRecipientAssessment());
 
-        // Editing within the same project follows the activity write rule and only needs the
-        // project as readable context. Moving the activity adds a member to the target project, so
-        // the target needs write access. The source project needs none: activity membership is
-        // owned by the activity side, and its owner may already delete the activity.
-        Long currentProjectId = existing.getProject() == null ? null : existing.getProject().getId();
-        Project project = Objects.equals(currentProjectId, dto.getProjectId())
-                ? resolveRequiredProject(dto.getProjectId(), username, isAdmin)
-                : resolveProjectForNewMember(dto.getProjectId(), username, isAdmin);
-        projectService.validateActivityMembership(project, da, ra, username, isAdmin);
+        verifyAssessmentAccess(da, ra, username, isAdmin);
 
         if (da != null && ra != null) {
             ensureAttributeScoringVersion(da);
             existing.setDatasetAssessment(da);
             existing.setRecipientAssessment(ra);
         }
-        existing.setProject(project);
+        existing.setSharingPurpose(dto.getSharingPurpose());
+        if (dto.getRequirements() != null) {
+            dto.getRequirements().applyTo(existing.getRequirements());
+        }
+        pinKnowledgeBaseVersion(existing, dto.getMitigationKnowledgeBaseVersionId());
 
         // Sync table overrides by the referenced DatasetTableAssessment ID.
         // Incoming rows are upserted; omitted rows are removed by replacing the collection.
@@ -393,18 +382,57 @@ public class DataSharingActivityService {
         return name;
     }
 
-    private Project resolveRequiredProject(Long projectId, String username, boolean isAdmin) {
-        if (projectId == null) {
-            throw new IllegalArgumentException("Project is required for Data Sharing Activities.");
+    /**
+     * The user who links assessments to an activity needs access to the underlying dataset and
+     * recipient (creator, explicitly shared user or admin), as when Projects linked them.
+     */
+    private void verifyAssessmentAccess(DatasetAssessment datasetAssessment, RecipientAssessment recipientAssessment,
+            String username, boolean isAdmin) {
+        if (datasetAssessment == null || datasetAssessment.getDataset() == null
+                || recipientAssessment == null || recipientAssessment.getRecipient() == null) {
+            throw new IllegalArgumentException("Dataset and Recipient Assessments are required.");
         }
-        return projectService.getAccessibleProjectEntity(projectId, username, isAdmin);
+        Dataset dataset = datasetAssessment.getDataset();
+        Recipient recipient = recipientAssessment.getRecipient();
+        if (!isAdmin && !Objects.equals(dataset.getCreatorUsername(), username)
+                && !dataset.getSharedUsernames().contains(username)) {
+            throw new SecurityException("No access to dataset: " + dataset.getId());
+        }
+        if (!isAdmin && !Objects.equals(recipient.getCreatorUsername(), username)
+                && !recipient.getSharedUsernames().contains(username)) {
+            throw new SecurityException("No access to recipient: " + recipient.getId());
+        }
     }
 
-    private Project resolveProjectForNewMember(Long projectId, String username, boolean isAdmin) {
-        if (projectId == null) {
-            throw new IllegalArgumentException("Project is required for Data Sharing Activities.");
+    /**
+     * Pins the Knowledge Base version the mitigation planner uses, so later Knowledge Base edits
+     * do not change an existing activity's recommendations. Without a requested version the pin
+     * stays; a new activity gets the default Knowledge Base's current version. A requested version
+     * must be the existing pin or the current version of an active Knowledge Base.
+     */
+    private void pinKnowledgeBaseVersion(DataSharingActivity activity, Long requestedVersionId) {
+        MitigationKnowledgeBaseVersion pinned = activity.getMitigationKnowledgeBaseVersion();
+        if (requestedVersionId == null) {
+            if (pinned == null) {
+                MitigationKnowledgeBase defaultKnowledgeBase = knowledgeBaseService.resolveDefaultActiveKnowledgeBase();
+                activity.setMitigationKnowledgeBaseVersion(knowledgeBaseVersionService.getCurrentVersion(defaultKnowledgeBase));
+            }
+            return;
         }
-        return projectService.getWritableProjectEntity(projectId, username, isAdmin);
+        if (pinned != null && requestedVersionId.equals(pinned.getId())) {
+            return;
+        }
+
+        MitigationKnowledgeBaseVersion requested = knowledgeBaseVersionRepository.findById(requestedVersionId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Mitigation Knowledge Base version not found: " + requestedVersionId));
+        MitigationKnowledgeBase knowledgeBase =
+                knowledgeBaseService.resolveKnowledgeBaseForPlanning(requested.getKnowledgeBase().getId());
+        if (!requestedVersionId.equals(knowledgeBaseVersionService.getCurrentVersion(knowledgeBase).getId())) {
+            throw new IllegalArgumentException(
+                    "Only the current version of a mitigation Knowledge Base can be selected for an activity.");
+        }
+        activity.setMitigationKnowledgeBaseVersion(requested);
     }
 
     private void ensureActivityNameAvailable(String name, Long excludeId) {

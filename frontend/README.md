@@ -123,6 +123,18 @@ CSV type detection lives in:
 
 When adding a data type, update the frontend type list, detector, table cell icon/label rendering, backend `DataType` enum, and any sample data that should use the new type.
 
+### Data-Sharing Activity Form and Mitigation Planner
+
+The activity form lives in `frontend/src/screens/sharingActivity/AddEditDataSharingActivity/`:
+
+- `activityFormModel.js`: form values, client-side validation and the request payload
+- `activityRequirementFields.js`: requirement options, currency codes and the fields that show an (i) explanation
+- `components/`: one component per form section
+
+The Mitigation Planner screen lives in `frontend/src/screens/mitigationPlanner/`; `utils/mitigationPlannerFormatters.js` groups and formats the requirements it shows.
+
+Requirement labels, options and (i) explanations are translated under `activityRequirements`. Keep these files in sync with the backend requirements (see the [backend guide](../backend/README.md#mitigation-planner-and-activity-requirements)).
+
 ### AI-Assisted Direct-Identifier Screening
 
 The user-facing behaviour (configuration, review rules, profiling) is described in the [QID Discovery README](src/features/qidDiscovery/README.md). This section covers the implementation.

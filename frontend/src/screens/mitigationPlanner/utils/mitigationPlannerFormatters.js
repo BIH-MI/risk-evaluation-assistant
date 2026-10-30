@@ -19,7 +19,7 @@ const ACTION_TYPE_LABELS = {
   CONTEXT_CONTROL: "Context control",
 };
 
-// Parameter-value compatibility with one Project requirement (e.g. target resolution).
+// Parameter-value compatibility with one Activity requirement (e.g. target resolution).
 const COMPATIBILITY_LABELS = {
   COMPATIBLE: "Compatible",
   INCOMPATIBLE: "Incompatible",
@@ -39,24 +39,6 @@ export const NOT_AVAILABLE = "N/A";
 const isBlank = (value) =>
   value === null || value === undefined || value === "";
 
-// Known Project option values get explicit labels; stored values are never changed.
-const PROJECT_OPTION_LABELS = {
-  INDIVIDUAL_LEVEL_DATA: "Individual-level Data",
-  AGGREGATE_DATA: "Aggregate Data",
-  SYNTHETIC_DATA: "Synthetic Data",
-  ANONYMIZED_DOWNLOADABLE_DATASET: "Anonymized Downloadable Dataset",
-  AGGREGATE_RESULTS: "Aggregate Results",
-  TABLES_FIGURES: "Tables / Figures",
-  REPORT: "Report",
-  CODE: "Code",
-  PUBLIC_RELEASE: "Public Release",
-  CONTROLLED_DATA_TRANSFER: "Controlled Data Transfer",
-  SECURE_REMOTE_ANALYSIS: "Secure Remote Analysis",
-  MANAGED_QUERY: "Managed Query",
-  ONE_TIME: "One Time",
-  NOT_REQUIRED: "Not required",
-};
-
 /** Parameter label in sentence case: GENERALIZATION_HIERARCHY -> "Generalization hierarchy" */
 export function formatParameterLabel(code) {
   const label = humanizeCode(code).toLowerCase();
@@ -73,10 +55,6 @@ export function humanizeCode(code) {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
 }
-
-/** Human label for a Project/catalogue option value; humanizeCode is the fallback for custom values. */
-export const formatOptionValue = (code) =>
-  PROJECT_OPTION_LABELS[code] || humanizeCode(code);
 
 export const formatDataType = (dataType) =>
   DATA_TYPE_LABELS[dataType] || humanizeCode(dataType);
@@ -115,41 +93,34 @@ export function compatibilityColor(compatibility) {
   return "warning";
 }
 
-/** Stored requirement values are raw strings; render them by value type/unit. */
-export function formatConstraintValue(constraint) {
-  const { value, valueType, unit } = constraint || {};
-  if (isBlank(value)) return "";
-
-  switch (valueType) {
-    case "MONEY": {
-      const amount = Number(value);
-      const formatted = Number.isFinite(amount)
-        ? amount.toLocaleString()
-        : value;
-      return unit ? `${unit} ${formatted}` : formatted;
-    }
-    case "DATE": {
-      const date = new Date(`${value}T00:00:00`);
-      return Number.isNaN(date.getTime())
-        ? value
-        : date.toLocaleDateString();
-    }
-    case "SINGLE_SELECT":
-    case "MULTI_SELECT":
-      return String(value).split(",").map(formatOptionValue).join(", ");
-    case "YES_NO":
-    case "YES_NO_UNKNOWN":
-      return formatOptionValue(value);
-    default:
-      if (unit === "PERCENT") return `${value}%`;
-      if (unit) return `${value} ${humanizeCode(unit).toLowerCase()}`;
-      return value;
-  }
-}
-
 function formatAmount(value) {
   const amount = Number(value);
   return Number.isFinite(amount) ? amount.toLocaleString() : String(value);
+}
+
+/**
+ * Display text of one sharing requirement of the activity (the overview's activityRequirements);
+ * empty when the activity does not specify it. Labels come from the activityRequirements
+ * translations shared with the activity form.
+ */
+export function formatRequirementValue(requirement, requirements, t) {
+  const value = requirements?.[requirement];
+  if (isBlank(value) || (Array.isArray(value) && value.length === 0)) return "";
+
+  const optionLabel = (code) => t(`activityRequirements.options.${code}`, humanizeCode(code));
+
+  switch (requirement) {
+    case "maximumSetupTimeDays":
+      return t("activityRequirements.values.days", { count: Number(value) });
+    case "availableBudget":
+      return requirements.budgetCurrency
+        ? `${requirements.budgetCurrency} ${formatAmount(value)}`
+        : formatAmount(value);
+    case "minimumCohortRetentionPercent":
+      return t("activityRequirements.values.percent", { value: formatNumericEvidence(value) });
+    default:
+      return Array.isArray(value) ? value.map(optionLabel).join(", ") : optionLabel(value);
+  }
 }
 
 /**
@@ -178,38 +149,39 @@ export function formatSetupEstimate(estimate) {
   return `${setupDaysMin} – ${setupDaysMax} days`;
 }
 
-// Display grouping of Project requirements; keys are the stable Project Template requirement keys.
+// Display grouping of the sharing requirements; keys are property names of activityRequirements.
+// The budget currency is shown with the available budget.
 export const REQUIREMENT_GROUPS = [
   {
     id: "scientific",
     title: "Scientific / Utility",
-    keys: ["requiredTemporalResolution", "minimumCohortRetentionPercent", "criticalUtilityRequirement"],
+    keys: ["requiredTemporalResolution", "minimumCohortRetentionPercent"],
   },
   {
-    id: "operational",
-    title: "Operational",
-    keys: ["dataAccessDeadline", "maximumSetupTimeDays", "availableBudget", "budgetScope"],
+    id: "administrative",
+    title: "Administrative Requirements",
+    keys: ["maximumSetupTimeDays", "availableBudget"],
   },
   {
     id: "sharing",
-    title: "Sharing Requirements",
-    keys: ["analysisDataNeeded", "requiredExternalDeliverables", "sharingModel", "accessPattern"],
+    title: "Data Sharing",
+    keys: ["analysisDataNeeded", "requiredExternalDeliverables", "sharingArrangement"],
   },
 ];
 
 const STRATEGY_LABELS = { DATA: "Data", CONTEXT: "Context", HYBRID: "Hybrid" };
-// One vocabulary for every Project constraint check and plan-level summary.
-const PROJECT_CONSTRAINT_LABELS = {
+// One vocabulary for every sharing-requirement check and plan-level summary.
+const REQUIREMENT_CHECK_LABELS = {
   PASS: "Pass",
   NEEDS_EVALUATION: "Needs evaluation",
   FAIL: "Fail",
 };
 
 export const formatStrategy = (strategy) => STRATEGY_LABELS[strategy] || humanizeCode(strategy);
-export const formatProjectConstraintResult = (result) =>
-  PROJECT_CONSTRAINT_LABELS[result] || humanizeCode(result);
+export const formatRequirementCheckResult = (result) =>
+  REQUIREMENT_CHECK_LABELS[result] || humanizeCode(result);
 
-export function projectConstraintColor(result) {
+export function requirementCheckColor(result) {
   if (result === "PASS") return "success";
   if (result === "FAIL") return "error";
   return "warning";
@@ -288,7 +260,7 @@ const PLAN_STATUS_HELP = {
   READY_FOR_REVIEW:
     "No open evaluation item remains. The plan still needs human review and approval; it is not a statement that sharing is safe.",
   EVALUATION_REQUIRED: "At least one open item must be evaluated before the plan can be reviewed.",
-  INCOMPATIBLE: "A hard Project requirement is not met.",
+  INCOMPATIBLE: "A sharing requirement that is a hard constraint is not met.",
   INVALID: "The plan cannot be evaluated as configured.",
 };
 

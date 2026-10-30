@@ -167,7 +167,7 @@ function ParameterConfiguration({ parameter, error, onUpdate }) {
 
   const message =
     parameter.parameterCode === "SUPPRESSION_LIMIT"
-      ? "The concrete mitigation plan must specify the permitted suppression limit. The value will later be checked against Project utility constraints such as minimum cohort retention."
+      ? "The concrete mitigation plan must specify the permitted suppression limit. The value will later be checked against Activity utility constraints such as minimum cohort retention."
       : "A concrete hierarchy or binning rule must be supplied when this action is used in a mitigation plan.";
 
   return (

@@ -29,20 +29,6 @@ export default function getDataSharingActivitiesTableData(
       align: "left",
     },
     {
-      Header: t("dataSharingActivities.table.project"),
-      accessor: "projectName",
-      width: "12%",
-      align: "left",
-      Cell: ({ value }) =>
-        value ? (
-          <LabeledAvatar value={value} variant="configuration" shape="square" />
-        ) : (
-          <RATypography variant="caption" color="text">
-            {t("dataSharingActivities.table.noProject")}
-          </RATypography>
-        ),
-    },
-    {
       Header: t("dataSharingActivities.table.datasetAssessment"),
       accessor: "datasetAssessmentName",
       width: "14%",
@@ -209,7 +195,6 @@ export default function getDataSharingActivitiesTableData(
     ),
     datasetAssessmentName: a.datasetAssessmentName,
     recipientAssessmentName: a.recipientAssessmentName,
-    projectName: a.projectName,
     creationDate: a.creationDate,
     lastModifiedDate: a.lastModifiedDate,
     creatorUsername: a.creatorUsername || "—",

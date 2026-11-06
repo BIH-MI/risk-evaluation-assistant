@@ -1,6 +1,7 @@
 package org.bihealth.mi.risk_assessment_api.service;
 
 import jakarta.persistence.EntityNotFoundException;
+import org.hibernate.Hibernate;
 import org.bihealth.mi.risk_assessment_api.dto.request.configuration.QuestionOptionRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.request.configuration.QuestionRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.request.configuration.ReidThresholdRequestDTO;
@@ -276,7 +277,12 @@ public class ConfigurationService {
     }
 
     private ConfigurationVersion getCurrentVersion(Configuration config) {
-        return config.getCurrentVersionEntity()
+        // Reading a lazy version collection loads the entire history. Query the
+        // latest version directly unless a write already initialized the history
+        // (which may contain a newly added version awaiting flush).
+        return (Hibernate.isInitialized(config.getVersions())
+                ? config.getCurrentVersionEntity()
+                : versionRepository.findTopByConfigurationIdOrderByVersionNumberDesc(config.getId()))
                 .or(() -> versionRepository.findTopByConfigurationIdOrderByVersionNumberDesc(config.getId()))
                 .orElseThrow(() -> new IllegalStateException("Configuration has no versions: " + config.getId()));
     }

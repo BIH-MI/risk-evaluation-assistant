@@ -10,6 +10,10 @@ import OnBlurRAInput from "components/input/RAInput/OnBlurRAInput";
 function AssessmentSetupSection({
   datasets,
   configurationOptions,
+  configurationLoading,
+  configurationError,
+  scoringSystemsLoading,
+  scoringSystemsError,
   scoringSystemOptions,
   selectedDatasetId,
   setSelectedDatasetId,
@@ -47,6 +51,9 @@ function AssessmentSetupSection({
       <RAInput
         select
         label={t("datasetAssessments.form.configurationLabel")}
+        error={Boolean(configurationError)}
+        helperText={configurationError || (configurationLoading && !configurationOptions.length
+          ? t("common.loading", "Loading...") : "")}
         value={selectedConfigId}
         onChange={(event) => setSelectedConfigId(event.target.value)}
         fullWidth
@@ -76,6 +83,9 @@ function AssessmentSetupSection({
           "datasetAssessments.form.attributeScoringSystemLabel",
           "Attribute scoring system"
         )}
+        error={Boolean(scoringSystemsError)}
+        helperText={scoringSystemsError || (scoringSystemsLoading && !scoringSystemOptions.length
+          ? t("common.loading", "Loading...") : "")}
         value={selectedScoringSystemId}
         onChange={(event) => setSelectedScoringSystemId(event.target.value)}
         fullWidth

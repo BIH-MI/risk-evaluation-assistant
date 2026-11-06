@@ -16,6 +16,7 @@ import RAButton from "components/input/RAButton";
 import RAFloatingAlertStack from "components/feedback/RAFloatingAlertStack";
 import { LEGACY_ATTRIBUTE_SCORING_SYSTEM } from "utils/AttributeScale";
 import { fetchAttributeScoringSystemsApi } from "api/attributeScoringSystems";
+import { fetchDatasetAssessmentsByDatasetIdApi } from "api/datasetAssessments";
 import AssessmentSetupSection from "./components/AssessmentSetupSection";
 import QuestionnaireSection from "./components/QuestionnaireSection";
 import AttributeRiskAssessmentSection from "./components/AttributeRiskAssessmentSection";
@@ -25,13 +26,11 @@ import { buildAssessmentPayload } from "./utils/buildAssessmentPayload";
 
 import {
   addDatasetAssessment,
-  fetchDatasetAssessments,
   updateDatasetAssessment,
 } from "store/datasetAssessments/datasetAssessmentsThunks";
 import { fetchDatasets } from "store/datasets/datasetsThunks";
 import {
   fetchConfigurations,
-  fetchConfiguration,
 } from "store/configurations/configurationThunks";
 import { useActiveLock } from "hooks/locks/useActiveLock";
 import { getErrorMessage } from "utils/errors";
@@ -56,12 +55,12 @@ export default function AddEditDatasetAssessmentForm() {
 
   // --- REDUX SELECTORS ---
   const { items: datasets } = useSelector((state) => state.datasets);
-  const { items: configurations, loading: configLoading } = useSelector(
+  const { items: configurations, loading: configLoading, error: configError } = useSelector(
     (state) => state.configurations
   );
-  const { items: assessments } = useSelector(
-    (state) => state.datasetAssessments
-  );
+  // Keep dataset-scoped results local so a late response cannot replace the
+  // application's global assessment list or another dataset's evidence.
+  const [assessments, setAssessments] = useState([]);
 
   // --- FORM STATE ---
   const [name, setName] = useState("");
@@ -70,6 +69,8 @@ export default function AddEditDatasetAssessmentForm() {
   const [selectedConfigId, setSelectedConfigId] = useState("");
   const [selectedScoringSystemId, setSelectedScoringSystemId] = useState("");
   const [scoringSystems, setScoringSystems] = useState([]);
+  const [scoringSystemsLoading, setScoringSystemsLoading] = useState(true);
+  const [scoringSystemsError, setScoringSystemsError] = useState(null);
   const [answers, setAnswers] = useState({});
   const [tables, setTables] = useState([]);
 
@@ -243,19 +244,45 @@ export default function AddEditDatasetAssessmentForm() {
 
   const isReadOnly = (isEditMode && !hasLock) || isSubmitting;
 
-  // --- INITIALIZATION ---
+  // The configuration list includes full questionnaires; no second detail
+  // request is needed when the default or another configuration is selected.
   useEffect(() => {
-    if (token) {
-      dispatch(fetchDatasets(token));
-      dispatch(fetchDatasetAssessments(token));
-      dispatch(fetchConfigurations(token));
-      fetchAttributeScoringSystemsApi(token, { activeOnly: true })
-        .then((data) => setScoringSystems(Array.isArray(data) ? data : []))
-        .catch((err) =>
-          setLockError(err.message || "Failed to load scoring systems.")
-        );
-    }
+    if (!token) return;
+    dispatch(fetchConfigurations(token));
+    dispatch(fetchDatasets(token));
   }, [dispatch, token]);
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    setScoringSystemsLoading(true);
+    setScoringSystemsError(null);
+    fetchAttributeScoringSystemsApi(token, { activeOnly: true })
+      .then((data) => {
+        if (!cancelled) setScoringSystems(Array.isArray(data) ? data : []);
+      })
+      .catch((err) => {
+        if (!cancelled) setScoringSystemsError(err.message || "Failed to load scoring systems.");
+      })
+      .finally(() => {
+        if (!cancelled) setScoringSystemsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [token]);
+
+  useEffect(() => {
+    setAssessments([]);
+    if (!token || !selectedDatasetId) return;
+    let cancelled = false;
+    fetchDatasetAssessmentsByDatasetIdApi(selectedDatasetId, token)
+      .then((data) => {
+        if (!cancelled) setAssessments(Array.isArray(data) ? data : []);
+      })
+      .catch((err) => {
+        if (!cancelled) setLockError(err.message || "Failed to load dataset assessments.");
+      });
+    return () => { cancelled = true; };
+  }, [selectedDatasetId, token]);
 
   /**
    * Edit initialization is keyed by assessment ID, not form contents, so a
@@ -298,7 +325,7 @@ export default function AddEditDatasetAssessmentForm() {
   }, []);
 
   useEffect(() => {
-    if (!dataset) {
+    if (!dataset || (!isEditMode && !selectedScoringSystemId)) {
       setTables([]);
       return;
     }
@@ -313,19 +340,11 @@ export default function AddEditDatasetAssessmentForm() {
         scoringSystem: selectedScoringSystem,
       })
     );
-  }, [dataset, isEditMode, assessment, selectedScoringSystem]);
+  }, [dataset, isEditMode, assessment, selectedScoringSystem, selectedScoringSystemId]);
 
-  // Fetch deep configuration hierarchy when a config is selected
   useEffect(() => {
-    if (
-      selectedConfigId &&
-      token &&
-      !(isEditMode && assessment?.configuration)
-    ) {
-      dispatch(fetchConfiguration({ id: selectedConfigId, token }));
-      setActiveQuestTab(0); // Reset tab when config changes
-    }
-  }, [assessment, dispatch, isEditMode, selectedConfigId, token]);
+    setActiveQuestTab(0);
+  }, [selectedConfigId]);
 
   // Pre-fill answers ONCE the questions have been fully fetched from the configuration
   // AND auto-select the first option for any question that is left unanswered.
@@ -491,6 +510,10 @@ export default function AddEditDatasetAssessmentForm() {
         <AssessmentSetupSection
           datasets={datasets}
           configurationOptions={configurationOptions}
+          configurationLoading={configLoading}
+          configurationError={configError}
+          scoringSystemsLoading={scoringSystemsLoading}
+          scoringSystemsError={scoringSystemsError}
           scoringSystemOptions={scoringSystemOptions}
           selectedDatasetId={selectedDatasetId}
           setSelectedDatasetId={setSelectedDatasetId}

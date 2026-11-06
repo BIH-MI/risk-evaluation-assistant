@@ -1,6 +1,7 @@
 package org.bihealth.mi.risk_assessment_api.service;
 
 import jakarta.persistence.EntityNotFoundException;
+import org.hibernate.Hibernate;
 import lombok.RequiredArgsConstructor;
 import org.bihealth.mi.risk_assessment_api.dto.request.scoring.AttributeScoringOptionRequestDTO;
 import org.bihealth.mi.risk_assessment_api.dto.request.scoring.AttributeScoringSystemRequestDTO;
@@ -280,7 +281,12 @@ public class AttributeScoringSystemService {
     }
 
     private AttributeScoringSystemVersion getCurrentVersion(AttributeScoringSystem system) {
-        return system.getCurrentVersionEntity()
+        // Reading a lazy version collection loads the entire history. Query the
+        // latest version directly unless a write already initialized the history
+        // (which may contain a newly added version awaiting flush).
+        return (Hibernate.isInitialized(system.getVersions())
+                ? system.getCurrentVersionEntity()
+                : scoringSystemVersionRepository.findTopByScoringSystemIdOrderByVersionNumberDesc(system.getId()))
                 .or(() -> scoringSystemVersionRepository.findTopByScoringSystemIdOrderByVersionNumberDesc(system.getId()))
                 .orElseThrow(() -> new IllegalStateException("Attribute scoring system has no versions: " + system.getId()));
     }

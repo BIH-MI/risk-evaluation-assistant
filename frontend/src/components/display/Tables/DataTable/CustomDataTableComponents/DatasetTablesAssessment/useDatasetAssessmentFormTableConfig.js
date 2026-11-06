@@ -8,18 +8,22 @@ import {
   normalizeAssessmentAttributeState,
 } from "./utils/assessmentTableUtils";
 
+// These objects participate in column memoization, including through callbacks.
+// Fresh defaults would replace every Cell component on each value update.
+const EMPTY_ATTRIBUTE_VALUES = Object.freeze({});
+
 export function useDatasetAssessmentFormTableConfig(
   tables,
   setTables,
-  originals = {},
+  originals = EMPTY_ATTRIBUTE_VALUES,
   options = {},
   t
 ) {
   const {
     showOverridden = false,
     scoringSystem = null,
-    attributeEvidenceById = {},
-    originalAssessmentValuesByAttributeId = {},
+    attributeEvidenceById = EMPTY_ATTRIBUTE_VALUES,
+    originalAssessmentValuesByAttributeId = EMPTY_ATTRIBUTE_VALUES,
     isReadOnly = false,
   } = options;
   const tableIdsKey = getTableIdsKey(tables);

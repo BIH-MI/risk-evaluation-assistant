@@ -10,6 +10,9 @@ import {
   usePaperScreenshotMode,
 } from "./usePaperScreenshotMode";
 
+// Stable defaults keep the column renderers mounted when an assessment changes.
+const EMPTY_ATTRIBUTE_VALUES = Object.freeze({});
+
 const lightTableContainerSx = ({ borders }) => ({
   boxShadow: "none",
   border: `${borders.borderWidth[1]} solid`,
@@ -85,8 +88,8 @@ function DatasetTablesAssessment({
   originals,
   showOverriddenColumn = false,
   scoringSystem = null,
-  attributeEvidenceById = {},
-  originalAssessmentValuesByAttributeId = {},
+  attributeEvidenceById = EMPTY_ATTRIBUTE_VALUES,
+  originalAssessmentValuesByAttributeId = EMPTY_ATTRIBUTE_VALUES,
   isReadOnly = false,
 }) {
   const { t } = useTranslation();

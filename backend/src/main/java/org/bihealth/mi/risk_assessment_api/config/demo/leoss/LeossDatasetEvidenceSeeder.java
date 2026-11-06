@@ -1,4 +1,4 @@
-package org.bihealth.mi.risk_assessment_api.config;
+package org.bihealth.mi.risk_assessment_api.config.demo.leoss;
 
 import org.bihealth.mi.risk_assessment_api.enums.DataType;
 import org.bihealth.mi.risk_assessment_api.model.dataset.AttributeScreeningSnapshot;
@@ -26,7 +26,7 @@ import java.util.Optional;
 
 /**
  * Aggregate quantitative profiling evidence for the LEOSS demo dataset, applied
- * by {@link DataLoader} when it creates the demo data (never on later
+ * by {@link LeossDatasetSeeder} when it creates the demo data (never on later
  * startups, so researcher edits to the demo dataset are kept).
  *
  * <p>This is intentionally not a backend QID profiler. The values below are
@@ -36,9 +36,9 @@ import java.util.Optional;
  * dataset-type suggestion. No raw LEOSS rows are stored.</p>
  */
 @Component
-public class DemoDatasetEvidenceSeeder {
+public class LeossDatasetEvidenceSeeder {
 
-    private static final Logger log = LoggerFactory.getLogger(DemoDatasetEvidenceSeeder.class);
+    private static final Logger log = LoggerFactory.getLogger(LeossDatasetEvidenceSeeder.class);
     private static final String SEED_USER = "user";
 
     // The Add Dataset screening run that produced the snapshots below: the
@@ -57,7 +57,7 @@ public class DemoDatasetEvidenceSeeder {
     private final QidDiscoveryConfigurationService qidConfigurationService;
     private final AiModelRegistry aiModelRegistry;
 
-    public DemoDatasetEvidenceSeeder(
+    public LeossDatasetEvidenceSeeder(
             DatasetRepository datasetRepository,
             QidDiscoveryConfigurationRepository qidConfigurationRepository,
             QidDiscoveryConfigurationService qidConfigurationService,
@@ -276,7 +276,7 @@ public class DemoDatasetEvidenceSeeder {
         attribute.replaceSubsetEvidence(evidence == null
                 ? List.of()
                 : evidence.stream()
-                  .map(DemoDatasetEvidenceSeeder::toSubsetEvidenceEntity)
+                  .map(LeossDatasetEvidenceSeeder::toSubsetEvidenceEntity)
                   .toList());
     }
 

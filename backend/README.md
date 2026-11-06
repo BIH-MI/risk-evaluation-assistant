@@ -151,9 +151,36 @@ Each configuration JSON includes categories, questions, options, risk bands, mat
 
 ### Sample Data Loader
 
-Demo data, including the LEOSS example dataset, profiling evidence, recipients, assessments and data-sharing activities, is initialised by `DataLoader` and `DemoDatasetEvidenceSeeder` when `APP_SETUP_LOAD_SAMPLE_DATA=true`. This option is intended for local demonstrations and is disabled in production.
+Demo data, including the LEOSS example with profiling evidence and the EPIC-Potsdam metadata-only example, recipients, assessments and data-sharing activities, is initialised by `DataLoader` and the dataset-specific seeders under `config/demo/` when `APP_SETUP_LOAD_SAMPLE_DATA=true`. This option is intended for local demonstrations and is disabled in production.
 
-The demo data is created only if neither the LEOSS dataset nor any demo recipient exists yet; otherwise nothing is created or changed, so restarts do not duplicate demo records or overwrite edits to them.
+Missing sample components are initialized independently: an existing LEOSS dataset no longer prevents EPIC-Potsdam creation (and vice versa). Existing datasets and recipients are reused by normalized current/legacy names, with original assessment names as a fallback for renamed profiles. Assessments are reused by dataset/recipient and framework, and activities by assessment pair or name. Saved schemas, scores and questionnaire answers are not overwritten. Renaming both a profile and all its identifying demo assessment names removes the loader’s ability to recognize that profile as a demo; there is no separate seed marker. When sample loading is enabled, a transactional upgrade first renames the three legacy recipients in place. It requires the exact original name, creator (`user`), organization and description; edited legacy profiles are skipped. Target-name collisions are skipped and logged. Matching default assessment and linked activity names are also updated, with activity-name conflicts skipped. IDs, saved answers, shared users and relationships remain intact. New names/descriptions no longer match the upgrade, making ordinary restarts idempotent; subsequent user edits are not synchronized back to the seeds. No SQL migration or schema change is needed.
+
+The recipients are research archetypes, not verified descriptions of DIfE, Charité or any other institution. New El Emam demo assessments assume all 19 controls for both controlled research scenarios, including an established collaboration, surprise-audit rights and independent audits. Both have technical expertise and financial resources; only the commercial scenario assumes commercial value. Neither assumes a motive to harm the custodian. The unrestricted scenario has no recipient-specific controls, assumes possible commercial/non-commercial motives and capability among unknown recipients, and still answers No to harm/embarrass.
+
+Using the bundled El Emam configuration and the existing `RiskComputationService`, the revised seed answers produce:
+
+| Scenario | Controls raw / normalized / band | Likelihood raw / normalized / band | Context risk (`P_attack`) |
+| --- | --- | --- | --- |
+| Trusted Academic Research Institute | 1130 / 100% / HIGH | 75 / 36.5854% / HIGH | 0.20 |
+| Commercial Research Partner | 1130 / 100% / HIGH | 125 / 60.9756% / MAX | 0.40 |
+| Public / Unrestricted Data Release | 0 / 0% / NONE | 155 / 75.6098% / MAX | 1.00 |
+
+These are calculated reference results, not hard-coded outcomes. All 25 recipient questions are answered per scenario. Academic capability raises likelihood despite low motive; the existing model still gives the requested academic < commercial < unrestricted context-risk ordering. SPHN answers and both frameworks' scoring definitions are unchanged by this scenario cleanup.
+
+**Existing databases:** restarting with sample loading enabled upgrades eligible legacy display names/descriptions and adds missing sample components. Existing recipient assessments keep their answers and may therefore produce different results from the revised seeds above. Review those saved assessments explicitly before using them in a research comparison; the loader does not replace assessment history.
+
+### EPIC-Potsdam metadata-only research example
+
+The EPIC-Potsdam Dairy and Chronic Disease Dataset represents the NFDI4Health P1090 dairy/chronic-disease use case: 25,146 records and one Participants table with 48 attributes (14 INTEGER, 34 DECIMAL), in the supplied schema order. No participant rows, example values or measured QID Discovery statistics are bundled or generated. Only the known record count is stored; analysed counts, Distinction, Separation, Singleton Fraction and subset evidence remain absent.
+
+The 11 impact answers follow the supplied research scenario. N/A is used for the four governance/consent conditions that cannot be inferred from the data. Three activities share this same dataset assessment and reference the three distinct El Emam recipient assessments. No EPIC SPHN assessment or activity is created.
+
+The supplied scores satisfy the requested inclusive rules (`R+A+D >= 7`, `S >= 3`):
+
+- QID candidates: SEX, age0, educc3, age_f3, age_inct2d, age_incmi, age_incstroke.
+- Sensitive attributes: za0, m14bd, za_f3, sr_hyp_f1, sr_hyp_f2, sr_hyp_f3, inct2d, incmi, incstroke.
+
+**Current report limitation:** REA currently uses strict `>` comparisons in `classifyReportAttribute`. At thresholds 7/3 this produces only age0 as a QID and no sensitive attributes. The seed preserves the requested scores and thresholds; no separate classification flags or altered risk formulas are used to hide this mismatch.
 
 ### Attribute Scale Values
 

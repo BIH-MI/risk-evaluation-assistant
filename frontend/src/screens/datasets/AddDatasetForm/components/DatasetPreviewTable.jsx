@@ -3,6 +3,7 @@ import { IconButton, Tooltip } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import DeleteIcon from "@mui/icons-material/DeleteOutline";
 import { useTranslation } from "react-i18next";
+import { DataType } from "utils/DataType";
 import DataTable from "components/display/Tables/DataTable";
 import RABox from "components/layout/RABox";
 import {
@@ -23,6 +24,8 @@ import {
   getTableReviewSummary,
   getTableScreenings,
 } from "features/qidDiscovery/ai/screeningStatus";
+import { buildTopValuesMap, EXAMPLE_SEPARATOR } from "../utils/previewExamples";
+import { DataTypeNote } from "./DataTypeNote";
 
 // Narrower cell padding than the shared table default, so the columns fit
 // without horizontal scrolling on desktop. The fixed layout keeps column
@@ -57,6 +60,14 @@ function getSubsetProfilingStatus(file, { t, language }) {
   const summary = file.subsetProfilingSummary;
   if (!summary) return null;
 
+  if (summary.skipped) {
+    return t(
+      "datasets.add.subsetProfilingSkipped",
+      "Subset profiling was skipped because a safety limit was exceeded. You can create the dataset with individual-column statistics; multi-attribute evidence is unavailable. {{reason}}",
+      { reason: summary.warning }
+    );
+  }
+
   const attributeCount = Number(summary.candidateAttributeCount) || 0;
   const subsetCount = Number(summary.evaluatedSubsetCount) || 0;
 
@@ -69,6 +80,18 @@ function getSubsetProfilingStatus(file, { t, language }) {
 
   const formatter = new Intl.NumberFormat(language);
 
+  if (summary.adjusted) {
+    return t(
+      "datasets.add.subsetProfilingAdjusted",
+      "Profiling adjusted for dataset size: all multi-attribute combinations up to size {{effectiveSize}} were evaluated instead of the configured {{configuredSize}} ({{subsetCount}} subsets). Larger combinations were not evaluated. The shared configuration is unchanged.",
+      {
+        effectiveSize: summary.effectiveMaxSubsetSize,
+        configuredSize: summary.maxSubsetSize,
+        subsetCount: formatter.format(subsetCount),
+      }
+    );
+  }
+
   return t(
     "datasets.add.subsetProfilingSummary",
     "{{subsetCount}} attribute subsets evaluated across {{attributeCount}} eligible attributes.",
@@ -77,27 +100,6 @@ function getSubsetProfilingStatus(file, { t, language }) {
       attributeCount: formatter.format(attributeCount),
     }
   );
-}
-
-function buildTopValuesMap(columnMeta = [], data = []) {
-  const map = {};
-  const sampleData = data.slice(0, 500);
-
-  for (const { field, sourceField } of columnMeta) {
-    const frequencies = {};
-    for (const row of sampleData) {
-      const value = row[sourceField || field];
-      if (value != null) {
-        frequencies[value] = (frequencies[value] || 0) + 1;
-      }
-    }
-    map[field] = Object.entries(frequencies)
-      .sort((left, right) => right[1] - left[1])
-      .slice(0, 3)
-      .map(([value]) => value);
-  }
-
-  return map;
 }
 
 /**
@@ -203,19 +205,36 @@ export const DatasetPreviewTable = React.memo(function DatasetPreviewTable({
     {
       Header: t("datasets.attributesTable.dataType"),
       accessor: "dataType",
-      width: 190,
+      // 190 for the select plus the note slot.
+      width: 214,
       align: "center",
       Cell: ({ row }) => (
-        <MemoDataTypeCell
-          initialValue={row.original.dataType}
-          onCommit={(newType) =>
-            onDataTypeChange(
-              file._localTableId,
-              row.original.columnKey,
-              newType
-            )
-          }
-        />
+        <RABox display="flex" alignItems="center" gap={0.5}>
+          <RABox sx={{ flex: 1, minWidth: 0 }}>
+            <MemoDataTypeCell
+              initialValue={row.original.dataType}
+              onCommit={(newType) =>
+                onDataTypeChange(
+                  file._localTableId,
+                  row.original.columnKey,
+                  newType
+                )
+              }
+            />
+          </RABox>
+          {/* Fixed width keeps the selects aligned. The note explains the
+              detected STRING; it is moot once another type is chosen. */}
+          <RABox sx={{ width: 20, flexShrink: 0, display: "flex" }}>
+            {row.original.typeNote &&
+              row.original.dataType === DataType.STRING && (
+                <DataTypeNote
+                  key={row.original.columnKey}
+                  typeNote={row.original.typeNote}
+                  attributeName={row.original.field}
+                />
+              )}
+          </RABox>
+        </RABox>
       ),
     },
     {
@@ -226,7 +245,9 @@ export const DatasetPreviewTable = React.memo(function DatasetPreviewTable({
       // default it to 150).
       width: "auto",
       Cell: ({ row }) => {
-        const examples = (topValuesMap[row.original.field] || []).join(", ");
+        const examples = (topValuesMap[row.original.field] || []).join(
+          EXAMPLE_SEPARATOR
+        );
         if (!examples) {
           return <span style={{ color: "#ccc" }}>-</span>;
         }
@@ -319,6 +340,7 @@ export const DatasetPreviewTable = React.memo(function DatasetPreviewTable({
       position,
       field: column.field,
       dataType: column.level,
+      typeNote: column.typeNote || null,
       excluded: Boolean(column.excluded),
       screening,
     })
@@ -394,7 +416,7 @@ export const DatasetPreviewTable = React.memo(function DatasetPreviewTable({
       ))}
 
       {subsetProfilingStatus && (
-        <RATypography variant="caption" display="block" color="text" mb={1}>
+        <RATypography variant="caption" display="block" color={file.subsetProfilingSummary?.adjusted ? "warning" : "text"} mb={1}>
           {subsetProfilingStatus}
         </RATypography>
       )}

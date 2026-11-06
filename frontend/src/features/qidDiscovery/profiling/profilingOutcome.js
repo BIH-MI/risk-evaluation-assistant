@@ -5,14 +5,17 @@ export const PROFILING_OUTCOME = Object.freeze({
   RUNNING: "running",
   SUCCEEDED: "succeeded",
   FAILED: "failed",
+  SUBSETS_SKIPPED: "subsetsSkipped",
   SCHEMA_ONLY: "schemaOnly",
 });
 
-/** Manual schemas are intentional; uploaded tables must finish even a zero-subset run. */
+/** Prepared uploads may omit subsets only for an explicitly reported resource limit. */
 export function hasCompleteProfiling(table) {
   if (table.isManual === true) return true;
   return (
-    table.profilingOutcome === PROFILING_OUTCOME.SUCCEEDED &&
+    (table.profilingOutcome === PROFILING_OUTCOME.SUCCEEDED ||
+      (table.profilingOutcome === PROFILING_OUTCOME.SUBSETS_SKIPPED &&
+        table.subsetProfilingSummary?.skipped === true)) &&
     table.subsetProfilingSummary != null
   );
 }

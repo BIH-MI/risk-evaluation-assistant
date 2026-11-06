@@ -205,10 +205,13 @@ export function createDirectIdentifierEvidenceAccumulator() {
       });
     },
 
-    finalize() {
+    // `reclassifiedMissingCount`: observed values found to mean "no value"
+    // after the pass (NA-like markers in a typed column). No value pattern
+    // matches such a marker, so only the analysed count changes.
+    finalize({ reclassifiedMissingCount = 0 } = {}) {
       const valuePatternEvidence = normalizeObservedPatternEvidence(
         patternCounts,
-        analysedNonMissingCount
+        analysedNonMissingCount - reclassifiedMissingCount
       );
 
       return buildEvidence({

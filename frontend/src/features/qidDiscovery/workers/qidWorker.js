@@ -39,7 +39,7 @@ function serializeError(error) {
 async function prepareTable(requestId, { file, qidDiscoveryConfiguration }) {
   const startedAt = performance.now();
   let fieldsAt = null;
-  const { rows, fields, parsingWarnings } = await parseCsvFile(file, {
+  const { rows, fields, delimiter, parsingWarnings } = await parseCsvFile(file, {
     onProgress: () => globalThis.postMessage({ requestId, type: "PROGRESS", progress: { phase: "parsing" } }),
     onFields: (headerFields) => {
       fieldsAt = performance.now();
@@ -52,7 +52,11 @@ async function prepareTable(requestId, { file, qidDiscoveryConfiguration }) {
   });
   const parsedAt = performance.now();
   const sessionId = createSessionId(file?.name);
-  const { profilingSource, columnMeta } = prepareParsedTable({ rows, fields });
+  const { profilingSource, columnMeta } = prepareParsedTable({
+    rows,
+    fields,
+    delimiter,
+  });
   const preparedAt = performance.now();
 
   sessions.set(sessionId, profilingSource);

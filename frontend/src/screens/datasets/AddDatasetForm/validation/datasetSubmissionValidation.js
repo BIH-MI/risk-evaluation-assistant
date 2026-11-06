@@ -6,7 +6,8 @@ import { getTablesBeingScreened } from "features/qidDiscovery/ai/screeningStatus
  * Name validation and backend error handling belong to useDatasetSubmission.
  * HIGH value-pattern identifiers must be excluded even after a manual override;
  * review-level name/value findings are flagged in the preview but never block.
- * Uploaded tables require a successful profile, including valid zero-subset runs.
+ * Uploaded tables require completed preparation and either successful subset
+ * profiling or an explicit resource-limit skip with no subset evidence.
  */
 export function validateDatasetSubmission({
   tables,

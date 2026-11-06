@@ -42,7 +42,7 @@ flowchart TD
 3. **Screen names early.** The parser reports headers after its first chunk. The AI worker classifies normalized names, using cached inferences where possible; name rules also contribute suggestions.
 4. **Prepare values once.** The QID worker parses all rows, encodes equal values with equal integer codes, measures individual columns and detects supported identifier-like value patterns.
 5. **Resolve initial exclusions.** Confident eligible decisions are applied in one batch. If name screening remains pending, initial profiling starts after a **30-second wait** with available decisions; late findings remain reviewable.
-6. **Profile combinations.** Eligible within-table attribute subsets of sizes 2 through the configured maximum are evaluated, subject to a total-subset safety limit.
+6. **Profile combinations.** Eligible within-table attribute subsets of sizes 2 through the configured maximum are evaluated, subject to total-subset and subset-record work limits. If either limit is exceeded, the run uses the largest complete subset size that fits both limits and displays the configured and effective sizes. All combinations at retained sizes use every accepted record. The shared configuration is not changed. If even pairs cannot fit, combination profiling is skipped with a visible warning. Dataset creation remains available with individual-column statistics and empty combination evidence; other profiling failures still block saving.
 7. **Show the evidence.** The interface shows screening status, review controls and available statistical evidence. A classification result is *not* proof that an attribute is safe.
 8. **Handle edits.** Relevant schema/exclusion changes trigger another combination profile using the **same browser-local encoded source** and cached subset metrics. Confirmation alone does not trigger recalculation.
 9. **Validate and save.** The dataset API receives the schema, final exclusions, selected aggregate statistics, configuration/version identifiers and model provenance when applicable, **not CSV records**.
@@ -60,7 +60,7 @@ For `n` analyzed records and equivalence classes of sizes `s_1, ..., s_k`:
 | **Separation** | `1 - [sum(s_i(s_i - 1)/2)] / [n(n - 1)/2]` | Fraction of record pairs with different values or joint values |
 | **Singleton Fraction** | `number of singleton records / n` | Fraction of records belonging to one-record equivalence classes |
 
-Zero-denominator cases are handled by the implementation. Missing values form a shared category rather than being dropped from these calculations.
+Zero-denominator cases are handled by the implementation. Missing values form a shared category rather than being dropped from these calculations. Empty cells are missing in every column. NA-like markers such as `NA` or `NULL` are missing only in columns detected as numbers, dates, booleans or geodata. In text columns they are ordinary values.
 
 For a combination of attributes, identical **joint** values form an equivalence class. Each combination contributes evidence to its participating attributes. Means are calculated **separately for each subset size**; contextual display evidence then gives each available subset size equal weight. Do not replace this with a mean weighted by the number of combinations.
 
@@ -70,8 +70,12 @@ These are **descriptive dataset statistics**, not calibrated attack probabilitie
 
 - **AI suggestions** arise from column names and model-specific prompts/thresholds. Scores are not probabilities of re-identification.
 - **Name rules** can automatically suggest exclusion for strong identifiers, independently of the model, subject to the existing conflict/review policy.
-- **Value-pattern evidence** checks email-like, IP-like, formatted-phone and US-SSN-like values. Supported `HIGH` evidence defaults to exclusion and prevents submission if the column remains included.
+- **Value-pattern evidence** checks email-like, IP-like, formatted-phone and US-SSN-like values. Plain decimal numbers (`45000.00`) and dates (`15.01.2020`) never count as phone numbers, even when they have as many digits as one. Supported `HIGH` evidence defaults to exclusion and prevents submission if the column remains included.
 - **Uncertain findings** may require explicit researcher review; the exact decision depends on the source and screening state.
 - **Manual decisions** take precedence over later automatic *name-screening* changes; they do not bypass the separate `HIGH` value-pattern submission rule.
 
 The current model registry does **not** approve any model for **model-only automatic exclusion**. A high model score by itself therefore does not authorize such an exclusion.
+
+### Browser memory
+
+Row-level subset partitions use a 32 MiB estimated cache budget with least-recently-used eviction. Evicted partitions are recomputed from encoded columns when needed; this does not sample records or change statistics. Only 500 preview rows are copied to the page, while profiling uses every accepted CSV record. The budget covers cached partitions, not total browser memory.

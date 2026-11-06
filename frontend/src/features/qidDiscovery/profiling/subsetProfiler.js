@@ -5,6 +5,8 @@ import { SubsetPartitionCache } from "./subsetPartitionCache";
 /**
  * @typedef {Object} SubsetProfilingSummary
  * @property {number} maxSubsetSize Configured maximum subset size.
+ * @property {number} effectiveMaxSubsetSize Largest subset size actually evaluated (0 when none).
+ * @property {boolean} adjusted Whether safety limits reduced the requested coverage.
  * @property {number} maxEvaluatedSubsets Configured subset-count safety limit.
  * @property {number} candidateAttributeCount Eligible attributes considered.
  * @property {number} evaluatedSubsetCount Attribute subsets evaluated.
@@ -19,6 +21,9 @@ import { SubsetPartitionCache } from "./subsetPartitionCache";
  * @property {Uint32Array} codes Browser-local encoded values.
  */
 
+// Only admission-limit failures can be recovered as missing subset evidence.
+export class SubsetProfilingLimitError extends Error {}
+
 const MIN_SUBSET_SIZE = 2;
 
 function createSubsetProfilingSummary({
@@ -26,12 +31,16 @@ function createSubsetProfilingSummary({
   maxEvaluatedSubsets,
   candidateAttributeCount = 0,
   evaluatedSubsetCount = 0,
+  effectiveMaxSubsetSize = 0,
+  adjusted = false,
 }) {
   return {
     maxSubsetSize,
     maxEvaluatedSubsets,
     candidateAttributeCount,
     evaluatedSubsetCount,
+    effectiveMaxSubsetSize,
+    adjusted,
   };
 }
 
@@ -149,13 +158,15 @@ export function createEmptySubsetProfilingSummary(profilingConfiguration) {
 
 /**
  * Exhaustively evaluates every eligible attribute subset of size
- * 2..maxSubsetSize and streams each result into per-attribute, per-size
+ * 2..effectiveMaxSubsetSize and streams each result into per-attribute, per-size
  * running sums. Individual subset metrics remain in the session cache for reuse;
  * only per-attribute, per-size aggregates leave this function. Large partitions
  * are temporary and released after the run.
  *
  * The safety limit is checked against the complete enumeration count, including
- * cache hits. Exceeding it throws rather than returning a sampled/partial result.
+ * cache hits. Whole subset sizes are reduced until both limits fit. Every
+ * combination at each retained size is evaluated; if even pairs cannot fit,
+ * a limit error lets the caller explicitly skip subset profiling.
  *
  * @param {SubsetCandidateColumn[]} candidateColumns
  * @param {import("./profilingSource").ProfilingSource} profilingSource
@@ -173,28 +184,39 @@ export function profileAttributeSubsets(
   const { maxSubsetSize, maxEvaluatedSubsets } =
     validateQidDiscoveryProfilingConfiguration(profilingConfiguration);
   const candidateAttributeCount = candidateColumns.length;
-  const largestSubsetSize = Math.min(maxSubsetSize, candidateAttributeCount);
-  const evaluatedSubsetCount = calculateEvaluatedSubsetTotal(
+  const requestedLargestSubsetSize = Math.min(maxSubsetSize, candidateAttributeCount);
+  let largestSubsetSize = requestedLargestSubsetSize;
+  let evaluatedSubsetCount = calculateEvaluatedSubsetTotal(
     candidateAttributeCount,
     largestSubsetSize
   );
 
-  if (evaluatedSubsetCount > maxEvaluatedSubsets) {
-    throw new Error(
-      `Subset profiling would evaluate ${evaluatedSubsetCount.toLocaleString()} subsets for ${candidateAttributeCount.toLocaleString()} eligible attributes, exceeding the configured limit of ${maxEvaluatedSubsets.toLocaleString()}. Reduce the maximum subset size or increase the evaluated-subset safety limit.`
+  const recordCount = profilingSource?.recordCount || 0;
+  const exceedsLimits = () =>
+    evaluatedSubsetCount > maxEvaluatedSubsets ||
+    evaluatedSubsetCount * recordCount > CSV_RESOURCE_LIMITS.maxSubsetRecordVisits;
+
+  // Admit complete layers only; never keep a biased prefix of combinations.
+  while (largestSubsetSize > MIN_SUBSET_SIZE && exceedsLimits()) {
+    largestSubsetSize -= 1;
+    evaluatedSubsetCount = calculateEvaluatedSubsetTotal(
+      candidateAttributeCount,
+      largestSubsetSize
     );
   }
 
-  // Bound row-dependent work as well as the configured combination count.
-  if (evaluatedSubsetCount * (profilingSource?.recordCount || 0) >
-      CSV_RESOURCE_LIMITS.maxSubsetRecordVisits) {
-    throw new Error("Subset profiling exceeds the browser work limit (50,000,000 subset-record visits). Reduce the maximum subset size or eligible attributes, then retry by changing an exclusion or reselecting the CSV.");
+  if (exceedsLimits()) {
+    throw new SubsetProfilingLimitError(
+      "Even all two-attribute combinations exceed the subset-count or browser work limit. Reduce the number of eligible attributes to enable subset profiling."
+    );
   }
   const summary = createSubsetProfilingSummary({
     maxSubsetSize,
     maxEvaluatedSubsets,
     candidateAttributeCount,
     evaluatedSubsetCount,
+    effectiveMaxSubsetSize: evaluatedSubsetCount ? largestSubsetSize : 0,
+    adjusted: largestSubsetSize < requestedLargestSubsetSize,
   });
   // Per attribute: subsetSize -> running sums over every evaluated subset of
   // that size containing the attribute.

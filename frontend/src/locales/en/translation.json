@@ -111,6 +111,7 @@
       "createButton": "Create Dataset",
       "parsing": "Parsing {{name}}...",
       "subsetProfilingUpdating": "Profiling Distinguishability evidence...",
+      "subsetProfilingAdjusted": "Profiling adjusted for dataset size: all multi-attribute combinations up to size {{effectiveSize}} were evaluated instead of the configured {{configuredSize}} ({{subsetCount}} subsets). Larger combinations were not evaluated. The shared configuration is unchanged.",
       "subsetProfilingSummary": "{{subsetCount}} attribute subsets evaluated across {{attributeCount}} eligible attributes.",
       "noSubsetProfilingRequired": "No multi-attribute subset profiling was required.",
       "newTable": "New Table",
@@ -121,7 +122,15 @@
       "dropzoneDrag": "Drag & drop CSV files here, or click to select",
       "dropzoneOr": "— OR —",
       "addManualTable": "Add Empty Table Manually",
-      "examples": "Examples"
+      "examples": "Examples",
+      "typeNotes": {
+        "ariaLabel": "Why {{name}} was detected as String",
+        "quotedValue": "“{{value}}”",
+        "nonNumericValues_one": "Detected as String: {{count}} of {{total}} distinct values is not a number ({{examples}}). Choose a numeric type if the column is numeric.",
+        "nonNumericValues_other": "Detected as String: {{count}} of {{total}} distinct values are not numbers (e.g. {{examples}}). Choose a numeric type if the column is numeric.",
+        "mixedDecimalSeparators": "Detected as String: the values use both “.” and “,” as decimal separators ({{examples}}). Choose a numeric type if the column is numeric.",
+        "ambiguousDecimalComma": "Detected as String: this comma-separated file has numbers with a comma (e.g. {{examples}}), which can be a decimal or a thousands separator. Choose a numeric type if the column is numeric."
+      }
     },
     "subsetEvidence": {
       "missingTitle": "No contextual Distinguishability evidence exists for these included attributes:",
@@ -791,7 +800,7 @@
     "subsetProfiling": {
       "title": "Subset Profiling",
       "maxSubsetSizeHelper": "Maximum number of attributes considered together when deriving contextual Distinguishability evidence.",
-      "maxEvaluatedSubsetsHelper": "Safety limit for exhaustive subset profiling. Profiling stops with an error if the requested configuration would exceed this number."
+      "maxEvaluatedSubsetsHelper": "Maximum number of subsets to evaluate. The maximum subset size is automatically reduced when this limit or the browser processing limit would be exceeded. If even pairs exceed a limit, subset profiling is skipped."
     },
     "errors": {
       "nameRequired": "Name is required.",

@@ -84,11 +84,45 @@ function isIpAddressLike(value) {
   return isIpv4Like(value) || isIpv6Like(value);
 }
 
+// A plain decimal number ("53.8097193702943", "45000.00") is a measurement.
+// Numbers are not written with a leading zero, so "02.12345678" can still be
+// a phone number.
+const DECIMAL_NUMBER_REGEX = /^(?:0|[1-9]\d*)\.\d+$/;
+
+const isDay = (part) => Number(part) >= 1 && Number(part) <= 31;
+const isMonth = (part) => Number(part) >= 1 && Number(part) <= 12;
+const isYear = (part) => Number(part) >= 1800 && Number(part) <= 2199;
+
+// Dates written with dots or hyphens: 15.01.2020, 01-15-2020, 2020.01.15.
+// Day, month and year must be plausible, so "12.34.5678" can still be a phone
+// number.
+function isDottedOrDashedDate(text) {
+  const dayOrMonthFirst = /^(\d{1,2})([.-])(\d{1,2})\2(\d{4})$/.exec(text);
+  if (dayOrMonthFirst) {
+    const [, first, , second, year] = dayOrMonthFirst;
+    return (
+      isYear(year) &&
+      ((isDay(first) && isMonth(second)) || (isMonth(first) && isDay(second)))
+    );
+  }
+  const yearFirst = /^(\d{4})\.(\d{1,2})\.(\d{1,2})$/.exec(text);
+  return (
+    Boolean(yearFirst) &&
+    isYear(yearFirst[1]) &&
+    isMonth(yearFirst[2]) &&
+    isDay(yearFirst[3])
+  );
+}
+
 function isPhoneLike(value) {
   const text = String(value || "").trim();
   if (!text || /^\d+$/.test(text)) return false;
   if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(text)) return false;
   if (/^\d{3}-\d{2}-\d{4}$/.test(text)) return false;
+  // Measurements and dates can have as many digits as a phone number.
+  if (DECIMAL_NUMBER_REGEX.test(text) || isDottedOrDashedDate(text)) {
+    return false;
+  }
   if (!/^\+?[0-9][0-9\s().-]{6,}[0-9]$/.test(text)) return false;
 
   const digits = text.replace(/\D/g, "");

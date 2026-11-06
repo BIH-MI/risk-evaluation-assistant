@@ -1,3 +1,4 @@
+import { CSV_RESOURCE_LIMITS } from "./resourceLimits";
 import { buildSubsetStatistics } from "./metrics/profile";
 
 // Sorting gives every attribute subset one canonical ordering, so the same
@@ -70,10 +71,9 @@ function refinePartition(parentPartition, columnCodes) {
  *   whole session, so refreshes after rename/exclude/include reuse every
  *   subset that was already evaluated.
  * - Partitions hold one rowGroupId per record (memory ~ subsets x rows). They
- *   are only needed as parents for the next subset size, so the subset
- *   profiler releases them layer by layer and drops all of them at the end of
- *   each profiling run. A later miss rebuilds the parent chain from the
- *   encoded columns, which yields identical partitions.
+ *   are held in a bounded least-recently-used cache. The subset profiler also
+ *   releases them layer by layer and drops all of them after each run. A later
+ *   miss rebuilds the parent chain from encoded columns with identical results.
  *
  * Partitions, rowGroupIds, and encoded values are transient browser-local
  * state and must never be persisted to the backend.
@@ -83,7 +83,8 @@ export class SubsetPartitionCache {
     this.columnsBySourceField = profilingSource.columnsBySourceField;
     this.analysedRecordCount = profilingSource.recordCount;
     this.metricsByKey = new Map();
-    this.partitionsBySubsetSize = new Map();
+    this.partitionsByKey = new Map();
+    this.partitionCacheBytes = 0;
   }
 
   /**
@@ -116,9 +117,13 @@ export class SubsetPartitionCache {
     key = createSubsetKey(canonicalSourceFields)
   ) {
     const subsetSize = canonicalSourceFields.length;
-    let partitionsByKey = this.partitionsBySubsetSize.get(subsetSize);
-    const cachedPartition = partitionsByKey?.get(key);
-    if (cachedPartition) return cachedPartition;
+    const cached = this.partitionsByKey.get(key);
+    if (cached) {
+      // Keep recently used parents while evicting older partitions first.
+      this.partitionsByKey.delete(key);
+      this.partitionsByKey.set(key, cached);
+      return cached.partition;
+    }
 
     const lastSourceField = canonicalSourceFields[subsetSize - 1];
     const lastColumnCodes =
@@ -131,11 +136,22 @@ export class SubsetPartitionCache {
             lastColumnCodes
           );
 
-    if (!partitionsByKey) {
-      partitionsByKey = new Map();
-      this.partitionsBySubsetSize.set(subsetSize, partitionsByKey);
+    // Budget retained numeric storage plus an allowance for entry/key overhead.
+    // This is a cache budget, not a bound on the whole worker heap. A partition
+    // too large to cache remains temporary; eviction never drops observations.
+    const bytes =
+      partition.rowGroupIds.byteLength +
+      partition.classSizes.length * 16 +
+      key.length * 2 + 256;
+    if (bytes <= CSV_RESOURCE_LIMITS.maxPartitionCacheBytes) {
+      while (
+        this.partitionCacheBytes + bytes > CSV_RESOURCE_LIMITS.maxPartitionCacheBytes
+      ) {
+        this.releasePartition(this.partitionsByKey.keys().next().value);
+      }
+      this.partitionsByKey.set(key, { partition, subsetSize, bytes });
+      this.partitionCacheBytes += bytes;
     }
-    partitionsByKey.set(key, partition);
 
     return partition;
   }
@@ -145,12 +161,20 @@ export class SubsetPartitionCache {
    * only refine partitions of size k.
    */
   releasePartitionsSmallerThan(subsetSize) {
-    Array.from(this.partitionsBySubsetSize.keys()).forEach((size) => {
-      if (size < subsetSize) this.partitionsBySubsetSize.delete(size);
-    });
+    for (const [key, entry] of this.partitionsByKey) {
+      if (entry.subsetSize < subsetSize) this.releasePartition(key);
+    }
+  }
+
+  releasePartition(key) {
+    const entry = this.partitionsByKey.get(key);
+    if (!entry) return;
+    this.partitionCacheBytes -= entry.bytes;
+    this.partitionsByKey.delete(key);
   }
 
   releaseAllPartitions() {
-    this.partitionsBySubsetSize.clear();
+    this.partitionsByKey.clear();
+    this.partitionCacheBytes = 0;
   }
 }

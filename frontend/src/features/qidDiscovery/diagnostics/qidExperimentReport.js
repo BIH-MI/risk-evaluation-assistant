@@ -152,7 +152,7 @@ function buildRunReport({
     eligibleCount: eligible.length,
     candidateAttributeCount: summary?.candidateAttributeCount ?? null,
     maxSubsetSize:
-      summary?.maxSubsetSize ?? configuration?.maxSubsetSize ?? null,
+      summary?.effectiveMaxSubsetSize ?? summary?.maxSubsetSize ?? configuration?.maxSubsetSize ?? null,
     maxEvaluatedSubsets:
       summary?.maxEvaluatedSubsets ??
       configuration?.maxEvaluatedSubsets ??

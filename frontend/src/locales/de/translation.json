@@ -114,6 +114,7 @@
       "createButton": "Datensatz erstellen",
       "parsing": "Analysiere {{name}}...",
       "subsetProfilingUpdating": "Unterscheidbarkeits-Evidenz wird profiliert...",
+      "subsetProfilingAdjusted": "Profilierung an die Datensatzgröße angepasst: Alle Kombinationen mehrerer Attribute bis Größe {{effectiveSize}} wurden statt bis zur konfigurierten Größe {{configuredSize}} ausgewertet ({{subsetCount}} Teilmengen). Größere Kombinationen wurden nicht ausgewertet. Die gemeinsame Konfiguration bleibt unverändert.",
       "subsetProfilingSummary": "{{subsetCount}} Attribut-Teilmengen über {{attributeCount}} geeignete Attribute ausgewertet.",
       "noSubsetProfilingRequired": "Es war keine Multi-Attribut-Teilmengenprofilierung erforderlich.",
       "newTable": "Neue Tabelle",
@@ -124,7 +125,15 @@
       "dropzoneDrag": "CSV-Dateien hierher ziehen & ablegen, oder zum Auswählen klicken",
       "dropzoneOr": "— ODER —",
       "addManualTable": "Leere Tabelle manuell hinzufügen",
-      "examples": "Beispiele"
+      "examples": "Beispiele",
+      "typeNotes": {
+        "ariaLabel": "Warum {{name}} als String erkannt wurde",
+        "quotedValue": "„{{value}}“",
+        "nonNumericValues_one": "Als String erkannt: {{count}} von {{total}} unterschiedlichen Werten ist keine Zahl ({{examples}}). Wählen Sie einen numerischen Typ, wenn die Spalte numerisch ist.",
+        "nonNumericValues_other": "Als String erkannt: {{count}} von {{total}} unterschiedlichen Werten sind keine Zahlen (z. B. {{examples}}). Wählen Sie einen numerischen Typ, wenn die Spalte numerisch ist.",
+        "mixedDecimalSeparators": "Als String erkannt: Die Werte verwenden sowohl „.“ als auch „,“ als Dezimaltrennzeichen ({{examples}}). Wählen Sie einen numerischen Typ, wenn die Spalte numerisch ist.",
+        "ambiguousDecimalComma": "Als String erkannt: Diese kommagetrennte Datei enthält Zahlen mit Komma (z. B. {{examples}}), das ein Dezimal- oder Tausendertrennzeichen sein kann. Wählen Sie einen numerischen Typ, wenn die Spalte numerisch ist."
+      }
     },
     "subsetEvidence": {
       "missingTitle": "Für diese einbezogenen Attribute gibt es keine kontextuelle Unterscheidbarkeits-Evidenz:",
@@ -819,7 +828,7 @@
     "subsetProfiling": {
       "title": "Teilmengenprofilierung",
       "maxSubsetSizeHelper": "Maximale Anzahl von Attributen, die gemeinsam betrachtet werden, um kontextuelle Unterscheidbarkeits-Evidenz abzuleiten.",
-      "maxEvaluatedSubsetsHelper": "Sicherheitsgrenze für exhaustive Teilmengenprofilierung. Die Profilierung stoppt mit einem Fehler, wenn die angeforderte Konfiguration diese Anzahl überschreiten würde."
+      "maxEvaluatedSubsetsHelper": "Maximale Anzahl auszuwertender Teilmengen. Die maximale Teilmengengröße wird automatisch reduziert, wenn diese Grenze oder die Verarbeitungsgrenze des Browsers überschritten würde. Überschreiten bereits Paare eine Grenze, wird die Teilmengenprofilierung übersprungen."
     },
     "errors": {
       "nameRequired": "Name ist erforderlich.",

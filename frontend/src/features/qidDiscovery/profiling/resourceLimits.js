@@ -6,6 +6,7 @@ export const CSV_RESOURCE_LIMITS = Object.freeze({
   maxRows: 100000,
   maxColumns: 100,
   maxCells: 2000000,
+  maxPartitionCacheBytes: 32 * 1024 * 1024,
   maxSubsetRecordVisits: 50000000,
 });
 

@@ -7,12 +7,15 @@ import {
 /** Parse all accepted records locally, rejecting ambiguous input rather than profiling
  * silently repaired rows. Values remain strings. Missing values are normalized later.
  * Resource checks run before accumulating each chunk; no partial profile is returned.
+ * The detected delimiter is returned too: type detection reads a decimal comma
+ * only when the delimiter is not a comma.
  */
 export function parseCsvFile(file, { onFields, onProgress } = {}) {
   return new Promise((resolve, reject) => {
     requireCsvFileWithinLimits(file);
     const rows = [];
     let fields = [];
+    let delimiter = null;
     let fieldsReported = false;
     const parsingWarnings = new Set();
     let failed = false;
@@ -25,6 +28,7 @@ export function parseCsvFile(file, { onFields, onProgress } = {}) {
       chunk: ({ data, meta, errors = [] }, parser) => {
         try {
           fields = meta?.fields || fields;
+          delimiter = meta?.delimiter || delimiter;
           // A one-column CSV has no delimiter to infer; retain this benign
           // diagnostic visibly instead of rejecting valid zero-subset input.
           const fatalErrors = errors.filter((error) => {
@@ -94,7 +98,12 @@ export function parseCsvFile(file, { onFields, onProgress } = {}) {
           );
           return;
         }
-        resolve({ rows, fields, parsingWarnings: [...parsingWarnings] });
+        resolve({
+          rows,
+          fields,
+          delimiter,
+          parsingWarnings: [...parsingWarnings],
+        });
       },
       error: reject,
     });

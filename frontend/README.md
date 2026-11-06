@@ -118,8 +118,16 @@ Frontend data-type options are defined in:
 
 CSV type detection lives in:
 
-- `frontend/src/utils/detectMeasurement.js`
-- `frontend/src/utils/CSVDropzone.js`
+- `frontend/src/utils/detectMeasurement.js` (the detector)
+- `frontend/src/features/qidDiscovery/profiling/profileAndEncodeColumn.js` (calls it with every distinct value of a column)
+
+`frontend/src/utils/CSVDropzone.js` only accepts the uploaded files.
+
+Detection rules:
+
+- Empty cells and NA-like markers (`NA`, `N/A`, `NULL`, `NaN`, `None`, `#N/A`, `<NA>`, `.`) are not evidence of a type. In a column detected as anything other than STRING, the markers also count as missing values. In a STRING column they stay values, because there `NA` or `None` can be a real answer.
+- A decimal comma (`53,8`) is accepted unless the file is comma-separated. In a comma-separated file, `1,234` could be a thousands separator.
+- A column that mixes `.` and `,` decimals, or has values that are not numbers, becomes STRING. If most of its values are numbers, the preview shows a `?` next to the type that explains why.
 
 When adding a data type, update the frontend type list, detector, table cell icon/label rendering, backend `DataType` enum, and any sample data that should use the new type.
 

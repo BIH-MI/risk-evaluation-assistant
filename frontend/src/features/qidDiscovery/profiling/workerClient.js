@@ -117,10 +117,14 @@ async function prepareTableSynchronously(
   qidDiscoveryConfiguration,
   onFields
 ) {
-  const { rows, fields, parsingWarnings } = await parseCsvFile(file, {
+  const { rows, fields, delimiter, parsingWarnings } = await parseCsvFile(file, {
     onFields,
   });
-  const { profilingSource, columnMeta } = prepareParsedTable({ rows, fields });
+  const { profilingSource, columnMeta } = prepareParsedTable({
+    rows,
+    fields,
+    delimiter,
+  });
 
   return {
     name: file.name,

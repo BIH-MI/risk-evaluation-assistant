@@ -238,7 +238,9 @@ export function useProfilingSession({ tables, setTables, setErrors, t }) {
                       profile.columnMeta
                     ),
                     subsetProfilingSummary: profile.subsetProfilingSummary,
-                    profilingOutcome: PROFILING_OUTCOME.SUCCEEDED,
+                    profilingOutcome: profile.subsetProfilingSummary?.skipped
+                      ? PROFILING_OUTCOME.SUBSETS_SKIPPED
+                      : PROFILING_OUTCOME.SUCCEEDED,
                     profilingError: null,
                     isProfiling: false,
                   }

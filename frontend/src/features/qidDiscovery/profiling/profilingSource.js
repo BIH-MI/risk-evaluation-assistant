@@ -38,6 +38,8 @@ function getSourceField(column, rows) {
  * @property {{ sourceField: string, codes: Uint32Array, distinctCodeCount: number, missingCode: number|null }} encoded
  * Browser-local encoded values used for subset profiling.
  * @property {string} dataType Detected data type.
+ * @property {Object|null} typeNote Why a mostly numeric column was detected as
+ * STRING (see detectMeasurement). Holds raw example values: preview only.
  * @property {import("./directIdentifierEvidence").DirectIdentifierEvidence} directIdentifierEvidence
  * Value-pattern evidence observed during the scan; re-classified from the
  * cached counts on every refresh.
@@ -74,9 +76,16 @@ export function createColumnMetaFromFields(fields = []) {
  * source column is normalized, profiled, encoded, and checked for aggregate
  * Direct Identifier evidence once. Later schema edits reuse this object so
  * attribute subset profiling can refresh without rescanning rows.
+ * In a comma-separated file (`csvDelimiter: ","`), "1,5" is not read as a
+ * decimal number: the comma may be a thousands separator.
  */
-export function buildProfilingSource(rows = [], columnMeta = []) {
+export function buildProfilingSource(
+  rows = [],
+  columnMeta = [],
+  { csvDelimiter } = {}
+) {
   const columnsBySourceField = new Map();
+  const allowDecimalComma = csvDelimiter !== ",";
 
   for (const column of columnMeta) {
     const sourceField = getSourceField(column, rows);
@@ -84,7 +93,7 @@ export function buildProfilingSource(rows = [], columnMeta = []) {
 
     columnsBySourceField.set(
       sourceField,
-      profileAndEncodeColumn(rows, sourceField)
+      profileAndEncodeColumn(rows, sourceField, { allowDecimalComma })
     );
   }
 
@@ -124,6 +133,8 @@ export function applyStatistics(columnMeta = [], profilingSource) {
       sourceField: source ? sourceField : column.sourceField || null,
       hasObservedData: Boolean(source),
       level: column.level || source?.dataType || "STRING",
+      // Why detection fell back to STRING; preview-only, never persisted.
+      typeNote: source?.typeNote || null,
       statistics: source ? source.statistics : column.statistics || null,
       directIdentifierEvidence,
     };

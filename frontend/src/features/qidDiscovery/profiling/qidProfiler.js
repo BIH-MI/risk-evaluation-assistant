@@ -7,9 +7,12 @@ import {
 import {
   createEmptySubsetProfilingSummary,
   profileAttributeSubsets,
+  SubsetProfilingLimitError,
 } from "./subsetProfiler";
 
-export const CSV_PREVIEW_ROW_LIMIT = 10000;
+// The preview displays examples from at most 500 rows. Profiling still uses
+// every accepted record inside the worker. Avoid cloning unused rows to React.
+export const CSV_PREVIEW_ROW_LIMIT = 500;
 
 function attachSubsetEvidence(columnMeta, evidenceBySourceField) {
   return columnMeta.map((column) => ({
@@ -41,16 +44,31 @@ export function profileTableFromSource(
   }
 
   const profiledColumnMeta = applyStatistics(columnMeta, profilingSource);
-  const { evidenceBySourceField, summary } = profileAttributeSubsets(
-    buildCandidateColumns(profiledColumnMeta, profilingSource),
-    profilingSource,
-    profilingConfiguration
-  );
-
-  return {
-    columnMeta: attachSubsetEvidence(profiledColumnMeta, evidenceBySourceField),
-    subsetProfilingSummary: summary,
-  };
+  const candidates = buildCandidateColumns(profiledColumnMeta, profilingSource);
+  try {
+    const { evidenceBySourceField, summary } = profileAttributeSubsets(
+      candidates,
+      profilingSource,
+      profilingConfiguration
+    );
+    return {
+      columnMeta: attachSubsetEvidence(profiledColumnMeta, evidenceBySourceField),
+      subsetProfilingSummary: summary,
+    };
+  } catch (error) {
+    if (!(error instanceof SubsetProfilingLimitError)) throw error;
+    // Preserve individual statistics, but never save old subset evidence from
+    // a previous schema/exclusion state or represent skipped work as zero risk.
+    return {
+      columnMeta: attachSubsetEvidence(profiledColumnMeta, new Map()),
+      subsetProfilingSummary: {
+        ...createEmptySubsetProfilingSummary(profilingConfiguration),
+        candidateAttributeCount: candidates.length,
+        skipped: true,
+        warning: error.message,
+      },
+    };
+  }
 }
 
 /**
@@ -63,10 +81,14 @@ export function profileTableFromSource(
  * eligible attributes. The returned profilingSource is transient
  * browser-local state (encoded columns and, later, the subset cache) that
  * every profiling run of the table reuses instead of rescanning rows.
+ * `delimiter` is the CSV delimiter; with "," a decimal comma is not read as
+ * one.
  */
-export function prepareParsedTable({ rows, fields }) {
+export function prepareParsedTable({ rows, fields, delimiter }) {
   const columnMeta = createColumnMetaFromFields(fields);
-  const profilingSource = buildProfilingSource(rows, columnMeta);
+  const profilingSource = buildProfilingSource(rows, columnMeta, {
+    csvDelimiter: delimiter,
+  });
 
   return {
     columnMeta: applyStatistics(columnMeta, profilingSource),

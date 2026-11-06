@@ -173,6 +173,8 @@ These are calculated reference results, not hard-coded outcomes. All 25 recipien
 
 The EPIC-Potsdam Dairy and Chronic Disease Dataset represents the NFDI4Health P1090 dairy/chronic-disease use case: 25,146 records and one Participants table with 48 attributes (14 INTEGER, 34 DECIMAL), in the supplied schema order. No participant rows, example values or measured QID Discovery statistics are bundled or generated. Only the known record count is stored; analysed counts, Distinction, Separation, Singleton Fraction and subset evidence remain absent.
 
+Its single assessment, `EPIC-Potsdam Assessment (El Emam)`, uses the named REA Default Scoring System and assessment-local thresholds of 7 (identifiability) and 3 (sensitivity). Global defaults remain unchanged. The Dataset description column now allows 2,048 characters to retain the full use-case description; the local Hibernate schema update applies this widening. Expert scores are stored with explicit R/A/D/S field names. `ident` is excluded in the schema and marked as a direct identifier with null scores in the assessment. The assessment model has no separate exclusion flag.
+
 The 11 impact answers follow the supplied research scenario. N/A is used for the four governance/consent conditions that cannot be inferred from the data. Three activities share this same dataset assessment and reference the three distinct El Emam recipient assessments. No EPIC SPHN assessment or activity is created.
 
 The supplied scores satisfy the requested inclusive rules (`R+A+D >= 7`, `S >= 3`):

@@ -26,6 +26,7 @@ import java.util.*;
 @Getter
 @Setter
 @Entity
+@AttributeOverride(name = "description", column = @Column(name = "description", length = 2048))
 @Table(
         name = "datasets",
         uniqueConstraints = {

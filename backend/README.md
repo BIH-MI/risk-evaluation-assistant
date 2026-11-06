@@ -83,7 +83,7 @@ For offline deployments, copy the files into `<storage>/<model id>/<revision>/` 
 REA is set up for fresh installations; no manual SQL is required.
 
 - On a fresh deployment, PostgreSQL is initialised automatically: the JPA entities under `model/` define the database structure, and Hibernate creates it (`SPRING_JPA_HIBERNATE_DDL_AUTO=update`, the default everywhere, including the local profile).
-- Essential configurations are seeded automatically when missing: the bundled risk frameworks (`ConfigLoader`), the default attribute scoring system (`AttributeScoringSystemSeeder`) and the default QID Discovery configuration with AI screening enabled for DeBERTaV3-XSmall (`QidDiscoveryConfigurationSeeder`). Existing records, including ones edited by administrators, are never overwritten, and restarts create no new versions.
+- Essential configurations are seeded automatically when missing: the bundled risk frameworks (`ConfigLoader`), the default attribute scoring system (`AttributeScoringSystemSeeder`) and the default QID Discovery configuration with AI screening enabled for DeBERTaV3-XSmall (`QidDiscoveryConfigurationSeeder`). The seed loaders do not overwrite existing frameworks or create versions on restart.
 - Sample data is controlled by `APP_SETUP_LOAD_SAMPLE_DATA` (default `false`; `true` in `.env.local`).
 - Restarting the application keeps all data. Never use `create` or `create-drop` against a database whose data must be kept.
 
@@ -235,3 +235,15 @@ Before finishing a backend change:
 2. Verify request and response DTOs match the frontend API wrappers.
 3. If a change affects startup data, check first start and restart against a disposable database (never the shared one) and confirm the seeders are idempotent.
 4. If a change affects roles or auth, update the Keycloak realm and frontend permission behavior.
+
+### Questionnaire presentation data
+
+Bundled framework JSON files own question `explanation` / `explanationTranslations` and the order of their `options` arrays. Standard answers are stored as Yes, N/A, No. Custom scales keep their declared order. Each option also includes `displayOrder` for clarity. Configuration creation, editing and copying persist array positions to `question_options.display_order`; JPA returns options in that order. The frontend displays the returned order and localized explanations without label-based sorting or question-text lookups. Clarifications can be edited in the configuration editor.
+
+With the configured `ddl-auto=update`, starting the backend adds the required columns/table through Hibernate. New frameworks are seeded from the JSON files. Existing configurations are left unchanged: schema updates do not import revised JSON content into already seeded records.
+
+### El Emam checklist wording
+
+The English wording of existing El Emam checklist items follows Appendix A of *De-identifying Health Data for Secondary Use: A Framework* (2008), printed pages 12–13 (PDF pages 14–15). Original qualifications and parenthetical examples belong in `text`; application-authored clarifications remain separate in `explanation` and are displayed as tooltips. German wording is an application translation.
+
+The configuration remains an adaptation: its weights, scoring, category assignment and Yes / N/A / No display order are application choices. The original checklist also includes “Disclosure of the information carries a probability of causing measurable injury (e.g., identity theft, fraud, etc)”; this item is absent from the existing configuration and has not been added without an agreed scoring weight. Existing database configurations are not rewritten by changing the seed JSON.

@@ -11,6 +11,7 @@ function buildLocalizedQuestions(questions, language) {
   return questions.map((question) => ({
     ...question,
     text: question.textTranslations?.[language] || question.text,
+    explanation: question.explanationTranslations?.[language] || question.explanation,
     options: (question.options || []).map((option) => ({
       ...option,
       text: option.textTranslations?.[language] || option.text,

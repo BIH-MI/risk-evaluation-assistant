@@ -353,6 +353,9 @@ public class ConfigurationService {
             question.setTextTranslations(dto.getTextTranslations() == null
                     ? new HashMap<>()
                     : new HashMap<>(dto.getTextTranslations()));
+            question.setExplanation(dto.getExplanation());
+            question.setExplanationTranslations(dto.getExplanationTranslations() == null
+                    ? new HashMap<>() : new HashMap<>(dto.getExplanationTranslations()));
             question.setRequired(dto.isRequired());
             question.setDependsOnOptionCode(dto.getDependsOnOptionCode());
             question.setWeight(dto.getWeight());
@@ -527,6 +530,9 @@ public class ConfigurationService {
         question.setTextTranslations(source.getTextTranslations() == null
                 ? new HashMap<>()
                 : new HashMap<>(source.getTextTranslations()));
+        question.setExplanation(trimToNull(source.getExplanation()));
+        question.setExplanationTranslations(source.getExplanationTranslations() == null
+                ? new HashMap<>() : new HashMap<>(source.getExplanationTranslations()));
         question.setRequired(source.isRequired());
         question.setDependsOnOptionCode(trimToNull(source.getDependsOnOptionCode()));
         question.setWeight(source.getWeight());

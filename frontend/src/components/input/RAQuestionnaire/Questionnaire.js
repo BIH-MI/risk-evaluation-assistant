@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useId } from "react";
 import PropTypes from "prop-types";
-import { FormControlLabel, Radio, RadioGroup } from "@mui/material";
+import { FormControlLabel, IconButton, Radio, RadioGroup, Tooltip } from "@mui/material";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import { useTranslation } from "react-i18next";
 import { alpha, useTheme } from "@mui/material/styles";
 
 import RABox from "components/layout/RABox";
@@ -27,6 +29,8 @@ export default function Questionnaire({
   isReadOnly,
 }) {
   const theme = useTheme();
+  const { t } = useTranslation();
+  const questionnaireId = useId();
 
   return (
     <RABox sx={{ width: "100%", height: "100%", ...sx }}>
@@ -40,6 +44,7 @@ export default function Questionnaire({
           })}
         >
           <RATypography
+            id={`${questionnaireId}-${question.id}-label`}
             variant="subtitle2"
             fontWeight="medium"
             mb={2}
@@ -47,12 +52,40 @@ export default function Questionnaire({
           >
             {showRowNumbers && `${index + 1}. `}
             {question.text}
-            {question.isRequired && (
-              <span style={{ color: theme.palette.error.main }}> *</span>
+            {question.explanation && (
+              <Tooltip
+                title={question.explanation}
+                arrow
+                describeChild
+                componentsProps={{
+                  tooltip: {
+                    sx: {
+                      maxWidth: "min(480px, calc(100vw - 32px))",
+                      textAlign: "left",
+                      fontSize: "0.875rem",
+                      lineHeight: 1.6,
+                      px: 2,
+                      py: 1.5,
+                      overflowWrap: "anywhere",
+                    },
+                  },
+                }}
+              >
+                <IconButton
+                  type="button"
+                  size="small"
+                  aria-label={t("common.moreInformation", "More information")}
+                  sx={{ ml: 0.5, p: 0.5, verticalAlign: "middle", color: "info.main" }}
+                >
+                  <InfoOutlinedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             )}
           </RATypography>
 
           <RadioGroup
+            aria-labelledby={`${questionnaireId}-${question.id}-label`}
+            aria-required={question.isRequired || undefined}
             value={values[question.id] ?? ""}
             onChange={(event) => onChange(question.id, event.target.value)}
           >
@@ -102,6 +135,7 @@ Questionnaire.propTypes = {
     PropTypes.shape({
       id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
       text: PropTypes.string.isRequired,
+      explanation: PropTypes.string,
       disabled: PropTypes.bool,
       isOutdated: PropTypes.bool,
       isRequired: PropTypes.bool,

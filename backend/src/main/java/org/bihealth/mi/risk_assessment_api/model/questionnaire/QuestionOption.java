@@ -44,6 +44,10 @@ public class QuestionOption {
     @Column(name = "translated_text", length = 1024)
     private Map<String, String> textTranslations = new HashMap<>();
 
+    // Legacy rows have no explicit position; the collection uses ID as a stable tie-breaker.
+    @Column(name = "display_order", nullable = false, columnDefinition = "integer default -1")
+    private int displayOrder = -1;
+
     // Raw score contributed by this option before question weighting.
     @Column(name = "score", nullable = false)
     private double score;

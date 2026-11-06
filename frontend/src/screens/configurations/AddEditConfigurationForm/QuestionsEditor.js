@@ -403,6 +403,25 @@ export default function QuestionsEditor({ categoryCode, isReadOnly }) {
             isReadOnly={isReadOnly}
           />
 
+          <OnBlurRAInput
+            label={t("configurations.questions.explanation", "Clarification (optional)")}
+            value={q.explanation || ""}
+            onCommit={(value) => updateQ(q, "explanation", value)}
+            fullWidth
+            multiline
+            minRows={2}
+            disabled={isReadOnly}
+            sx={{ mt: 2 }}
+          />
+          <TranslationManager
+            translations={q.explanationTranslations || {}}
+            onChange={(newMap) => updateQ(q, "explanationTranslations", newMap)}
+            defaultLanguage={defaultLanguage}
+            rightWidth="160px"
+            isOption={false}
+            isReadOnly={isReadOnly}
+          />
+
           <RABox mt={2}>
             {q.options?.map((opt, index) => (
               <RABox key={opt.id || opt.code || opt._tempId || index} mb={1}>

@@ -27,6 +27,7 @@ public class QuestionRequestDTO {
 
     // Help text shown to explain why the question matters.
     private String explanation;
+    private Map<String, String> explanationTranslations;
 
     // Required questions should be answered before an assessment is complete.
     private boolean isRequired = true;

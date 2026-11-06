@@ -69,6 +69,15 @@ public class Question {
     @Column(name = "translated_text", length = 1024)
     private Map<String, String> textTranslations = new HashMap<>();
 
+    @Column(name = "explanation", length = 2048)
+    private String explanation;
+
+    @ElementCollection
+    @CollectionTable(name = "question_explanation_translations", joinColumns = @JoinColumn(name = "question_id"))
+    @MapKeyColumn(name = "language_code", length = 10)
+    @Column(name = "translated_text", length = 2048)
+    private Map<String, String> explanationTranslations = new HashMap<>();
+
     // Marks whether assessment forms should require an answer.
     @Column(name = "is_required", nullable = false)
     private boolean isRequired = true;
@@ -84,12 +93,14 @@ public class Question {
     // Selectable answer options owned by this question.
     @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference
+    @OrderBy("displayOrder ASC, id ASC")
     private List<QuestionOption> options = new ArrayList<>();
 
     /**
      * Adds an option while maintaining both sides of the JPA relationship.
      */
     public void addOption(QuestionOption option) {
+        option.setDisplayOrder(options.size());
         options.add(option);
         option.setQuestion(this);
     }

@@ -181,6 +181,8 @@ public class ConfigurationResponseDTO {
         private boolean required;
         @JsonProperty("isRequired")
         private boolean isRequired;
+        private String explanation;
+        private Map<String, String> explanationTranslations;
         private String dependsOnOptionCode;
         private double weight;
         private List<QuestionOptionDTO> options;
@@ -192,6 +194,8 @@ public class ConfigurationResponseDTO {
             this.textTranslations = question.getTextTranslations() == null
                     ? new HashMap<>()
                     : new HashMap<>(question.getTextTranslations());
+            this.explanation = question.getExplanation();
+            this.explanationTranslations = new HashMap<>(question.getExplanationTranslations());
             this.required = question.isRequired();
             this.isRequired = question.isRequired();
             this.dependsOnOptionCode = question.getDependsOnOptionCode();
@@ -210,6 +214,7 @@ public class ConfigurationResponseDTO {
         private Long id;
         private String text;
         private Map<String, String> textTranslations;
+        private int displayOrder;
         private double score;
         private boolean highRiskTrigger;
         @JsonProperty("isHighRiskTrigger")
@@ -222,6 +227,7 @@ public class ConfigurationResponseDTO {
             this.textTranslations = option.getTextTranslations() == null
                     ? new HashMap<>()
                     : new HashMap<>(option.getTextTranslations());
+            this.displayOrder = option.getDisplayOrder();
             this.score = option.getScore();
             this.highRiskTrigger = option.isHighRiskTrigger();
             this.isHighRiskTrigger = option.isHighRiskTrigger();

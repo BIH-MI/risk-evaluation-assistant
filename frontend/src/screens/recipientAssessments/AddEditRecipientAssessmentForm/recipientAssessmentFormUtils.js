@@ -241,6 +241,7 @@ export function localizeQuestion(question, language) {
   return {
     ...question,
     text: question.textTranslations?.[language] || question.text,
+    explanation: question.explanationTranslations?.[language] || question.explanation,
     options: (question.options || []).map((option) => ({
       ...option,
       text: option.textTranslations?.[language] || option.text,

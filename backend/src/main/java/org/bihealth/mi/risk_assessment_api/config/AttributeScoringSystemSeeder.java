@@ -25,6 +25,7 @@ import java.util.Map;
 @Component
 public class AttributeScoringSystemSeeder implements CommandLineRunner {
 
+    public static final double DEFAULT_IDENTIFIABILITY_THRESHOLD = 5.0;
     public static final String DEFAULT_SCORING_SYSTEM_NAME = "REA Default Scoring System";
 
     private final AttributeScoringSystemRepository scoringSystemRepository;
@@ -67,7 +68,7 @@ public class AttributeScoringSystemSeeder implements CommandLineRunner {
         dto.setDescription("Legacy REA 1-3 Low/Moderate/High attribute scoring scale.");
         dto.setActive(true);
         dto.setDefaultSystem(true);
-        dto.setDefaultIdentifiabilityThreshold(5.0);
+        dto.setDefaultIdentifiabilityThreshold(DEFAULT_IDENTIFIABILITY_THRESHOLD);
         dto.setDefaultSensitivityThreshold(2.0);
 
         Map<String, List<AttributeScoringOptionRequestDTO>> options = new LinkedHashMap<>();

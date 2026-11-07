@@ -1,5 +1,7 @@
 package org.bihealth.mi.risk_assessment_api.config.demo.epic;
 
+import java.time.Duration;
+import java.util.Objects;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +28,8 @@ import static org.bihealth.mi.risk_assessment_api.config.demo.shared.DemoSeedSup
 
 @Component
 public class EpicPotsdamAssessmentSeeder {
+    private static final String ASSESSMENT_NAME = "EPIC-Potsdam Assessment (El Emam)";
+    private static final String ASSESSMENT_DESCRIPTION = "Dataset impact and attribute-level assessment for the EPIC-Potsdam NFDI4Health P1090 dairy and chronic disease use case.";
     private final DatasetAssessmentRepository assessmentRepo;
     private final DatasetTableAssessmentRepository tableAssessmentRepo;
     private final DatasetTableAssessmentAttributeRepository tableAssessmentAttributeRepo;
@@ -96,11 +100,14 @@ public class EpicPotsdamAssessmentSeeder {
 
     public DatasetAssessment ensureAssessment(Dataset dataset, Configuration config) {
         Optional<DatasetAssessment> existing = existingDatasetAssessment(dataset, config);
-        if (existing.isPresent()) return existing.get();
+        if (existing.isPresent()) {
+            correctUneditedLegacyDemoThreshold(existing.get());
+            return existing.get();
+        }
         DatasetAssessment assessment = new DatasetAssessment();
         assessment.setCreatorUsername("user");
-        assessment.setName("EPIC-Potsdam Assessment (El Emam)");
-        assessment.setDescription("Dataset impact and attribute-level assessment for the EPIC-Potsdam NFDI4Health P1090 dairy and chronic disease use case.");
+        assessment.setName(ASSESSMENT_NAME);
+        assessment.setDescription(ASSESSMENT_DESCRIPTION);
         assessment.setDataset(dataset);
         applyConfiguration(assessment, config);
         // Select the named REA scale even if a user has changed the global default.
@@ -111,7 +118,7 @@ public class EpicPotsdamAssessmentSeeder {
         AttributeScoringSystemVersion scoringVersion = attributeScoringSystemService.getSelectedActiveVersion(scoringId);
         assessment.setAttributeScoringSystem(scoringVersion.getScoringSystem());
         assessment.setAttributeScoringSystemVersion(scoringVersion);
-        assessment.setAttributeIdentifiabilityThreshold(7.0);
+        assessment.setAttributeIdentifiabilityThreshold(scoringVersion.getDefaultIdentifiabilityThreshold());
         assessment.setAttributeSensitivityThreshold(3.0);
         assessment = assessmentRepo.save(assessment);
         List<Question> questions = config.getQuestions().stream()
@@ -134,6 +141,36 @@ public class EpicPotsdamAssessmentSeeder {
         applyEpicPotsdamAttributeAssessment(dataset, assessment);
         dataset.getDatasetAssessments().add(assessment);
         return assessmentRepo.save(assessment);
+    }
+
+    /**
+     * Correct only the original, unedited demo on sample-data startup. An explicit
+     * user override cannot be distinguished from the old 7 by value alone.
+     * Unknown or changed audit metadata therefore leaves the assessment alone.
+     */
+    private void correctUneditedLegacyDemoThreshold(DatasetAssessment assessment) {
+        AttributeScoringSystemVersion version = assessment.getAttributeScoringSystemVersion();
+        if (!"user".equals(assessment.getCreatorUsername())
+                || !ASSESSMENT_NAME.equals(assessment.getName())
+                || !ASSESSMENT_DESCRIPTION.equals(assessment.getDescription())
+                || !EpicPotsdamDatasetSeeder.EPIC_POTSDAM_DATASET_NAME.equals(assessment.getDataset().getName())
+                || !"El Emam Risk Exposure Model".equals(assessment.getConfiguration().getName())
+                || !Objects.equals(assessment.getAttributeIdentifiabilityThreshold(), 7.0)
+                || !Objects.equals(assessment.getAttributeSensitivityThreshold(), 3.0)
+                || version == null || version.getVersionNumber() != 1
+                || !AttributeScoringSystemSeeder.DEFAULT_SCORING_SYSTEM_NAME.equals(version.getScoringSystem().getName())
+                || !Objects.equals(version.getDefaultIdentifiabilityThreshold(),
+                        AttributeScoringSystemSeeder.DEFAULT_IDENTIFIABILITY_THRESHOLD)
+                || assessment.getCreationDate() == null || assessment.getLastModifiedDate() == null) {
+            return;
+        }
+        // AuditableEntity stamps creation and modification with separate now()
+        // calls on insert. Allow only that sub-millisecond gap, not later edits.
+        Duration sinceCreation = Duration.between(assessment.getCreationDate(), assessment.getLastModifiedDate());
+        if (sinceCreation.isNegative() || sinceCreation.compareTo(Duration.ofMillis(1)) >= 0) return;
+
+        assessment.setAttributeIdentifiabilityThreshold(version.getDefaultIdentifiabilityThreshold());
+        assessmentRepo.save(assessment);
     }
 
     private void applyEpicPotsdamAttributeAssessment(Dataset dataset, DatasetAssessment assessment) {

@@ -396,7 +396,9 @@ public class DatasetAssessmentService {
         AttributeScoringSystemVersion scoringVersion = attributeScoringSystemService.getDefaultActiveVersion();
         assessment.setAttributeScoringSystem(scoringVersion.getScoringSystem());
         assessment.setAttributeScoringSystemVersion(scoringVersion);
-        assessment.setAttributeIdentifiabilityThreshold(scoringVersion.getDefaultIdentifiabilityThreshold());
+        if (assessment.getAttributeIdentifiabilityThreshold() == null) {
+            assessment.setAttributeIdentifiabilityThreshold(scoringVersion.getDefaultIdentifiabilityThreshold());
+        }
         assessment.setAttributeSensitivityThreshold(scoringVersion.getDefaultSensitivityThreshold());
         return scoringVersion;
     }

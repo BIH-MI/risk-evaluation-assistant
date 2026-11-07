@@ -20,7 +20,7 @@ public class EpicPotsdamDatasetSeeder {
         this.tableRepo = tableRepo;
     }
 
-    private static final String EPIC_POTSDAM_DATASET_NAME = "EPIC-Potsdam Dairy and Chronic Disease Dataset";
+    static final String EPIC_POTSDAM_DATASET_NAME = "EPIC-Potsdam Dairy and Chronic Disease Dataset";
 
     public Dataset ensureDataset() {
         return findDataset(datasetRepo.findAll(), EPIC_POTSDAM_DATASET_NAME, "EPIC-Potsdam Assessment (El Emam)")

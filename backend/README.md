@@ -173,16 +173,13 @@ These are calculated reference results, not hard-coded outcomes. All 25 recipien
 
 The EPIC-Potsdam Dairy and Chronic Disease Dataset represents the NFDI4Health P1090 dairy/chronic-disease use case: 25,146 records and one Participants table with 48 attributes (14 INTEGER, 34 DECIMAL), in the supplied schema order. No participant rows, example values or measured QID Discovery statistics are bundled or generated. Only the known record count is stored; analysed counts, Distinction, Separation, Singleton Fraction and subset evidence remain absent.
 
-Its single assessment, `EPIC-Potsdam Assessment (El Emam)`, uses the named REA Default Scoring System and assessment-local thresholds of 7 (identifiability) and 3 (sensitivity). Global defaults remain unchanged. The Dataset description column now allows 2,048 characters to retain the full use-case description; the local Hibernate schema update applies this widening. Expert scores are stored with explicit R/A/D/S field names. `ident` is excluded in the schema and marked as a direct identifier with null scores in the assessment. The assessment model has no separate exclusion flag.
+Its single assessment, `EPIC-Potsdam Assessment (El Emam)`, uses the named REA Default Scoring System and the scoring system’s identifiability default (5 for the standard system) and an assessment-local sensitivity threshold of 3. Global defaults remain unchanged. The Dataset description column now allows 2,048 characters to retain the full use-case description; the local Hibernate schema update applies this widening. Expert scores are stored with explicit R/A/D/S field names. `ident` is excluded in the schema and marked as a direct identifier with null scores in the assessment. The assessment model has no separate exclusion flag.
 
 The 11 impact answers follow the supplied research scenario. N/A is used for the four governance/consent conditions that cannot be inferred from the data. Three activities share this same dataset assessment and reference the three distinct El Emam recipient assessments. No EPIC SPHN assessment or activity is created.
 
-The supplied scores satisfy the requested inclusive rules (`R+A+D >= 7`, `S >= 3`):
+The expert scores are unchanged. Report classifications continue to use the existing strict `>` comparisons; this update changes the default identifiability threshold only, not the classification formulas or sensitivity threshold.
 
-- QID candidates: SEX, age0, educc3, age_f3, age_inct2d, age_incmi, age_incstroke.
-- Sensitive attributes: za0, m14bd, za_f3, sr_hyp_f1, sr_hyp_f2, sr_hyp_f3, inct2d, incmi, incstroke.
-
-**Current report limitation:** REA currently uses strict `>` comparisons in `classifyReportAttribute`. At thresholds 7/3 this produces only age0 as a QID and no sensitive attributes. The seed preserves the requested scores and thresholds; no separate classification flags or altered risk formulas are used to hide this mismatch.
+With sample loading enabled, the EPIC seeder corrects the legacy 7 only for the exact original demo assessment, original scoring-system version/default, and unchanged creation audit metadata (the sub-millisecond gap from the two insert timestamps). Existing edited assessments, renamed demos, custom scoring systems and uncertain audit histories are left untouched. Such records can retain 7 and require explicit user review; neither the UI nor export silently overrides a stored threshold. New EPIC assessments inherit the selected named scoring system’s default, including administrator overrides.
 
 ### Attribute Scale Values
 

@@ -22,7 +22,8 @@ export const DATASET_RISK_CATEGORY_CODES = new Set([
   "IP",
 ]);
 
-export const LEGACY_IDENTIFIABILITY_THRESHOLD = 5;
+export const LEGACY_IDENTIFIABILITY_THRESHOLD =
+  LEGACY_ATTRIBUTE_SCORING_SYSTEM.defaultIdentifiabilityThreshold;
 export const LEGACY_SENSITIVITY_THRESHOLD = 2;
 
 const EMPTY_ARRAY = [];

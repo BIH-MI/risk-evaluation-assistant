@@ -32,6 +32,22 @@ export const pdfStyles = `
 const unavailableText = "N/A";
 const unavailableScoreText = "-";
 
+const riskMetrics = {
+  "Re-identification Risk Threshold": (result) => result?.threshold,
+  "Probability of Attack": (result) => result?.contextRisk?.numericValue,
+  "Risk Threshold for Anonymization": (result) => result?.finalRisk?.numericValue,
+};
+
+function riskValueOrUnavailable(value) {
+  if (
+    (typeof value !== "number" && typeof value !== "string") ||
+    (typeof value === "string" && value.trim() === "")
+  ) return unavailableText;
+
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : unavailableText;
+}
+
 function valueOrUnavailable(value) {
   return isBlankValue(value) ? unavailableText : value;
 }
@@ -113,6 +129,10 @@ export function buildReportSummaryRows({
       Metric: "Final Risk Classification",
       Value: totalRiskResult?.finalRisk?.categoricalValue ?? unavailableText,
     },
+    ...Object.entries(riskMetrics).map(([Metric, getValue]) => ({
+      Metric,
+      Value: riskValueOrUnavailable(getValue(totalRiskResult)),
+    })),
   ];
 
   if (totalRiskResult?.categoryBreakdown) {
@@ -176,15 +196,20 @@ export function buildRiskReportWorkbook({
   totalRiskResult,
 }) {
   const workbook = XLSX.utils.book_new();
-  const summarySheet = XLSX.utils.json_to_sheet(
-    buildReportSummaryRows({
+  const summaryRows = buildReportSummaryRows({
       activity,
       attributeScoringSystem,
       identifiabilityThreshold,
       sensitivityThreshold,
       totalRiskResult,
-    })
-  );
+    });
+  const summarySheet = XLSX.utils.json_to_sheet(summaryRows);
+  summaryRows.forEach(({ Metric, Value }, index) => {
+    if (Object.prototype.hasOwnProperty.call(riskMetrics, Metric) && typeof Value === "number") {
+      // Keep the response's fraction as a numeric cell; Excel handles percent display.
+      summarySheet[XLSX.utils.encode_cell({ r: index + 1, c: 1 })].z = "0.00%";
+    }
+  });
   const attributeSheet = XLSX.utils.json_to_sheet(
     buildAttributeAssessmentExportRows({
       effectiveTables,

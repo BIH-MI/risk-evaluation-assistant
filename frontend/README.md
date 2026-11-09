@@ -184,36 +184,14 @@ Before finishing a frontend change:
 3. Verify any new text exists in both EN and DE translation files.
 4. If API contracts changed, update the backend DTO/controller/service and the matching frontend API wrapper together.
 
+### Excel classification flags for ARX
 
-### Excel risk report and ARX conversion
+Use the exported Yes/No classification flags rather than recalculating them:
+REA uses strict `>` comparisons (R + A + D for identifiability, S for sensitivity),
+not `>=`. Both flags can be Yes. Downstream role precedence is excluded → direct
+identifier → quasi-identifier → sensitive → insensitive.
 
-The Summary sheet exports the saved Release Model (`NON_PUBLIC`, `SEMI_PUBLIC`,
-`PUBLIC`). Its recommended Risk Measure is `strict_average` for non-public
-sharing and `maximum` for semi-public/public sharing. Unknown historical release
-models export `N/A`; edit the activity to select a model. This recommendation does
-not change REA risk calculations. Risk values are numeric fractions with Excel
-percentage formatting, not percentage strings.
-
-K is not exported. Anonymization constraints are configured in the external workflow.
-The assessment thresholds remain in Summary, not in Attributes.
-
-The Attributes sheet uses the same effective activity overrides and classification
-helper as the report. `Is Quasi-Identifier` means **R + A + D > Identifiability
-Threshold**; `Is Sensitive Attribute` means **S > Sensitivity Threshold**. Equality
-does not qualify. Direct identifiers and excluded attributes are unscored. All
-classification flags use `Yes`/`No`, and both QI and sensitive flags remain `Yes`
-when both conditions hold. Downstream tools should resolve roles in this order:
-`EXCLUDED`, `DIRECT_IDENTIFIER`, `QUASI_IDENTIFIER`, `SENSITIVE_ATTRIBUTE`,
-`INSENSITIVE_ATTRIBUTE`. Excluded columns must be omitted, and direct identifiers
-must be removed/suppressed by the external workflow, never treated as insensitive.
-
-The external `anonymization/arx/rea_to_arx_config.R` is not included in this
-repository. Update it to consume the new flags as authoritative when all flag
-columns exist, applying the precedence above. Do not recalculate classifications using `>=` for these workbooks. Keep
-its existing numeric-threshold fallback only for legacy workbooks lacking the new
-columns, and make that legacy comparison behavior explicit. Reject malformed or
-incomplete new-format flags instead of silently treating them as `No`. Retained
-column names support legacy readers, although the new columns change positions;
-read by header name. Attributes no longer exports thresholds, Total QI Score or
-ARX Role. `N/A` in Release Model or Risk Measure must be handled as
-unconfigured, not silently converted to a numeric value or a release assumption.
+The external `anonymization/arx/rea_to_arx_config.R` should read columns by name,
+use these flags for new workbooks, and retain its numeric-threshold fallback for
+legacy workbooks without flags. Missing or invalid flags must not default to No.
+`N/A` release models and risk measures require explicit configuration.

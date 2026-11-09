@@ -149,8 +149,7 @@ public class DemoDataSharingActivitySeeder {
             return;
         }
 
-        // Only fill missing metadata on an exact known demo. Never overwrite a selection
-        // or guess the release model of user-created activities from recipient names.
+        // Backfill only missing release models on exact demo matches.
         if (matches.size() == 1) {
             var existing = matches.get(0);
             if (existing.getReleaseModel() == null

@@ -155,7 +155,7 @@ public class EpicPotsdamAssessmentSeeder {
                 || !ASSESSMENT_DESCRIPTION.equals(assessment.getDescription())
                 || !EpicPotsdamDatasetSeeder.EPIC_POTSDAM_DATASET_NAME.equals(assessment.getDataset().getName())
                 || !"El Emam Risk Exposure Model".equals(assessment.getConfiguration().getName())
-                || !Objects.equals(assessment.getAttributeIdentifiabilityThreshold(), 5.0)
+                || !Objects.equals(assessment.getAttributeIdentifiabilityThreshold(), 7.0)
                 || !Objects.equals(assessment.getAttributeSensitivityThreshold(), 3.0)
                 || version == null || version.getVersionNumber() != 1
                 || !AttributeScoringSystemSeeder.DEFAULT_SCORING_SYSTEM_NAME.equals(version.getScoringSystem().getName())

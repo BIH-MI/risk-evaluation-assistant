@@ -15,17 +15,13 @@
     </#if>
 </head>
 <body>
-    <#-- BACKGROUND VIDEO & OVERLAY -->
-    <video autoplay loop muted playsinline class="rea-video-bg">
-        <source src="${url.resourcesPath}/vid/background.mp4" type="video/mp4">
-    </video>
-    <div class="rea-video-overlay"></div>
-
     <#-- MAIN LAYOUT -->
     <div class="rea-layout">
-        <div class="rea-header">RISK EVALUATION ASSISTANT</div>
-        
         <div class="rea-card">
+            <#-- Logo centred on the card's top edge. Same artwork as the React app's logo
+                 (frontend/src/assets/images/favicon.png), scaled down to 320 px -->
+            <img class="rea-logo" src="${url.resourcesPath}/img/logo.png" alt="Risk Evaluation Assistant" width="160" height="160">
+
             <#-- Keycloak System Alerts (Errors, Success) -->
             <#if displayMessage && message?has_content && (message.type != 'warning' || !isAppInitiatedAction??)>
                 <div class="rea-alert rea-alert-${message.type}">

@@ -48,8 +48,8 @@
       "weight": 5.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" }
       ]
     },
     {
@@ -59,8 +59,8 @@
       "weight": 3.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" }
       ]
     },
     {
@@ -70,8 +70,8 @@
       "weight": 10.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" }
       ]
     },
     {
@@ -81,8 +81,8 @@
       "weight": 5.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" }
       ]
     },
     {
@@ -92,8 +92,8 @@
       "weight": 1.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" }
       ]
     },
     {
@@ -103,8 +103,8 @@
       "weight": 10.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" }
       ]
     },
     {
@@ -114,8 +114,8 @@
       "weight": 1.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" }
       ]
     },
     {
@@ -125,8 +125,8 @@
       "weight": 10.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" }
       ]
     },
     {
@@ -136,8 +136,8 @@
       "weight": 1.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" }
       ]
     },
     {
@@ -147,8 +147,8 @@
       "weight": 3.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" }
       ]
     },
     {
@@ -158,8 +158,8 @@
       "weight": 10.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" }
       ]
     },
     {
@@ -169,8 +169,8 @@
       "weight": 10.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
       ]
     },
     {
@@ -180,8 +180,8 @@
       "weight": 1.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
       ]
     },
     {
@@ -191,8 +191,8 @@
       "weight": 10.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
       ]
     },
     {
@@ -202,8 +202,8 @@
       "weight": 3.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
       ]
     },
     {
@@ -213,8 +213,8 @@
       "weight": 5.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
       ]
     },
     {
@@ -224,8 +224,8 @@
       "weight": 5.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
       ]
     },
     {
@@ -235,8 +235,8 @@
       "weight": 10.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
       ]
     },
     {
@@ -246,8 +246,8 @@
       "weight": 3.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
       ]
     },
     {
@@ -257,8 +257,8 @@
       "weight": 3.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
       ]
     },
     {
@@ -268,8 +268,8 @@
       "weight": 5.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
       ]
     },
     {
@@ -279,8 +279,8 @@
       "weight": 10.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
       ]
     },
     {
@@ -290,8 +290,8 @@
       "weight": 5.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
       ]
     },
     {
@@ -301,8 +301,8 @@
       "weight": 5.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
       ]
     },
     {
@@ -312,8 +312,8 @@
       "weight": 5.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
       ]
     },
     {
@@ -323,8 +323,8 @@
       "weight": 5.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
       ]
     },
     {
@@ -334,8 +334,8 @@
       "weight": 3.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
       ]
     },
     {
@@ -345,8 +345,8 @@
       "weight": 5.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
       ]
     },
     {
@@ -356,8 +356,8 @@
       "weight": 10.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
       ]
     },
     {
@@ -367,8 +367,8 @@
       "weight": 10.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 10.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" }
       ]
     },
     {
@@ -378,8 +378,8 @@
       "weight": 10.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 5.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" }
       ]
     },
     {
@@ -389,8 +389,8 @@
       "weight": 5.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 5.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" }
       ]
     },
     {
@@ -400,8 +400,8 @@
       "weight": 10.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 5.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" }
       ]
     },
     {
@@ -411,8 +411,8 @@
       "weight": 5.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 5.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" }
       ]
     },
     {
@@ -422,8 +422,8 @@
       "weight": 10.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 5.0, "isHighRiskTrigger": true, "impact": "NEGATIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" }
       ]
     },
     {
@@ -433,8 +433,8 @@
       "weight": 1.0,
       "options": [
         { "text": "Yes", "textTranslations": { "de": "Ja" }, "score": 0.0, "isHighRiskTrigger": false, "impact": "POSITIVE" },
-        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 5.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" },
-        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" }
+        { "text": "N/A", "textTranslations": { "de": "Nicht zutreffend" }, "score": 3.0, "isHighRiskTrigger": false, "impact": "NEUTRAL" },
+        { "text": "No", "textTranslations": { "de": "Nein" }, "score": 5.0, "isHighRiskTrigger": false, "impact": "NEGATIVE" }
       ]
     }
   ],

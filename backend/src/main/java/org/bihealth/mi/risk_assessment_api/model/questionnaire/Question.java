@@ -81,9 +81,12 @@ public class Question {
     @Column(name = "weight", nullable = false)
     private double weight;
 
-    // Selectable answer options owned by this question.
+    // Selectable answer options owned by this question. Options are inserted in
+    // the order of the configuration JSON or editor (e.g. Yes, N/A, No), so
+    // ordering by ID keeps that display order when they are loaded again.
     @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference
+    @OrderBy("id ASC")
     private List<QuestionOption> options = new ArrayList<>();
 
     /**

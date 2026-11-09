@@ -108,6 +108,21 @@
             ]
         },
         {
+            "username": "fabian",
+            "firstName": "Fabian",
+            "enabled": true,
+            "credentials": [
+                {
+                    "type": "password",
+                    "value": "f@bi@n",
+                    "temporary": false
+                }
+            ],
+            "realmRoles": [
+                "ADMIN"
+            ]
+        },
+        {
             "username": "user",
             "firstName": "Greg",
             "lastName": "Johnson",

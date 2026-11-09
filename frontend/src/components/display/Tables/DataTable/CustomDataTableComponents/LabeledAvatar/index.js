@@ -7,6 +7,7 @@ import RATypography from 'components/display/RATypography';
 export default function LabeledAvatar({
                                           value,
                                           variant,
+                                          src,
                                           size = 'xs',
                                           shape = 'circular',
                                           truncate = true,
@@ -14,7 +15,7 @@ export default function LabeledAvatar({
     if (!value) return null;
 
     // Props for RAAvatar
-    const avatarProps = { variant, size, shape, alt: value };
+    const avatarProps = { variant, src, size, shape, alt: value };
 
     // Determine label style based on variant
     const isUser = variant === 'user';

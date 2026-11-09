@@ -12,6 +12,17 @@ import RAFloatingAlertStack from "components/feedback/RAFloatingAlertStack";
 import DatasetTablesAssessment from "components/display/Tables/DataTable/CustomDataTableComponents/DatasetTablesAssessment";
 import { useDataSharingActivityForm } from "./useDataSharingActivityForm";
 
+import LabeledAvatar from "components/display/Tables/DataTable/CustomDataTableComponents/LabeledAvatar";
+import nonPublicIcon from "assets/images/icons/release-models/non-public.png";
+import semiPublicIcon from "assets/images/icons/release-models/semi-public.png";
+import publicIcon from "assets/images/icons/release-models/public.png";
+
+const releaseModelIcons = {
+  NON_PUBLIC: nonPublicIcon,
+  SEMI_PUBLIC: semiPublicIcon,
+  PUBLIC: publicIcon,
+};
+
 const selectSx = {
   "& .MuiOutlinedInput-root": { height: 56 },
   "& .MuiSelect-select": {
@@ -123,9 +134,15 @@ export default function AddEditDataSharingActivity() {
           label={t("dataSharingActivities.form.releaseModelLabel")}
           value={releaseModel}
           onChange={(event) => setReleaseModel(event.target.value)}
-          options={["NON_PUBLIC", "SEMI_PUBLIC", "PUBLIC"].map((value) => ({
+          options={Object.entries(releaseModelIcons).map(([value, src]) => ({
             value,
-            label: t(`dataSharingActivities.form.releaseModels.${value}`),
+            label: (
+              <LabeledAvatar
+                value={t(`dataSharingActivities.form.releaseModels.${value}`)}
+                src={src}
+                shape="square"
+              />
+            ),
           }))}
           helperText={!releaseModel ? t("dataSharingActivities.form.releaseModelRequired") : ""}
           required

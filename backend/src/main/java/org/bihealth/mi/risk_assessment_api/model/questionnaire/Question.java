@@ -81,18 +81,17 @@ public class Question {
     @Column(name = "weight", nullable = false)
     private double weight;
 
-    // Selectable answer options owned by this question. Options are inserted in
-    // the order of the configuration JSON or editor (e.g. Yes, N/A, No), so
-    // ordering by ID keeps that display order when they are loaded again.
+    // Selectable answer options owned by this question.
     @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference
-    @OrderBy("id ASC")
+    @OrderBy("displayOrder ASC, id ASC")
     private List<QuestionOption> options = new ArrayList<>();
 
     /**
      * Adds an option while maintaining both sides of the JPA relationship.
      */
     public void addOption(QuestionOption option) {
+        option.setDisplayOrder(options.size());
         options.add(option);
         option.setQuestion(this);
     }

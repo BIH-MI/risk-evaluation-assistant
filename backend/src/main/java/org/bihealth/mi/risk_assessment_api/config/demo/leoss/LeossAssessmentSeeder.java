@@ -32,7 +32,11 @@ public class LeossAssessmentSeeder {
     private final AttributeScoringSystemService attributeScoringSystemService;
     private final DemoSeedSupport support;
 
-    public LeossAssessmentSeeder(DatasetAssessmentRepository assessmentRepo, DatasetTableAssessmentRepository tableAssessmentRepo, DatasetTableAssessmentAttributeRepository tableAssessmentAttributeRepo, AttributeScoringSystemService attributeScoringSystemService, DemoSeedSupport support) {
+    public LeossAssessmentSeeder(DatasetAssessmentRepository assessmentRepo,
+                                 DatasetTableAssessmentRepository tableAssessmentRepo,
+                                 DatasetTableAssessmentAttributeRepository tableAssessmentAttributeRepo,
+                                 AttributeScoringSystemService attributeScoringSystemService,
+                                 DemoSeedSupport support) {
         this.assessmentRepo = assessmentRepo;
         this.tableAssessmentRepo = tableAssessmentRepo;
         this.tableAssessmentAttributeRepo = tableAssessmentAttributeRepo;

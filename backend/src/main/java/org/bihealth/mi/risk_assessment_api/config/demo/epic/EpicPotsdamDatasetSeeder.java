@@ -86,7 +86,8 @@ public class EpicPotsdamDatasetSeeder {
         Dataset dataset = new Dataset();
         dataset.setCreatorUsername("user");
         dataset.setName(EPIC_POTSDAM_DATASET_NAME);
-        dataset.setDescription("Prepared EPIC-Potsdam participant-level dataset used in the NFDI4Health P1090 use case to investigate dairy-product consumption and the risk of type 2 diabetes mellitus and cardiovascular disease.");
+        dataset.setDescription("Prepared EPIC-Potsdam participant-level dataset used in the NFDI4Health P1090 use case to " +
+                "investigate dairy-product consumption and the risk of type 2 diabetes mellitus and cardiovascular disease.");
         dataset = datasetRepo.save(dataset);
         DatasetTable table = new DatasetTable("Participants", dataset);
         table.setCreatorUsername("user");

@@ -40,9 +40,12 @@ public class DemoRecipientSeeder {
     public static final String ACADEMIC_RECIPIENT = "Trusted Academic Research Institute";
     public static final String COMMERCIAL_RECIPIENT = "Commercial Research Partner";
     public static final String PUBLIC_RECIPIENT = "Public / Unrestricted Data Release";
-    private static final String ACADEMIC_DESCRIPTION = "Controlled academic research sharing with named researchers and strong institutional, contractual, organizational and technical safeguards.";
-    private static final String COMMERCIAL_DESCRIPTION = "Controlled external research sharing with a commercial partner under contractual and institutional safeguards, but with greater technical capability, resources and potential commercial value.";
-    private static final String PUBLIC_DESCRIPTION = "Public or unrestricted release with no identifiable single trusted recipient and minimal or no recipient-specific contractual, organizational or technical controls.";
+    private static final String ACADEMIC_DESCRIPTION = "Controlled academic research sharing with named researchers and " +
+            "strong institutional, contractual, organizational and technical safeguards.";
+    private static final String COMMERCIAL_DESCRIPTION = "Controlled external research sharing with a commercial partner " +
+            "under contractual and institutional safeguards, but with greater technical capability, resources and potential commercial value.";
+    private static final String PUBLIC_DESCRIPTION = "Public or unrestricted release with no identifiable single trusted recipient" +
+            " and minimal or no recipient-specific contractual, organizational or technical controls.";
     
     public record DemoRecipients(
             Recipient academic, Recipient commercial, Recipient publicRelease,

@@ -6,7 +6,6 @@ import {
   formatScoringSystemLabel,
   isBlankValue,
   safeFileSegment,
-  thresholdInputToNumber,
 } from "./reportDataUtils";
 
 export const PDF_EXPORT_RENDER_DELAY_MS = 300;
@@ -32,6 +31,18 @@ export const pdfStyles = `
 const unavailableText = "N/A";
 const unavailableScoreText = "-";
 
+const riskMeasureByReleaseModel = {
+  NON_PUBLIC: "strict_average",
+  SEMI_PUBLIC: "maximum",
+  PUBLIC: "maximum",
+};
+
+function recommendedRiskMeasure(releaseModel) {
+  return Object.prototype.hasOwnProperty.call(riskMeasureByReleaseModel, releaseModel)
+    ? riskMeasureByReleaseModel[releaseModel]
+    : unavailableText;
+}
+
 const riskMetrics = {
   "Re-identification Risk Threshold": (result) => result?.threshold,
   "Probability of Attack": (result) => result?.contextRisk?.numericValue,
@@ -54,10 +65,6 @@ function valueOrUnavailable(value) {
 
 function scoreOrUnavailable(value) {
   return isBlankValue(value) ? unavailableScoreText : value;
-}
-
-function formatThresholdForExport(value) {
-  return isBlankValue(value) ? unavailableText : thresholdInputToNumber(value);
 }
 
 export function buildReportPdfFilename({ activity, activityId }) {
@@ -112,6 +119,15 @@ export function buildReportSummaryRows({
     {
       Metric: "Activity Title",
       Value: valueOrUnavailable(activity?.name),
+    },
+    {
+      Metric: "Release Model",
+      Value: recommendedRiskMeasure(activity?.releaseModel) === unavailableText
+        ? unavailableText : activity.releaseModel,
+    },
+    {
+      Metric: "Risk Measure",
+      Value: recommendedRiskMeasure(activity?.releaseModel),
     },
     {
       Metric: "Scoring System",
@@ -170,15 +186,13 @@ export function buildAttributeAssessmentExportRows({
       "Table Name": tableSection.tableName,
       "Attribute Name": attribute.name,
       "Is Direct Identifier": attribute.directIdentifier ? "Yes" : "No",
+      "Is Quasi-Identifier": attribute.quasiIdentifier ? "Yes" : "No",
+      "Is Sensitive Attribute": attribute.sensitiveAttribute ? "Yes" : "No",
+      "Is Excluded": attribute.isExcluded ? "Yes" : "No",
       Replicability: scoreOrUnavailable(attribute.replicability),
       Availability: scoreOrUnavailable(attribute.availability),
       Distinguishability: scoreOrUnavailable(attribute.distinguishability),
       Sensitivity: scoreOrUnavailable(attribute.sensitivity),
-      "Identifiability Threshold": formatThresholdForExport(
-        identifiabilityThreshold
-      ),
-      "Sensitivity Threshold": formatThresholdForExport(sensitivityThreshold),
-      "Total QI Score": scoreOrUnavailable(attribute.totalQiScore),
     }))
   );
 
@@ -197,12 +211,12 @@ export function buildRiskReportWorkbook({
 }) {
   const workbook = XLSX.utils.book_new();
   const summaryRows = buildReportSummaryRows({
-      activity,
-      attributeScoringSystem,
-      identifiabilityThreshold,
-      sensitivityThreshold,
-      totalRiskResult,
-    });
+    activity,
+    attributeScoringSystem,
+    identifiabilityThreshold,
+    sensitivityThreshold,
+    totalRiskResult,
+  });
   const summarySheet = XLSX.utils.json_to_sheet(summaryRows);
   summaryRows.forEach(({ Metric, Value }, index) => {
     if (Object.prototype.hasOwnProperty.call(riskMetrics, Metric) && typeof Value === "number") {
@@ -218,6 +232,10 @@ export function buildRiskReportWorkbook({
       scoringSystem: attributeScoringSystem,
     })
   );
+
+  summarySheet["!cols"] = [{ wch: 38 }, { wch: 65 }];
+  attributeSheet["!cols"] = [28, 32, 20, 20, 22, 14, 16, 16, 20, 16]
+    .map((wch) => ({ wch }));
 
   XLSX.utils.book_append_sheet(workbook, summarySheet, "Summary");
   XLSX.utils.book_append_sheet(workbook, attributeSheet, "Attributes");

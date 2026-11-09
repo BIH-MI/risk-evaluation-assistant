@@ -39,7 +39,8 @@ public class DemoDataSharingActivitySeeder {
         DataSharingActivity act1 = new DataSharingActivity();
         act1.setCreatorUsername("user");
         act1.setName("LEOSS / " + ACADEMIC_RECIPIENT + " (SPHN)");
-        act1.setDescription("Sharing COVID-19 tabular data with a trusted university lab. Evaluated under the strict SPHN framework.");
+        act1.setDescription("Sharing COVID-19 tabular data with a trusted university lab. " +
+                "Evaluated under the strict SPHN framework.");
         act1.setDatasetAssessment(sphnDA);
         act1.setRecipientAssessment(recipients.academicSphn());
         act1.setSharedUsernames(new HashSet<>(Set.of("anna.mueller")));
@@ -50,7 +51,8 @@ public class DemoDataSharingActivitySeeder {
         DataSharingActivity act2 = new DataSharingActivity();
         act2.setCreatorUsername("user");
         act2.setName("LEOSS / " + ACADEMIC_RECIPIENT + " (El Emam)");
-        act2.setDescription("Controlled academic research scenario evaluated under El Emam; safeguards are scenario assumptions.");
+        act2.setDescription("Controlled academic research scenario evaluated under El Emam; " +
+                "safeguards are scenario assumptions.");
         act2.setDatasetAssessment(elEmamDA);
         act2.setRecipientAssessment(recipients.academicElEmam());
         act2.setReleaseModel(ReleaseModel.NON_PUBLIC);
@@ -65,7 +67,8 @@ public class DemoDataSharingActivitySeeder {
         DataSharingActivity act5 = new DataSharingActivity();
         act5.setCreatorUsername("user");
         act5.setName("LEOSS / " + PUBLIC_RECIPIENT + " (El Emam)");
-        act5.setDescription("Unrestricted release scenario evaluated under El Emam, without recipient-specific safeguards or an assumption that every recipient is malicious.");
+        act5.setDescription("Unrestricted release scenario evaluated under El Emam, without recipient-specific " +
+                "safeguards or an assumption that every recipient is malicious.");
         act5.setDatasetAssessment(elEmamDA);
         act5.setRecipientAssessment(recipients.publicElEmam());
         act5.setReleaseModel(ReleaseModel.PUBLIC);
@@ -75,7 +78,8 @@ public class DemoDataSharingActivitySeeder {
         DataSharingActivity act6 = new DataSharingActivity();
         act6.setCreatorUsername("user");
         act6.setName("LEOSS / " + PUBLIC_RECIPIENT + " (SPHN)");
-        act6.setDescription("Evaluating a totally open data release against the strict clinical IT and contextual standards of the SPHN framework.");
+        act6.setDescription("Evaluating a totally open data release against the strict clinical IT and contextual " +
+                "standards of the SPHN framework.");
         act6.setDatasetAssessment(sphnDA);
         act6.setRecipientAssessment(recipients.publicSphn());
         act6.setReleaseModel(ReleaseModel.PUBLIC);
@@ -90,7 +94,8 @@ public class DemoDataSharingActivitySeeder {
         DataSharingActivity act7 = new DataSharingActivity();
         act7.setCreatorUsername("user");
         act7.setName("LEOSS / " + COMMERCIAL_RECIPIENT + " (El Emam)");
-        act7.setDescription("Controlled commercial research scenario evaluated under El Emam, with strong safeguards, technical capability, resources and potential commercial value.");
+        act7.setDescription("Controlled commercial research scenario evaluated under El Emam, with strong safeguards, " +
+                "technical capability, resources and potential commercial value.");
         act7.setDatasetAssessment(elEmamDA);
         act7.setRecipientAssessment(recipients.commercialElEmam());
         act7.setSharedUsernames(new HashSet<>(Set.of("max.mustermann", "sophie.becker")));
@@ -101,7 +106,8 @@ public class DemoDataSharingActivitySeeder {
         DataSharingActivity act8 = new DataSharingActivity();
         act8.setCreatorUsername("user");
         act8.setName("LEOSS / " + COMMERCIAL_RECIPIENT + " (SPHN)");
-        act8.setDescription("Commercial data sharing agreement evaluated under the SPHN framework, with strong controls but elevated likelihood due to hospital-affiliated staff with EHR access.");
+        act8.setDescription("Commercial data sharing agreement evaluated under the SPHN framework, with strong controls" +
+                " but elevated likelihood due to hospital-affiliated staff with EHR access.");
         act8.setDatasetAssessment(sphnDA);
         act8.setRecipientAssessment(recipients.commercialSphn());
         act8.setSharedUsernames(new HashSet<>(Set.of("max.mustermann", "sophie.becker")));
@@ -111,11 +117,14 @@ public class DemoDataSharingActivitySeeder {
 
     private void ensureEpicActivities(DatasetAssessment assessment, DemoRecipients recipients) {
         ensureEpicActivity(assessment, recipients.academicElEmam(), ACADEMIC_RECIPIENT, ReleaseModel.NON_PUBLIC,
-                "EPIC-Potsdam P1090 data sharing with a trusted academic research institute under strong institutional, contractual and technical safeguards.");
+                "EPIC-Potsdam P1090 data sharing with a trusted academic research institute under strong " +
+                        "institutional, contractual and technical safeguards.");
         ensureEpicActivity(assessment, recipients.commercialElEmam(), COMMERCIAL_RECIPIENT, ReleaseModel.NON_PUBLIC,
-                "EPIC-Potsdam P1090 data sharing with a controlled commercial research partner, with contractual safeguards but greater technical capability, resources and potential commercial value.");
+                "EPIC-Potsdam P1090 data sharing with a controlled commercial research partner, with contractual " +
+                        "safeguards but greater technical capability, resources and potential commercial value.");
         ensureEpicActivity(assessment, recipients.publicElEmam(), PUBLIC_RECIPIENT, ReleaseModel.PUBLIC,
-                "EPIC-Potsdam P1090 data considered for public or unrestricted release with minimal or no recipient-specific contextual controls.");
+                "EPIC-Potsdam P1090 data considered for public or unrestricted release with minimal or " +
+                        "no recipient-specific contextual controls.");
     }
 
     private void ensureEpicActivity(DatasetAssessment assessment, RecipientAssessment recipient,

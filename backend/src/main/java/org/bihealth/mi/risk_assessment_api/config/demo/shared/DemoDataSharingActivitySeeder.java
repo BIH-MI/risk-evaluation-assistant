@@ -3,6 +3,7 @@ package org.bihealth.mi.risk_assessment_api.config.demo.shared;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
+import org.bihealth.mi.risk_assessment_api.model.activity.ReleaseModel;
 import org.bihealth.mi.risk_assessment_api.config.demo.shared.DemoRecipientSeeder.DemoRecipients;
 import org.bihealth.mi.risk_assessment_api.model.activity.DataSharingActivity;
 import org.bihealth.mi.risk_assessment_api.model.assessment.dataset.DatasetAssessment;
@@ -42,6 +43,7 @@ public class DemoDataSharingActivitySeeder {
         act1.setDatasetAssessment(sphnDA);
         act1.setRecipientAssessment(recipients.academicSphn());
         act1.setSharedUsernames(new HashSet<>(Set.of("anna.mueller")));
+        act1.setReleaseModel(ReleaseModel.NON_PUBLIC);
         saveDemoActivityIfMissing(act1);
 
         // Scenario 2: Academic evaluated under El Emam
@@ -51,6 +53,7 @@ public class DemoDataSharingActivitySeeder {
         act2.setDescription("Controlled academic research scenario evaluated under El Emam; safeguards are scenario assumptions.");
         act2.setDatasetAssessment(elEmamDA);
         act2.setRecipientAssessment(recipients.academicElEmam());
+        act2.setReleaseModel(ReleaseModel.NON_PUBLIC);
         saveDemoActivityIfMissing(act2);
 
 
@@ -65,6 +68,7 @@ public class DemoDataSharingActivitySeeder {
         act5.setDescription("Unrestricted release scenario evaluated under El Emam, without recipient-specific safeguards or an assumption that every recipient is malicious.");
         act5.setDatasetAssessment(elEmamDA);
         act5.setRecipientAssessment(recipients.publicElEmam());
+        act5.setReleaseModel(ReleaseModel.PUBLIC);
         saveDemoActivityIfMissing(act5);
 
         // Scenario 6: Public Release evaluated under SPHN
@@ -74,6 +78,7 @@ public class DemoDataSharingActivitySeeder {
         act6.setDescription("Evaluating a totally open data release against the strict clinical IT and contextual standards of the SPHN framework.");
         act6.setDatasetAssessment(sphnDA);
         act6.setRecipientAssessment(recipients.publicSphn());
+        act6.setReleaseModel(ReleaseModel.PUBLIC);
         saveDemoActivityIfMissing(act6);
 
 
@@ -89,6 +94,7 @@ public class DemoDataSharingActivitySeeder {
         act7.setDatasetAssessment(elEmamDA);
         act7.setRecipientAssessment(recipients.commercialElEmam());
         act7.setSharedUsernames(new HashSet<>(Set.of("max.mustermann", "sophie.becker")));
+        act7.setReleaseModel(ReleaseModel.NON_PUBLIC);
         saveDemoActivityIfMissing(act7);
 
         // Scenario 8: Commercial evaluated under SPHN
@@ -99,24 +105,26 @@ public class DemoDataSharingActivitySeeder {
         act8.setDatasetAssessment(sphnDA);
         act8.setRecipientAssessment(recipients.commercialSphn());
         act8.setSharedUsernames(new HashSet<>(Set.of("max.mustermann", "sophie.becker")));
+        act8.setReleaseModel(ReleaseModel.NON_PUBLIC);
         saveDemoActivityIfMissing(act8);
     }
 
     private void ensureEpicActivities(DatasetAssessment assessment, DemoRecipients recipients) {
-        ensureEpicActivity(assessment, recipients.academicElEmam(), ACADEMIC_RECIPIENT,
+        ensureEpicActivity(assessment, recipients.academicElEmam(), ACADEMIC_RECIPIENT, ReleaseModel.NON_PUBLIC,
                 "EPIC-Potsdam P1090 data sharing with a trusted academic research institute under strong institutional, contractual and technical safeguards.");
-        ensureEpicActivity(assessment, recipients.commercialElEmam(), COMMERCIAL_RECIPIENT,
+        ensureEpicActivity(assessment, recipients.commercialElEmam(), COMMERCIAL_RECIPIENT, ReleaseModel.NON_PUBLIC,
                 "EPIC-Potsdam P1090 data sharing with a controlled commercial research partner, with contractual safeguards but greater technical capability, resources and potential commercial value.");
-        ensureEpicActivity(assessment, recipients.publicElEmam(), PUBLIC_RECIPIENT,
+        ensureEpicActivity(assessment, recipients.publicElEmam(), PUBLIC_RECIPIENT, ReleaseModel.PUBLIC,
                 "EPIC-Potsdam P1090 data considered for public or unrestricted release with minimal or no recipient-specific contextual controls.");
     }
 
     private void ensureEpicActivity(DatasetAssessment assessment, RecipientAssessment recipient,
-                                    String name, String description) {
+                                    String name, ReleaseModel releaseModel, String description) {
         DataSharingActivity activity = new DataSharingActivity();
         activity.setCreatorUsername("user");
         activity.setName("EPIC-Potsdam / " + name + " (El Emam)");
         activity.setDescription(description);
+        activity.setReleaseModel(releaseModel);
         activity.setDatasetAssessment(assessment);
         activity.setRecipientAssessment(recipient);
         saveDemoActivityIfMissing(activity);
@@ -124,11 +132,32 @@ public class DemoDataSharingActivitySeeder {
 
 
     private void saveDemoActivityIfMissing(DataSharingActivity activity) {
-        boolean exists = dataSharingActivityRepository.findAll().stream().anyMatch(existing ->
+        var matches = dataSharingActivityRepository.findAll().stream().filter(existing ->
                 sameName(existing.getName(), activity.getName())
-                || (existing.getDatasetAssessment() != null && existing.getRecipientAssessment() != null
-                    && Objects.equals(existing.getDatasetAssessment().getId(), activity.getDatasetAssessment().getId())
-                    && Objects.equals(existing.getRecipientAssessment().getId(), activity.getRecipientAssessment().getId())));
-        if (!exists) dataSharingActivityRepository.save(activity);
+                || hasSameAssessments(existing, activity)).toList();
+        if (matches.isEmpty()) {
+            dataSharingActivityRepository.save(activity);
+            return;
+        }
+
+        // Only fill missing metadata on an exact known demo. Never overwrite a selection
+        // or guess the release model of user-created activities from recipient names.
+        if (matches.size() == 1) {
+            var existing = matches.get(0);
+            if (existing.getReleaseModel() == null
+                    && "user".equals(existing.getCreatorUsername())
+                    && Objects.equals(existing.getName(), activity.getName())
+                    && Objects.equals(existing.getDescription(), activity.getDescription())
+                    && hasSameAssessments(existing, activity)) {
+                existing.setReleaseModel(activity.getReleaseModel());
+                dataSharingActivityRepository.save(existing);
+            }
+        }
+    }
+
+    private boolean hasSameAssessments(DataSharingActivity existing, DataSharingActivity candidate) {
+        return existing.getDatasetAssessment() != null && existing.getRecipientAssessment() != null
+                && Objects.equals(existing.getDatasetAssessment().getId(), candidate.getDatasetAssessment().getId())
+                && Objects.equals(existing.getRecipientAssessment().getId(), candidate.getRecipientAssessment().getId());
     }
 }

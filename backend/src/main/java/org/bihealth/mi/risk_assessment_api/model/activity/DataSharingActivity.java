@@ -36,6 +36,11 @@ import org.hibernate.annotations.OnDeleteAction;
 )
 public class DataSharingActivity extends NamedResourceEntity {
 
+    // Null for historical activities whose release model has not been established.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "release_model", length = 20)
+    private ReleaseModel releaseModel;
+
     // Usernames with explicit access to this activity in addition to the creator.
     @ElementCollection
     @CollectionTable(

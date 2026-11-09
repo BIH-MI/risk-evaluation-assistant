@@ -35,6 +35,8 @@ export default function AddEditDataSharingActivity() {
     status,
     name,
     description,
+    releaseModel,
+    setReleaseModel,
     datasetId,
     datasetAssessmentId,
     recipientId,
@@ -112,6 +114,21 @@ export default function AddEditDataSharingActivity() {
           value={sharedUsers}
           onChange={handleSharedUsersChange}
           placeholder={t("dataSharingActivities.form.searchUsersPlaceholder")}
+          fullWidth
+          sx={selectSx}
+          disabled={isReadOnly}
+        />
+
+        <RASelect
+          label={t("dataSharingActivities.form.releaseModelLabel")}
+          value={releaseModel}
+          onChange={(event) => setReleaseModel(event.target.value)}
+          options={["NON_PUBLIC", "SEMI_PUBLIC", "PUBLIC"].map((value) => ({
+            value,
+            label: t(`dataSharingActivities.form.releaseModels.${value}`),
+          }))}
+          helperText={!releaseModel ? t("dataSharingActivities.form.releaseModelRequired") : ""}
+          required
           fullWidth
           sx={selectSx}
           disabled={isReadOnly}

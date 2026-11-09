@@ -374,6 +374,7 @@ export function buildOriginalAssessmentValueLookup(datasetAssessment) {
 export function buildDataSharingActivityPayload({
   name,
   description,
+  releaseModel,
   sharedUsernames,
   datasetAssessmentId,
   recipientAssessmentId,
@@ -383,6 +384,7 @@ export function buildDataSharingActivityPayload({
   return {
     name: name.trim(),
     description: description.trim(),
+    releaseModel,
     sharedUsernames,
     datasetAssessmentId: Number(datasetAssessmentId),
     recipientAssessmentId: Number(recipientAssessmentId),

@@ -74,6 +74,7 @@ export function useDataSharingActivityForm() {
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [releaseModel, setReleaseModel] = useState("");
   const [datasetId, setDatasetId] = useState("");
   const [datasetAssessmentId, setDatasetAssessmentId] = useState("");
   const [recipientId, setRecipientId] = useState("");
@@ -264,6 +265,7 @@ export function useDataSharingActivityForm() {
 
     setName(existingActivity.name || "");
     setDescription(existingActivity.description || "");
+    setReleaseModel(existingActivity.releaseModel || "");
     setDatasetId(String(existingActivity.datasetId || ""));
     setDatasetAssessmentId(String(existingActivity.datasetAssessmentId || ""));
     setRecipientId(String(existingActivity.recipientId || ""));
@@ -481,6 +483,7 @@ export function useDataSharingActivityForm() {
     const hasRecipient = Boolean(recipientId);
     const hasRecipientAssessment = Boolean(recipientAssessmentId);
     const hasRequiredFields =
+      ["NON_PUBLIC", "SEMI_PUBLIC", "PUBLIC"].includes(releaseModel) &&
       hasName &&
       hasDataset &&
       hasDatasetAssessment &&
@@ -509,6 +512,7 @@ export function useDataSharingActivityForm() {
     name,
     recipientAssessmentId,
     recipientId,
+    releaseModel,
   ]);
 
   const handleSubmit = useCallback(
@@ -537,12 +541,15 @@ export function useDataSharingActivityForm() {
         return;
       }
 
+      if (!formValidation.hasRequiredFields) return;
+
       setIsSubmitting(true);
 
       try {
         const payload = buildDataSharingActivityPayload({
           name,
           description,
+          releaseModel,
           sharedUsernames,
           datasetAssessmentId,
           recipientAssessmentId,
@@ -574,6 +581,7 @@ export function useDataSharingActivityForm() {
       activityId,
       datasetAssessmentId,
       description,
+      releaseModel,
       dispatch,
       existingActivity,
       formValidation,
@@ -654,6 +662,8 @@ export function useDataSharingActivityForm() {
     status,
     name,
     description,
+    releaseModel,
+    setReleaseModel,
     datasetId,
     datasetAssessmentId,
     recipientId,

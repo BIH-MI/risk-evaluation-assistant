@@ -1,6 +1,8 @@
 package org.bihealth.mi.risk_assessment_api.dto.request.activity;
 
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+import org.bihealth.mi.risk_assessment_api.model.activity.ReleaseModel;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import org.bihealth.mi.risk_assessment_api.model.activity.DataSharingActivity;
@@ -24,6 +26,9 @@ public class DataSharingActivityRequestDTO {
 
     // Optional description of the sharing purpose or context.
     private String description;
+
+    @NotNull(message = "Release model is required.")
+    private ReleaseModel releaseModel;
 
     // Additional users who should be able to view this activity.
     private Set<String> sharedUsernames;
@@ -57,6 +62,7 @@ public class DataSharingActivityRequestDTO {
         act.setCreatorUsername(creatorUsername);
         act.setName(name);
         act.setDescription(description);
+        act.setReleaseModel(releaseModel);
         act.setSharedUsernames(sharedUsernames != null
                 ? sharedUsernames
                 : Collections.emptySet());

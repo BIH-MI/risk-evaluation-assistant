@@ -1,6 +1,7 @@
 package org.bihealth.mi.risk_assessment_api.dto.response.activity;
 
 import lombok.Data;
+import org.bihealth.mi.risk_assessment_api.model.activity.ReleaseModel;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import org.bihealth.mi.risk_assessment_api.model.activity.DataSharingActivity;
@@ -25,6 +26,8 @@ public class DataSharingActivityResponseDTO {
     private String name;
     private String description;
 
+    private ReleaseModel releaseModel;
+
     private LocalDateTime creationDate;
     private Set<String> sharedUsernames;
 
@@ -46,6 +49,7 @@ public class DataSharingActivityResponseDTO {
      * response without exposing the full nested JPA graph.
      */
     public DataSharingActivityResponseDTO(DataSharingActivity act) {
+        this.releaseModel             = act.getReleaseModel();
         this.id                       = act.getId();
         this.creatorUsername          = act.getCreatorUsername();
         this.name                     = act.getName();

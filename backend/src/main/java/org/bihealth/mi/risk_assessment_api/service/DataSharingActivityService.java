@@ -100,6 +100,9 @@ public class DataSharingActivityService {
      * entities so the activity can be persisted as a valid aggregate.</p>
      */
     public DataSharingActivityResponseDTO create(DataSharingActivityRequestDTO dto, String username, boolean isAdmin) {
+        if (dto.getReleaseModel() == null) {
+            throw new IllegalArgumentException("Release model is required.");
+        }
         String name = requiredActivityName(dto.getName());
         ensureActivityNameAvailable(name, null);
 
@@ -134,11 +137,15 @@ public class DataSharingActivityService {
             throw new SecurityException("Not owner of activity: " + id);
         }
 
+        if (dto.getReleaseModel() == null) {
+            throw new IllegalArgumentException("Release model is required.");
+        }
         String name = requiredActivityName(dto.getName());
         ensureActivityNameAvailable(name, id);
 
         existing.setName(name);
         existing.setDescription(dto.getDescription());
+        existing.setReleaseModel(dto.getReleaseModel());
         existing.setSharedUsernames(dto.getSharedUsernames() != null ? dto.getSharedUsernames() : Collections.emptySet());
 
         DatasetAssessment da = Optional.ofNullable(dto.getDatasetAssessmentId())

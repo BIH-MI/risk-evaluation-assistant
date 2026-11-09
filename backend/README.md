@@ -246,3 +246,23 @@ With the configured `ddl-auto=update`, starting the backend adds the required co
 The English wording of existing El Emam checklist items follows Appendix A of *De-identifying Health Data for Secondary Use: A Framework* (2008), printed pages 12–13 (PDF pages 14–15). Original qualifications and parenthetical examples belong in `text`; application-authored clarifications remain separate in `explanation` and are displayed as tooltips. German wording is an application translation.
 
 The configuration remains an adaptation: its weights, scoring, category assignment and Yes / N/A / No display order are application choices. The original checklist also includes “Disclosure of the information carries a probability of causing measurable injury (e.g., identity theft, fraud, etc)”; this item is absent from the existing configuration and has not been added without an agreed scoring weight. Existing database configurations are not rewritten by changing the seed JSON.
+
+
+### Data sharing release models
+
+Create/update activity requests require `releaseModel`: `NON_PUBLIC`,
+`SEMI_PUBLIC`, or `PUBLIC`. Responses return the saved value. Existing activities
+may have null values; selecting a release model is required when editing them.
+The nullable string enum column is additive under the existing Hibernate schema
+update configuration; no data reset is needed.
+
+With sample-data loading enabled, LEOSS (El Emam and SPHN) and EPIC-Potsdam demo
+activities explicitly use `NON_PUBLIC` for academic/commercial sharing and
+`PUBLIC` for unrestricted release. Startup fills a missing model only when a
+single existing activity matches the exact demo name, description, creator
+`user`, and both linked assessment IDs. Non-null values, ambiguous matches and
+modified/unrecognized historical records are preserved and require manual
+selection if still missing. Assessments are not replaced and existing matching
+activities are not duplicated. Imported known demos go through the same guard
+on the next sample-data startup; arbitrary imported activities are not inferred
+from recipient names.

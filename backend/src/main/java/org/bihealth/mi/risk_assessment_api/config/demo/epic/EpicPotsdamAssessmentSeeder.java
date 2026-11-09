@@ -30,6 +30,26 @@ import static org.bihealth.mi.risk_assessment_api.config.demo.shared.DemoSeedSup
 public class EpicPotsdamAssessmentSeeder {
     private static final String ASSESSMENT_NAME = "EPIC-Potsdam Assessment (El Emam)";
     private static final String ASSESSMENT_DESCRIPTION = "Dataset impact and attribute-level assessment for the EPIC-Potsdam NFDI4Health P1090 dairy and chronic disease use case.";
+
+    /**
+     * Identifiability threshold of the EPIC-Potsdam demo assessment. REA marks an attribute
+     * as a quasi-identifier when replicability + availability + distinguishability is
+     * greater than this value, so 6.0 selects the attributes scored 7 or 8: SEX, age0,
+     * educc3, age_f3, age_inct2d, age_incmi and age_incstroke. These are the keys of the
+     * earlier manual EPIC assessment, whose key threshold of 7 meant "score >= 7".
+     * <p>
+     * A threshold sweep in the DIfE project (REA thresholds 5 to 7, ARX releases for the
+     * academic, commercial and public scenarios, and the Cox benchmark) found 6.0 to be the
+     * broadest quasi-identifier set that keeps every benchmark model estimable, once the
+     * columns excluded in {@link EpicPotsdamDatasetSeeder} are left out. The scoring default
+     * of 5.0 also classifies waist, BMI, alcohol, smoking and occupation, which left no
+     * analyzable release; DIfE keeps that configuration as a sensitivity analysis.
+     */
+    static final double EPIC_IDENTIFIABILITY_THRESHOLD = 6.0;
+
+    /** Thresholds that earlier versions of this seeder stored for the demo assessment. */
+    private static final List<Double> SUPERSEDED_DEMO_THRESHOLDS =
+            List.of(7.0, AttributeScoringSystemSeeder.DEFAULT_IDENTIFIABILITY_THRESHOLD);
     private final DatasetAssessmentRepository assessmentRepo;
     private final DatasetTableAssessmentRepository tableAssessmentRepo;
     private final DatasetTableAssessmentAttributeRepository tableAssessmentAttributeRepo;
@@ -118,7 +138,7 @@ public class EpicPotsdamAssessmentSeeder {
         AttributeScoringSystemVersion scoringVersion = attributeScoringSystemService.getSelectedActiveVersion(scoringId);
         assessment.setAttributeScoringSystem(scoringVersion.getScoringSystem());
         assessment.setAttributeScoringSystemVersion(scoringVersion);
-        assessment.setAttributeIdentifiabilityThreshold(scoringVersion.getDefaultIdentifiabilityThreshold());
+        assessment.setAttributeIdentifiabilityThreshold(EPIC_IDENTIFIABILITY_THRESHOLD);
         assessment.setAttributeSensitivityThreshold(3.0);
         assessment = assessmentRepo.save(assessment);
         List<Question> questions = config.getQuestions().stream()
@@ -144,18 +164,20 @@ public class EpicPotsdamAssessmentSeeder {
     }
 
     /**
-     * Correct only the original, unedited demo on sample-data startup. An explicit
-     * user override cannot be distinguished from the old 7 by value alone.
-     * Unknown or changed audit metadata therefore leaves the assessment alone.
+     * Move only the original, unedited demo to {@link #EPIC_IDENTIFIABILITY_THRESHOLD} on
+     * sample-data startup, when it still has a threshold that an earlier seeder stored (7
+     * or the scoring default 5). An explicit user override cannot be distinguished from
+     * these values alone, so unknown or changed audit metadata leaves the assessment alone.
      */
     private void correctUneditedLegacyDemoThreshold(DatasetAssessment assessment) {
         AttributeScoringSystemVersion version = assessment.getAttributeScoringSystemVersion();
+        Double threshold = assessment.getAttributeIdentifiabilityThreshold();
         if (!"user".equals(assessment.getCreatorUsername())
                 || !ASSESSMENT_NAME.equals(assessment.getName())
                 || !ASSESSMENT_DESCRIPTION.equals(assessment.getDescription())
                 || !EpicPotsdamDatasetSeeder.EPIC_POTSDAM_DATASET_NAME.equals(assessment.getDataset().getName())
                 || !"El Emam Risk Exposure Model".equals(assessment.getConfiguration().getName())
-                || !Objects.equals(assessment.getAttributeIdentifiabilityThreshold(), 7.0)
+                || threshold == null || !SUPERSEDED_DEMO_THRESHOLDS.contains(threshold)
                 || !Objects.equals(assessment.getAttributeSensitivityThreshold(), 3.0)
                 || version == null || version.getVersionNumber() != 1
                 || !AttributeScoringSystemSeeder.DEFAULT_SCORING_SYSTEM_NAME.equals(version.getScoringSystem().getName())
@@ -169,7 +191,7 @@ public class EpicPotsdamAssessmentSeeder {
         Duration sinceCreation = Duration.between(assessment.getCreationDate(), assessment.getLastModifiedDate());
         if (sinceCreation.isNegative() || sinceCreation.compareTo(Duration.ofMillis(1)) >= 0) return;
 
-        assessment.setAttributeIdentifiabilityThreshold(version.getDefaultIdentifiabilityThreshold());
+        assessment.setAttributeIdentifiabilityThreshold(EPIC_IDENTIFIABILITY_THRESHOLD);
         assessmentRepo.save(assessment);
     }
 

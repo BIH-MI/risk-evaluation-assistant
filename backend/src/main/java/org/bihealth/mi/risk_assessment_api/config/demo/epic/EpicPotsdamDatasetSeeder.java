@@ -1,6 +1,7 @@
 package org.bihealth.mi.risk_assessment_api.config.demo.epic;
 
 import java.util.List;
+import java.util.Set;
 import org.bihealth.mi.risk_assessment_api.enums.DataType;
 import org.bihealth.mi.risk_assessment_api.model.dataset.Dataset;
 import org.bihealth.mi.risk_assessment_api.model.dataset.DatasetTable;
@@ -21,6 +22,18 @@ public class EpicPotsdamDatasetSeeder {
     }
 
     static final String EPIC_POTSDAM_DATASET_NAME = "EPIC-Potsdam Dairy and Chronic Disease Dataset";
+
+    /**
+     * Columns excluded from the shared dataset (data minimization): REA leaves them
+     * unscored and the DIfE ARX workflow masks them. ident is the participant identifier.
+     * age_inct2d, age_incmi and age_incstroke equal age0 plus the follow-up time, so
+     * releasing them next to fup_time_* would reveal age0 despite its generalization; the
+     * DIfE Cox benchmark uses the follow-up time instead. age_f3 is not used by the
+     * benchmark. Without these exclusions the endpoint ages become quasi-identifiers and
+     * ARX suppresses incident cases preferentially.
+     */
+    static final Set<String> EXCLUDED_COLUMNS =
+            Set.of("ident", "age_f3", "age_inct2d", "age_incmi", "age_incstroke");
 
     public Dataset ensureDataset() {
         return findDataset(datasetRepo.findAll(), EPIC_POTSDAM_DATASET_NAME, "EPIC-Potsdam Assessment (El Emam)")
@@ -93,7 +106,7 @@ public class EpicPotsdamDatasetSeeder {
         table.setCreatorUsername("user");
         for (EpicColumn spec : EPIC_COLUMNS) {
             DatasetTableAttribute attribute = new DatasetTableAttribute(table, spec.name(), spec.type());
-            attribute.setExcluded("ident".equals(spec.name()));
+            attribute.setExcluded(EXCLUDED_COLUMNS.contains(spec.name()));
             // Known dataset size only; no rows were analysed and no statistics are fabricated.
             attribute.setRecordCount(25146L);
             table.getAttributes().add(attribute);
